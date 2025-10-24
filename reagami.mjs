@@ -192,31 +192,5 @@ const new_node1 = create_node(hiccup);
 return patch(root, [new_node1]);
 
 };
-var state = squint_core.atom(({"counter": 0}));
-var my_hiccup = function () {
-return ["div", ["pre", squint_core.pr_str(squint_core.deref(state))], ["div", "Counted: ", squint_core.get(squint_core.deref(state), "counter")], ["button", ({"on-click": (function () {
-return squint_core.swap_BANG_(state, squint_core.update, "counter", squint_core.inc);
 
-})}), "Click me!"]];
-
-};
-document.querySelector("#app");
-(() => {
-const G__41 = document.createElement("div");
-G__41.id = "app";
-document.body.prepend(G__41);
-return G__41;
-
-})();
-var do_render = function () {
-squint_core.prn("render");
-return render(document.querySelector("#app"), [my_hiccup]);
-
-};
-squint_core.add_watch(state, "my-app/render", (function (_, _1, _2, _3) {
-return do_render();
-
-}));
-do_render();
-
-export { svg_ns, render, state, my_hiccup, do_render }
+export { svg_ns, render }
