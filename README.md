@@ -31,6 +31,8 @@ Quickstart example:
 (render)
 ```
 
+([Open this example on the Squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE3VQu27DMAzc%2FRWMssiDH2OhKUA%2BIaNhFKrE1G6jRySqQRDk3wvLitGl4iCCuDvekdsI5t5I7ysALgJe0xwQBjYR%2BSi6DqNp49QFlJ%2FSzIe%2B7ds3BkJGKKOxrquKazxDJEkIXJIz8BDKJUsYoH%2B%2BAHbZpJzxzqIlGMYKYBB6%2FqmgNMCOmaUFMOCbxCEr1%2BOK%2B0hEzsJDONuoy6y%2BYc%2FjTfpdMZC8Xr6NPVtVPxcqsGOGG9yxcdxMBbQaw2qHl1BdGfKv2GmnkkFL7TVhuJ%2FwgopcALaX3rMahr%2Bh1mNIrZubJDUVR0K85M4WhnfIldP8%2B%2FjKqLNe6X8BNOGTqawBAAA%3D))
+
 Reagami supports:
 
 - Building small reactive apps with the only dependency being squint. Smallest app after minification is around 3.5kb gzip.
