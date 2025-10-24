@@ -2,7 +2,7 @@
 
 Fold your state into the DOM!
 
-A minimal [Reagent](https://github.com/reagent-project/reagent)-like in 100 lines of [squint](https://github.com/squint-cljs/squint).
+A minimal [Reagent](https://github.com/reagent-project/reagent)-like in 100 lines of [Squint](https://github.com/squint-cljs/squint).
 
 ## Usage
 
