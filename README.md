@@ -12,7 +12,7 @@ Quickstart example:
 
 ``` clojure
 (ns my-app
-  (:require ["https://esm.sh/reagami@0.0.6" :refer [render]]) )
+  (:require ["https://esm.sh/reagami@0.0.8" :as reagemi]))
 
 (def state (atom {:counter 0}))
 
@@ -22,13 +22,13 @@ Quickstart example:
    [:button {:on-click #(swap! state update :counter inc)}
     "Click me!"]])
 
-(defn do-render []
-  (render (js/document.querySelector "#app") [my-component]))
+(defn render []
+  (reagami/render (js/document.querySelector "#app") [my-component]))
 
 (add-watch state ::render (fn [_ _ _ _]
-                            (do-render)))
+                            (render)))
 
-(do-render)
+(render)
 ```
 
 Reagami supports:
