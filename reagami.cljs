@@ -57,8 +57,9 @@
                           (doseq [[k v] v]
                             (aset (.-style node) k v))
                           (.startsWith key-name "on")
-                          (let [event (->  (.replace key-name #"on-?" "")
-                                           (.toLowerCase))]
+                          (let [event (-> (subs key-name 2)
+                                          (.replaceAll "-" "")
+                                          (.toLowerCase))]
                             (.addEventListener node event v))
                           :else (when v
                                   (.setAttribute node key-name (str v))))))
