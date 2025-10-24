@@ -81,15 +81,19 @@
       (doseq [[old new] (mapv vector old-children new-children)]
         (cond
           (and old new (= (.-nodeName old) (.-nodeName new)))
-          (let [new-attributes (.-attributes new)
-                old-attributes (.-attributes old)]
-            (doseq [attr new-attributes]
-              (.setAttribute old (.-name attr) (.-value attr)))
-            (doseq [attr old-attributes]
-              (when-not (.hasAttribute new (.-name attr))
-                (.removeAttribute old (.-name attr))))
-            (when-let [new-children (.-childNodes new)]
-              (patch old new-children)))
+          (if (= 3 (.-nodeType old))
+            (let [txt (.-textContent new)]
+              (set! (.-textContent old) txt))
+            (let [new-attributes (.-attributes new)
+                  old-attributes (.-attributes old)]
+              (doseq [attr new-attributes]
+                (.setAttribute old (.-name attr) (.-value attr)))
+              (doseq [attr old-attributes]
+                (when-not (.hasAttribute new (.-name attr))
+                  (.removeAttribute old (.-name attr))))
+              (when-let [new-children (.-childNodes new)]
+                (patch old new-children))))
+
           :else (.replaceChild parent new old))))))
 
 (defn render [root hiccup]
