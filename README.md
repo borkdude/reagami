@@ -16,14 +16,14 @@ Quickstart example:
 
 (def state (atom {:counter 0}))
 
-(defn my-hiccup []
+(defn my-component []
   [:div
    [:div "Counted: " (:counter @state)]
    [:button {:on-click #(swap! state update :counter inc)}
     "Click me!"]])
 
 (defn do-render []
-  (render (js/document.querySelector "#app") [my-hiccup]))
+  (render (js/document.querySelector "#app") [my-component]))
 
 (add-watch state ::render (fn [_ _ _ _]
                             (do-render)))
@@ -43,6 +43,8 @@ Reagami supports:
 Reagami does NOT support:
 
 - Auto-rerendering by watching custom atoms. Instead you use `add-watch` on regular atoms! :)
+- Local state and form-2 components
+- React hooks (it doesn't use React)
 
 Reagami uses a very basic patching algorithm explained in [this](TODO) blog
 post. It may become more advanced in the future, but the (fun) point of this
