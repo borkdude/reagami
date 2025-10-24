@@ -2,30 +2,43 @@
 
 Fold your state into the DOM!
 
-Write you a [reagent](https://github.com/reagent-project/reagent) in 100 lines of [squint](https://github.com/squint-cljs/squint) CLJS code.
-Or at least something which looks a lot like it since it contains a lot less features.
+A minimal [Reagent](https://github.com/reagent-project/reagent)-like in 100 lines of [squint](https://github.com/squint-cljs/squint).
 
 ## Usage
 
-Reagemi is intended to be used with [squint](https://github.com/squint-cljs/squint).
+Reagemi is intended to be used with [Squint](https://github.com/squint-cljs/squint).
+
 Quickstart example:
 
 ``` clojure
-(require '["reagami" :refer [render]])
+(ns my-app
+  (:require ["https://esm.sh/reagami@0.0.6" :refer [render]]) )
 
 (def state (atom {:counter 0}))
 
 (defn my-hiccup []
   [:div
-    [:div "Counted: " (:counter @state)]
-    [:button {:on-click #(swap! counter update :counter inc)}
-      "Click me!])
+   [:div "Counted: " (:counter @state)]
+   [:button {:on-click #(swap! state update :counter inc)}
+    "Click me!"]])
 
-(render (js/document.querySelector "#app") [my-hiccup])
+(or (js/document.querySelector "#app"))
+(doto (js/document.createElement "div")
+  (set! -id "app")
+  (js/document.body.prepend))
+
+(defn do-render []
+  (render (js/document.querySelector "#app") [my-hiccup]))
+
+(add-watch state ::render (fn [_ _ _ _]
+                            (do-render)))
+
+(do-render)
 ```
 
-Reagami only supports:
+Reagami supports:
 
+- Building small reactive apps with the only dependency being squint. Smallest app after minification is around 3.5kb gzip.
 - Rendering [hiccup](https://github.com/weavejester/hiccup) into a container DOM node. The only public function is `render`:
 
 
@@ -43,11 +56,8 @@ post. It may become more advanced in the future, but the (fun) point of this
 library at this point is that it's small, underengineered and thus suited for
 educational purposes.
 
+For a more fully features version of Reagent in squint, check out [Eucalypt](https://github.com/chr15m/eucalypt)
 
+## License
 
-
-
-
-
-
-
+MIT
