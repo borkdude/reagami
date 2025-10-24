@@ -162,22 +162,25 @@ return and__23196__auto__10};
 return and__23196__auto__9};
 
 })())) {
-const new_attributes11 = new$8.attributes;
-const old_attributes12 = old7.attributes;
-for (let G__13 of squint_core.iterable(new_attributes11)) {
-const attr14 = G__13;
-old7.setAttribute(attr14.name, attr14.value)
+if ((3 === old7.nodeType)) {
+const txt11 = new$8.textContent;
+old7.textContent = txt11} else {
+const new_attributes12 = new$8.attributes;
+const old_attributes13 = old7.attributes;
+for (let G__14 of squint_core.iterable(new_attributes12)) {
+const attr15 = G__14;
+old7.setAttribute(attr15.name, attr15.value)
 };
-for (let G__15 of squint_core.iterable(old_attributes12)) {
-const attr16 = G__15;
-if (squint_core.truth_(new$8.hasAttribute(attr16.name))) {
+for (let G__16 of squint_core.iterable(old_attributes13)) {
+const attr17 = G__16;
+if (squint_core.truth_(new$8.hasAttribute(attr17.name))) {
 } else {
-old7.removeAttribute(attr16.name)}
+old7.removeAttribute(attr17.name)}
 };
-const temp__22835__auto__17 = new$8.childNodes;
-if (squint_core.truth_(temp__22835__auto__17)) {
-const new_children18 = temp__22835__auto__17;
-patch(old7, new_children18)}} else {
+const temp__22835__auto__18 = new$8.childNodes;
+if (squint_core.truth_(temp__22835__auto__18)) {
+const new_children19 = temp__22835__auto__18;
+patch(old7, new_children19)}}} else {
 if ("else") {
 parent.replaceChild(new$8, old7)} else {
 }}
@@ -189,5 +192,31 @@ const new_node1 = create_node(hiccup);
 return patch(root, [new_node1]);
 
 };
+var state = squint_core.atom(({"counter": 0}));
+var my_hiccup = function () {
+return ["div", ["pre", squint_core.pr_str(squint_core.deref(state))], ["div", "Counted: ", squint_core.get(squint_core.deref(state), "counter")], ["button", ({"on-click": (function () {
+return squint_core.swap_BANG_(state, squint_core.update, "counter", squint_core.inc);
 
-export { svg_ns, render }
+})}), "Click me!"]];
+
+};
+document.querySelector("#app");
+(() => {
+const G__41 = document.createElement("div");
+G__41.id = "app";
+document.body.prepend(G__41);
+return G__41;
+
+})();
+var do_render = function () {
+squint_core.prn("render");
+return render(document.querySelector("#app"), [my_hiccup]);
+
+};
+squint_core.add_watch(state, "my-app/render", (function (_, _1, _2, _3) {
+return do_render();
+
+}));
+do_render();
+
+export { svg_ns, render, state, my_hiccup, do_render }

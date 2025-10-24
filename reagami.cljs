@@ -99,3 +99,29 @@
 (defn render [root hiccup]
   (let [new-node (create-node hiccup)]
     (patch root [new-node])))
+
+(ns my-app
+  #_(:require ["https://esm.sh/reagami@0.0.4" :refer [render]]) )
+
+(def state (atom {:counter 0}))
+
+(defn my-hiccup []
+  [:div
+   [:pre (pr-str @state)]
+   [:div "Counted: " (:counter @state)]
+   [:button {:on-click #(swap! state update :counter inc)}
+    "Click me!"]])
+
+(or (js/document.querySelector "#app"))
+(doto (js/document.createElement "div")
+  (set! -id "app")
+  (js/document.body.prepend))
+
+(defn do-render []
+  (prn :render)
+  (render (js/document.querySelector "#app") [my-hiccup]))
+
+(add-watch state ::render (fn [_ _ _ _]
+                            (do-render)))
+
+(do-render)
