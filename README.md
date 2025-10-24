@@ -48,7 +48,7 @@ Reagami does NOT support:
 - Local state and form-2 components
 - React hooks (it doesn't use React)
 
-Reagami uses a very basic patching algorithm explained in [this](TODO) blog
+Reagami uses a very basic patching algorithm explained in [this](https://blog.michielborkent.nl/reagami.html) blog
 post. It may become more advanced in the future, but the (fun) point of this
 library at this point is that it's small, underengineered and thus suited for
 educational purposes.
