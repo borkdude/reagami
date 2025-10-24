@@ -1,12 +1,12 @@
 { "name": "reagami",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "dependencies": {
     "squint-cljs":"^0.9.176"
   },
   "type": "module",
   "main": "reagami.mjs",
   "exports": "./reagami.mjs",
-  "keywords": ["reagent", "hiccup", "reactive", "tiny"],
+  "keywords": ["reagent", "hiccup", "squint", "clojure", "clojurescript"],
   "author": "Your Name",
   "license": "MIT"
 }
