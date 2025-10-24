@@ -2,4 +2,11 @@
   "version": "0.0.2",
   "dependencies": {
     "squint-cljs":"^0.9.176"
-  }}
+  },
+  "type": "module",
+  "main": "reagami.mjs",
+  "exports": "./reagami.mjs",
+  "keywords": ["reagent", "hiccup", "reactive", "tiny"],
+  "author": "Your Name",
+  "license": "MIT"
+}
