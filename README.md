@@ -22,11 +22,6 @@ Quickstart example:
    [:button {:on-click #(swap! state update :counter inc)}
     "Click me!"]])
 
-(or (js/document.querySelector "#app"))
-(doto (js/document.createElement "div")
-  (set! -id "app")
-  (js/document.body.prepend))
-
 (defn do-render []
   (render (js/document.querySelector "#app") [my-hiccup]))
 
