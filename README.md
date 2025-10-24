@@ -6,7 +6,7 @@ A minimal [Reagent](https://github.com/reagent-project/reagent)-like in 100 line
 
 ## Usage
 
-Reagemi is intended to be used with [Squint](https://github.com/squint-cljs/squint).
+Reagami is intended to be used with [Squint](https://github.com/squint-cljs/squint).
 
 Quickstart example:
 
