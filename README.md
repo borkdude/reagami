@@ -39,9 +39,7 @@ Quickstart example:
 Reagami supports:
 
 - Building small reactive apps with the only dependency being squint. Smallest app after minification is around 3.5kb gzip.
-- Rendering [hiccup](https://github.com/weavejester/hiccup) into a container DOM node. The only public function is `render`:
-
-
+- Rendering [hiccup](https://github.com/weavejester/hiccup) into a container DOM node. The only public function is `render`.
 - Event handlers via `:on-click`, `:on-input`, etc. These get translated to `(.addEventListener node "click" f)`.
 - Id and class short notation: `[:div#foo.class1.class2]`
 - Disabling properties with `false`: `[:button {:disabled (not true)}]`
@@ -49,7 +47,7 @@ Reagami supports:
 
 Reagami does NOT support:
 
-- Auto-rerendering by watching custom atoms. Instead you use `add-watch` on regular atoms.
+- Auto-rerendering by watching custom atoms. Instead you use `add-watch` on regular atoms! :)
 
 Reagami uses a very basic patching algorithm explained in [this](TODO) blog
 post. It may become more advanced in the future, but the (fun) point of this
