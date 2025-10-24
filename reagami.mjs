@@ -112,7 +112,7 @@ const v54 = squint_core.nth(vec__4952, 1, null);
 (node33.style[k53] = v54)
 }} else {
 if (squint_core.truth_(key_name47.startsWith("on"))) {
-const event55 = key_name47.replace(/on-?/, "").toLowerCase();
+const event55 = squint_core.subs(key_name47, 2).replaceAll("-", "").toLowerCase();
 node33.addEventListener(event55, v46)} else {
 if ("else") {
 if (squint_core.truth_(v46)) {
