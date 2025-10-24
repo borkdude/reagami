@@ -12,7 +12,7 @@ Quickstart example:
 
 ``` clojure
 (ns my-app
-  (:require ["https://esm.sh/reagami@0.0.8" :as reagemi]))
+  (:require ["https://esm.sh/reagami@0.0.8" :as reagami]))
 
 (def state (atom {:counter 0}))
 
