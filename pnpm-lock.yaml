@@ -1,0 +1,39 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      squint-cljs:
+        specifier: ^0.9.176
+        version: 0.9.176
+
+packages:
+
+  chokidar@4.0.3:
+    resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
+    engines: {node: '>= 14.16.0'}
+
+  readdirp@4.1.2:
+    resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
+    engines: {node: '>= 14.18.0'}
+
+  squint-cljs@0.9.176:
+    resolution: {integrity: sha512-HjUSrmK+pFhMLYGPDWymiuWZyxlVpe9foPChFfCV792Fb7QVueQ0o9HS1gXcX5SC17w3NnCVCozc0GUZldwm7Q==}
+    hasBin: true
+
+snapshots:
+
+  chokidar@4.0.3:
+    dependencies:
+      readdirp: 4.1.2
+
+  readdirp@4.1.2: {}
+
+  squint-cljs@0.9.176:
+    dependencies:
+      chokidar: 4.0.3

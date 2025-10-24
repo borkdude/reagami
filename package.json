@@ -1,0 +1,5 @@
+{ "name": "reagami",
+  "version": "0.0.1",
+  "dependencies": {
+    "squint-cljs":"^0.9.176"
+  }}
