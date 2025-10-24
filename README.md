@@ -53,7 +53,7 @@ post. It may become more advanced in the future, but the (fun) point of this
 library at this point is that it's small, underengineered and thus suited for
 educational purposes.
 
-For a more fully feature version of Reagent in squint, check out [Eucalypt](https://github.com/chr15m/eucalypt).
+For a more fully featured version of Reagent in squint, check out [Eucalypt](https://github.com/chr15m/eucalypt).
 
 ## Examples
 
