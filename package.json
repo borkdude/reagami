@@ -27,6 +27,7 @@
   "scripts": {
     "build": "pnpm squint compile",
     "build:test": "pnpm squint compile --paths test --output-dir test",
-    "test": "pnpm build && pnpm build:test && pnpm squint run test/test_runner.cljs"
+    "test": "pnpm build && pnpm build:test && pnpm squint run test/test_runner.cljs",
+    "prepublishOnly": "pnpm squint compile"
   }
 }
