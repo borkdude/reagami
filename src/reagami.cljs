@@ -19,69 +19,71 @@
      (when class-index
        (.substring tag (inc class-index)))]))
 
-(defn- create-node
-  ([hiccup] (create-node hiccup false))
-  ([hiccup in-svg?]
-   (cond
-     (or (nil? hiccup)
-         (string? hiccup)
-         (number? hiccup)
-         (boolean? hiccup))
-     (js/document.createTextNode (str hiccup))
-     (vector? hiccup)
-     (let [[tag & children] hiccup
-           [tag id class] (if (string? tag) (parse-tag tag) [tag])
-           classes (when class (.split class "."))
-           [attrs children] (if (map? (first children))
-                              [(first children) (rest children)]
-                              [nil children])
-           in-svg? (or in-svg? (= :svg tag))
-           node (if (fn? tag)
-                  (let [res (apply tag (if attrs
-                                         (cons attrs children)
-                                         children))]
-                    (create-node res in-svg?))
-                  (let [node (if in-svg?
-                               (js/document.createElementNS svg-ns tag)
-                               (js/document.createElement tag))]
-                    (doseq [child children]
-                      (let [child-nodes (if (and (seq? child)
-                                                 (not (vector? child)))
-                                          (mapv #(create-node % in-svg?) child)
-                                          [(create-node child in-svg?)])]
-                        (doseq [child-node child-nodes]
-                          (.appendChild node child-node))))
-                    (let [modified-attrs #{}]
-                      (doseq [[k v] attrs]
-                        (cond
-                          (and (= :style k) (map? v))
-                          (do (doseq [[k v] v]
-                                (aset (.-style node) k v))
-                              (conj! modified-attrs :style))
-                          (.startsWith k "on")
-                          (let [event (-> k
-                                          (.replaceAll "-" "")
-                                          (.toLowerCase))]
-                            (aset node event v)
-                            (conj! modified-attrs event))
-                          :else (do (.setAttribute node k v)
-                                    (conj! modified-attrs k))))
-                      (when (seq classes)
-                        (.setAttribute node :class
-                                       (str (when-let [c (.getAttribute node :class)]
-                                              (str c " "))
-                                            (.join classes " ")))
-                        (conj! modified-attrs :class))
-                      (when id
-                        (.setAttribute node :id id)
-                        (conj! modified-attrs :id))
-                      (aset node ::attrs modified-attrs))
-                    node))]
-       node)
-     :else
-     (throw (do
-              (js/console.error "Invalid hiccup:" hiccup)
-              (js/Error. (str "Invalid hiccup: " hiccup)))))))
+(defn- create-node*
+  [hiccup in-svg?]
+  (cond
+    (or (nil? hiccup)
+        (string? hiccup)
+        (number? hiccup)
+        (boolean? hiccup))
+    (js/document.createTextNode (str hiccup))
+    (vector? hiccup)
+    (let [[tag & children] hiccup
+          [tag id class] (if (string? tag) (parse-tag tag) [tag])
+          classes (when class (.split class "."))
+          [attrs children] (if (map? (first children))
+                             [(first children) (rest children)]
+                             [nil children])
+          in-svg? (or in-svg? (= :svg tag))
+          node (if (fn? tag)
+                 (let [res (apply tag (if attrs
+                                        (cons attrs children)
+                                        children))]
+                   (create-node* res in-svg?))
+                 (let [node (if in-svg?
+                              (js/document.createElementNS svg-ns tag)
+                              (js/document.createElement tag))]
+                   (doseq [child children]
+                     (let [child-nodes (if (and (seq? child)
+                                                (not (vector? child)))
+                                         (mapv #(create-node* % in-svg?) child)
+                                         [(create-node* child in-svg?)])]
+                       (doseq [child-node child-nodes]
+                         (.appendChild node child-node))))
+                   (let [modified-attrs #{}]
+                     (doseq [[k v] attrs]
+                       (cond
+                         (and (= :style k) (map? v))
+                         (do (doseq [[k v] v]
+                               (aset (.-style node) k v))
+                             (conj! modified-attrs :style))
+                         (.startsWith k "on")
+                         (let [event (-> k
+                                         (.replaceAll "-" "")
+                                         (.toLowerCase))]
+                           (aset node event v)
+                           (conj! modified-attrs event))
+                         :else (do (.setAttribute node k v)
+                                   (conj! modified-attrs k))))
+                     (when (seq classes)
+                       (.setAttribute node :class
+                                      (str (when-let [c (.getAttribute node :class)]
+                                             (str c " "))
+                                           (.join classes " ")))
+                       (conj! modified-attrs :class))
+                     (when id
+                       (.setAttribute node :id id)
+                       (conj! modified-attrs :id))
+                     (aset node ::attrs modified-attrs))
+                   node))]
+      node)
+    :else
+    (throw (do
+             (js/console.error "Invalid hiccup:" hiccup)
+             (js/Error. (str "Invalid hiccup: " hiccup))))))
+
+(defn- create-node [hiccup]
+  (create-node* hiccup false))
 
 (defn- patch [parent new-children]
   (let [old-children (.-childNodes parent)]
