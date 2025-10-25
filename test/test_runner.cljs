@@ -1,6 +1,10 @@
 (ns test-runner
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [js-await]}}}}
-  (:require ["fs" :as fs]))
+  (:require
+   ["./jsdom.mjs"]
+   ["node:fs" :as fs]
+   ["node:util" :refer [parseArgs]]
+   [clojure.string :as str]))
 
 (defn ends-with? [s suffix]
   (.endsWith s suffix))
@@ -19,13 +23,18 @@
         (js/console.log "Running" key "from" file)
         ((aget mod key))))))
 
-(defn ^:async run-all-tests [dir]
-  (doseq [file (find-test-files dir)]
-    (prn :file file)
-    (js-await (run-tests-in-file file)))
-  (println "✓ All tests finished"))
+(defn ^:async run-all-tests [dir args]
+  (if-let [ns (-> args :values :ns)]
+    (let [file (-> ns
+                   (str/replace "-" "_")
+                   (str ".mjs"))]
+      (js-await (run-tests-in-file file))
+      (println (str/replace "✓ All tests in %s finished" "%s" ns)))
+    (do (doseq [file (find-test-files dir)]
+          (js-await (run-tests-in-file file)))
+        (println "✓ All tests finished"))))
 
-(run-all-tests "test")
+(def args (parseArgs {:options {:ns {:type :string}
+                                :var {:type :string}}}))
 
-;; Example usage:
-;; (run-all-tests "./tests")
+(run-all-tests "test" args)

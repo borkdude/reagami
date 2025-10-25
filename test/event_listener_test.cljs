@@ -17,6 +17,4 @@
     (reagami/render el [:button {:on-click #(swap! state conj :clack)}])
     (.click (.querySelector el "button"))
     (deep-equal [:click :clack] @state)
-    (println "✓ render test passed")))
-
-(event-listener-test)
+    (println "✓ event listener tests passed")))
