@@ -75,8 +75,8 @@
                                       (conj attrs :class))
                                   attrs)
                           attrs (if id
-                                  (do (set! node -id id)
-                                      (conj attrs id))
+                                  (do (.setAttribute node :id id)
+                                      (conj attrs :id))
                                   attrs)]
                       (aset node ::attrs attrs))
                     node))]
@@ -98,19 +98,18 @@
               (set! (.-textContent old) txt))
             (do
               (let [old-attrs (aget old ::attrs)
-                    new-attrs (aget new ::attrs)
-                    svg? (= svg-ns (.-namespaceURI old))]
+                    new-attrs (aget new ::attrs)]
                 (doseq [o old-attrs]
-                  (if (and svg? (not (.startsWith o "on")))
+                  (if (not (.startsWith o "on"))
                     (.removeAttribute old o)
                     (aset old o nil)))
                 (doseq [n new-attrs]
-                  (if (and svg? (not (.startsWith n "on")))
-                    (.setAttribute old n (.getAttribute new n))
+                  (if (.startsWith n "on")
+                    (aset old n (aget new n))
                     (if
                       (= :style n)
                       (set! (.-style.cssText old) (.-style.cssText new))
-                      (aset old n (aget new n))))))
+                      (.setAttribute old n (.getAttribute new n))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
           :else (.replaceChild parent new old))))))
