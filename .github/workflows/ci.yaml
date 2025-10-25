@@ -33,5 +33,4 @@ jobs:
 
       - name: Run tests
         run: |
-          pnpm squint compile --paths test --output-dir test
-          pnpm squint run test/test_runner.cljs
+          pnpm test

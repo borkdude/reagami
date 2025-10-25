@@ -8,3 +8,4 @@
 (set! js/globalThis.document (.-document window))
 (set! js/globalThis.Node (.-Node window))
 (set! js/globalThis.Element (.-Element window))
+(set! js/globalThis.MouseEvent (.-MouseEvent window))
