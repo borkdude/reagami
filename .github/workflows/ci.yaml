@@ -28,7 +28,10 @@ jobs:
         run: pnpm install
 
       - name: Compile Squint
-        run: pnpm squint compile
+        run: |
+          pnpm squint compile
 
       - name: Run tests
-        run: pnpm squint run test/test_runner.cljs
+        run: |
+          pnpm squint compile --paths test --output-dir test
+          pnpm squint run test/test_runner.cljs
