@@ -1,5 +1,6 @@
 (ns test-runner
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [js-await]}}}}
+  (:refer-clojure :exclude [munge])
   (:require
    ["./jsdom.mjs"]
    ["node:fs" :as fs]
@@ -23,6 +24,14 @@
         (js/console.log "Running" key "from" file)
         ((aget mod key))))))
 
+(defn munge [x]
+  (str/replace x "-" "_"))
+
+(defn ^:async run-test-in-file [file var]
+  (let [mod (js-await (js/import (str "./" file)))]
+    (js/console.log "Running" var "from" file)
+    ((aget mod (munge var)))))
+
 (defn ^:async run-all-tests [dir args]
   (if-let [ns (-> args :values :ns)]
     (let [file (-> ns
@@ -30,9 +39,16 @@
                    (str ".mjs"))]
       (js-await (run-tests-in-file file))
       (println (str/replace "✓ All tests in %s finished" "%s" ns)))
-    (do (doseq [file (find-test-files dir)]
-          (js-await (run-tests-in-file file)))
-        (println "✓ All tests finished"))))
+    (if-let [var (-> args :values :var)]
+      (let [[ns var-name] (str/split var "/")
+            file (-> ns
+                     (str/replace "-" "_")
+                     (str ".mjs"))]
+        (js-await (run-test-in-file file var-name))
+        (println (str/replace "✓ All tests in %s finished" "%s" ns)))
+      (do (doseq [file (find-test-files dir)]
+            (js-await (run-tests-in-file file)))
+          (println "✓ All tests finished")))))
 
 (def args (parseArgs {:options {:ns {:type :string}
                                 :var {:type :string}}}))

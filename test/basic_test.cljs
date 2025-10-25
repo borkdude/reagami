@@ -30,3 +30,26 @@
     (reagami/render el [:div {:style {:border "1px solid black"}}
                         "hello"])
     (assert/strictEqual (.-innerHTML el) "<div style=\"border: 1px solid black;\">hello</div>")))
+
+(defn input-test []
+  (let [el (js/document.createElement "div")
+        state (atom {})
+        ui (fn []
+             [:input {:value (:input @state)}])]
+    (reagami/render el [ui])
+    (assert/strictEqual (.-innerHTML el) "<input>")
+    (swap! state assoc :input "")
+    (reagami/render el [ui])
+    (assert/strictEqual (.-innerHTML el) "<input value=\"\">")
+    (swap! state assoc :input "k")
+    (reagami/render el [ui])
+    (assert/strictEqual (.-innerHTML el) "<input value=\"k\">")))
+
+(defn button-test []
+  (let [el (js/document.createElement "div")
+        ui (fn [disabled?]
+             [:button {:disabled disabled?}])]
+    (reagami/render el [ui true])
+    (assert/strictEqual (.-innerHTML el) "<button disabled=\"\"></button>")
+    (reagami/render el [ui false])
+    (assert/strictEqual (.-innerHTML el) "<button></button>")))
