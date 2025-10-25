@@ -102,14 +102,14 @@
                     svg? (= svg-ns (.-namespaceURI old))]
                 (doseq [o old-attrs]
                   (if svg?
-                    (.removeAttribute old (name o))
+                    (.removeAttribute old o)
                     (aset old o nil)))
                 (doseq [n new-attrs]
                   (if svg?
                     (.setAttribute old n (.getAttribute new n))
                     (if
                       (= :style n)
-                      (set! (.-style.cssText old) (.-style.cssText (aget new n)))
+                      (set! (.-style.cssText old) (.-style.cssText new))
                       (aset old n (aget new n))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
