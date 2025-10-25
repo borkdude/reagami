@@ -1,4 +1,5 @@
-(ns reagami)
+(ns reagami
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update!]}}}})
 
 (def svg-ns "http://www.w3.org/2000/svg")
 
@@ -50,24 +51,34 @@
                                           [(create-node child in-svg?)])]
                         (doseq [child-node child-nodes]
                           (.appendChild node child-node))))
-                    (doseq [[k v] attrs]
-                      (let [key-name k]
-                        (cond
-                          (and (= "style" key-name) (map? v))
-                          (doseq [[k v] v]
-                            (aset (.-style node) k v))
-                          (.startsWith key-name "on")
-                          (let [event (-> (subs key-name 2)
-                                          (.replaceAll "-" "")
-                                          (.toLowerCase))]
-                            (.addEventListener node event v))
-                          :else (when v
-                                  (.setAttribute node key-name (str v))))))
-                    (let [class-list (.-classList node)]
-                      (doseq [clazz classes]
-                        (.add class-list clazz)))
-                    (when id
-                      (set! node -id id))
+                    (let [attrs
+                          (reduce (fn [acc [k v]]
+                                    (cond
+                                      (and (= :style k) (map? v))
+                                      (do (doseq [[k v] v]
+                                            (aset (.-style node) k v))
+                                          (conj acc :style))
+                                      (.startsWith k "on")
+                                      (let [event (-> k
+                                                      (.replaceAll "-" "")
+                                                      (.toLowerCase))]
+                                        (aset node event v)
+                                        (conj acc event))
+                                      :else (do (if in-svg?
+                                                  (.setAttribute node k v)
+                                                  (aset node k v))
+                                                (conj acc k))))
+                                  #{} attrs)
+                          attrs (if-let [class-list (seq (.-classList node))]
+                                 (do (doseq [clazz classes]
+                                       (.add class-list clazz))
+                                     (conj attrs "classList"))
+                                 attrs)
+                          attrs (if id
+                                  (do (set! node -id id)
+                                      (conj attrs id))
+                                  attrs)]
+                      (aset node ::attrs attrs))
                     node))]
        node)
      :else
@@ -85,16 +96,23 @@
           (if (= 3 (.-nodeType old))
             (let [txt (.-textContent new)]
               (set! (.-textContent old) txt))
-            (let [new-attributes (.-attributes new)
-                  old-attributes (.-attributes old)]
-              (doseq [attr new-attributes]
-                (.setAttribute old (.-name attr) (.-value attr)))
-              (doseq [attr old-attributes]
-                (when-not (.hasAttribute new (.-name attr))
-                  (.removeAttribute old (.-name attr))))
+            (do
+              (let [old-attrs (aget old ::attrs)
+                    new-attrs (aget new ::attrs)
+                    svg? (= svg-ns (.-namespaceURI old))]
+                (doseq [o old-attrs]
+                  (if svg?
+                    (.removeAttribute old (name o))
+                    (aset old o nil)))
+                (doseq [n new-attrs]
+                  (if svg?
+                    (.setAttribute old n (.getAttribute new n))
+                    (if
+                      (= :style n)
+                      (set! (.-style.cssText old) (.-style.cssText (aget new n)))
+                      (aset old n (aget new n))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
-
           :else (.replaceChild parent new old))))))
 
 (defn render [root hiccup]

@@ -17,8 +17,16 @@
   "author": "Your Name",
   "license": "MIT",
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "esbuild": "^0.25.11",
     "jsdom": "^27.0.1"
   },
-  "files": ["reagami.mjs"]
+  "files": [
+    "reagami.mjs"
+  ],
+  "scripts": {
+    "build": "pnpm squint compile",
+    "build:test": "pnpm squint compile --paths test --output-dir test",
+    "test": "pnpm build && pnpm build:test && pnpm squint run test/test_runner.cljs"
+  }
 }
