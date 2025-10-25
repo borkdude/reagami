@@ -4,7 +4,7 @@
    ["./jsdom.mjs"]
    ["node:assert" :as assert]))
 
-(defn deep-equal
+(defn assert-equal
   [expected actual & [msg]]
   (assert/deepStrictEqual actual expected (or msg "")))
 
@@ -32,10 +32,10 @@
     (reagami/render el [svg-click-test])
     (let [circle (.querySelector el "circle")]
       (.dispatchEvent circle (js/MouseEvent. "click" #js {:bubbles true :cancelable true})))
-    (assert/ok (= 1 @state))
+    (assert-equal 1 @state)
     (let [circle (.querySelector el "circle")]
       (.dispatchEvent circle (js/MouseEvent. "click" #js {:bubbles true :cancelable true})))
-    (assert/ok (= 2 @state))
+    (assert-equal 2 @state)
     (println "✓ render test passed")))
 
 (svg-test)
