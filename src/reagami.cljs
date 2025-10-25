@@ -101,11 +101,11 @@
                     new-attrs (aget new ::attrs)
                     svg? (= svg-ns (.-namespaceURI old))]
                 (doseq [o old-attrs]
-                  (if svg?
+                  (if (and svg? (not (.startsWith o "on")))
                     (.removeAttribute old o)
                     (aset old o nil)))
                 (doseq [n new-attrs]
-                  (if svg?
+                  (if (and svg? (not (.startsWith n "on")))
                     (.setAttribute old n (.getAttribute new n))
                     (if
                       (= :style n)
