@@ -19,5 +19,6 @@
   "devDependencies": {
     "esbuild": "^0.25.11",
     "jsdom": "^27.0.1"
-  }
+  },
+  "files": ["reagami.mjs"]
 }
