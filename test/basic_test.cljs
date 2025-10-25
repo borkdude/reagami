@@ -17,4 +17,7 @@
     (reagami/render el [:div#myid.class1.class2
                         "hello"])
     (assert/strictEqual (.-innerHTML el) "<div class=\"class1 class2\" id=\"myid\">hello</div>")
+    (reagami/render el [:div.class1.class2
+                        "hello"])
+    (assert/strictEqual (.-innerHTML el) "<div class=\"class1 class2\">hello</div>")
     (println "✓ class test passed")))
