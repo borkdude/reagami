@@ -20,7 +20,7 @@
               :r 40
               :fill "tomato"
               :style {:color "blue"}
-              :on-click #(swap! state inc)}]]])
+              :on-click #(js/console.log :state (swap! state inc))}]]])
 
 (defn render [elt]
   (reagami/render elt [svg-click-test]))
