@@ -51,34 +51,31 @@
                                           [(create-node child in-svg?)])]
                         (doseq [child-node child-nodes]
                           (.appendChild node child-node))))
-                    (let [attrs
-                          (reduce (fn [acc [k v]]
-                                    (cond
-                                      (and (= :style k) (map? v))
-                                      (do (doseq [[k v] v]
-                                            (aset (.-style node) k v))
-                                          (conj acc :style))
-                                      (.startsWith k "on")
-                                      (let [event (-> k
-                                                      (.replaceAll "-" "")
-                                                      (.toLowerCase))]
-                                        (aset node event v)
-                                        (conj acc event))
-                                      :else (do (.setAttribute node k v)
-                                                (conj acc k))))
-                                  #{} attrs)
-                          attrs (if (seq classes)
-                                  (do (.setAttribute node :class
-                                                     (str (when-let [c (.getAttribute node :class)]
-                                                            (str c " "))
-                                                          (.join classes " ")))
-                                      (conj attrs :class))
-                                  attrs)
-                          attrs (if id
-                                  (do (.setAttribute node :id id)
-                                      (conj attrs :id))
-                                  attrs)]
-                      (aset node ::attrs attrs))
+                    (let [modified-attrs #{}]
+                      (doseq [[k v] attrs]
+                        (cond
+                          (and (= :style k) (map? v))
+                          (do (doseq [[k v] v]
+                                (aset (.-style node) k v))
+                              (conj! modified-attrs :style))
+                          (.startsWith k "on")
+                          (let [event (-> k
+                                          (.replaceAll "-" "")
+                                          (.toLowerCase))]
+                            (aset node event v)
+                            (conj! modified-attrs event))
+                          :else (do (.setAttribute node k v)
+                                    (conj! modified-attrs k))))
+                      (when (seq classes)
+                        (.setAttribute node :class
+                                       (str (when-let [c (.getAttribute node :class)]
+                                              (str c " "))
+                                            (.join classes " ")))
+                        (conj! modified-attrs :class))
+                      (when id
+                        (.setAttribute node :id id)
+                        (conj! modified-attrs :id))
+                      (aset node ::attrs modified-attrs))
                     node))]
        node)
      :else

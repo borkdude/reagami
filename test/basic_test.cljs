@@ -21,3 +21,12 @@
                         "hello"])
     (assert/strictEqual (.-innerHTML el) "<div class=\"class1 class2\">hello</div>")
     (println "✓ class test passed")))
+
+(defn style-test []
+  (let [el (js/document.createElement "div")]
+    (reagami/render el [:div {:style {:color :blue}}
+                        "hello"])
+    (assert/strictEqual (.-innerHTML el) "<div style=\"color: blue;\">hello</div>")
+    (reagami/render el [:div {:style {:border "1px solid black"}}
+                        "hello"])
+    (assert/strictEqual (.-innerHTML el) "<div style=\"border: 1px solid black;\">hello</div>")))
