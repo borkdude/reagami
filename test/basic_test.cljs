@@ -8,3 +8,10 @@
     (reagami/render el [:div "hello"])
     (assert/strictEqual (.-innerHTML el) "<div>hello</div>")
     (println "✓ render test passed")))
+
+(defn class-test []
+  (let [el (js/document.createElement "div")]
+    (reagami/render el [:div.class1.class2 {:class :myclass}
+                        "hello"])
+    (assert/strictEqual (.-innerHTML el) "<div class=\"myclass class1 class2\">hello</div>")
+    (println "✓ class test passed")))

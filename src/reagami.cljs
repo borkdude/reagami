@@ -64,16 +64,16 @@
                                                       (.toLowerCase))]
                                         (aset node event v)
                                         (conj acc event))
-                                      :else (do (if in-svg?
-                                                  (.setAttribute node k v)
-                                                  (aset node k v))
+                                      :else (do (.setAttribute node k v)
                                                 (conj acc k))))
                                   #{} attrs)
-                          attrs (if-let [class-list (seq (.-classList node))]
-                                 (do (doseq [clazz classes]
-                                       (.add class-list clazz))
-                                     (conj attrs "classList"))
-                                 attrs)
+                          attrs (if (seq classes)
+                                  (do (.setAttribute node :class
+                                                     (str (when-let [c (.getAttribute node :class)]
+                                                            (str c " "))
+                                                          (.join classes " ")))
+                                      (conj attrs :class))
+                                  attrs)
                           attrs (if id
                                   (do (set! node -id id)
                                       (conj attrs id))
