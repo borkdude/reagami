@@ -31,7 +31,7 @@ Quickstart example:
 (render)
 ```
 
-([Open this example on the Squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE3VQu27DMAzc%2FRWMssiDH2OhKUA%2BIaNhFKrE1G6jRySqQRDk3wvLitGl4iCCuDvekdsI5t5I7ysALgJe0xwQBjYR%2BSi6DqNp49QFlJ%2FSzIe%2B7ds3BkJGKKOxrquKazxDJEkIXJIz8BDKJUsYoH%2B%2BAHbZpJzxzqIlGMYKYBB6%2FqmgNMCOmaUFMOCbxCEr1%2BOK%2B0hEzsJDONuoy6y%2BYc%2FjTfpdMZC8Xr6NPVtVPxcqsGOGG9yxcdxMBbQaw2qHl1BdGfKv2GmnkkFL7TVhuJ%2FwgopcALaX3rMahr%2Bh1mNIrZubJDUVR0K85M4WhnfIldP8%2B%2FjKqLNe6X8BNOGTqawBAAA%3D))
+([Open this example on the Squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE3VQu27DMAzc%2FRWMssiDH101BcgnZDSMQpWY2m30iEQ1CIL8e2FZMbpUHEQQd8c7chvB3BvpfQXARcBrmgPCwCYiH0XXYTRtnLqA8lOa%2BdC3ffvWMxAyQpmNdV1VXOMZIklC4JKcgYdQLlnCAP3zBbDLKuWMdxYtwTBWAIPQ808FpQF2zCwtgAHfJA5ZuR5X3EcichYewtlGXWb1DXseb9LvioHk9fJt7Nmq%2BrlQgR0z3OCOjeNmKqDVGFY7vITqypB%2FxU47lQxaaq8Jw%2F2EF1TkArC99J7VMPwNtR5Dat3cJKmpOBLiJXe2MLxDrpzm38dXRp31Sv8LZLQIB60BAAA%3D))
 
 Reagami supports:
 

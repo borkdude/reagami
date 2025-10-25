@@ -19,6 +19,10 @@
      (when class-index
        (.substring tag (inc class-index)))]))
 
+(defn boolean-attr? [x]
+  (or (= :disabled x)
+      (= :checked x)))
+
 (defn- create-node*
   [hiccup in-svg?]
   (cond
@@ -52,19 +56,25 @@
                          (.appendChild node child-node))))
                    (let [modified-attrs #{}]
                      (doseq [[k v] attrs]
-                       (cond
-                         (and (= :style k) (map? v))
-                         (do (doseq [[k v] v]
-                               (aset (.-style node) k v))
-                             (conj! modified-attrs :style))
-                         (.startsWith k "on")
+                       (if (.startsWith k "on")
                          (let [event (-> k
                                          (.replaceAll "-" "")
                                          (.toLowerCase))]
                            (aset node event v)
-                           (conj! modified-attrs event))
-                         :else (do (.setAttribute node k v)
-                                   (conj! modified-attrs k))))
+                           (.add modified-attrs event))
+                         (do
+                           (.add modified-attrs k)
+                           (cond
+                             (and (= :style k) (map? v))
+                             (doseq [[k v] v]
+                               (aset (.-style node) k v))
+                             (.startsWith k "on")
+                             (let [event (-> k
+                                             (.replaceAll "-" "")
+                                             (.toLowerCase))]
+                               (aset node event v))
+                             (boolean-attr? k) (aset node k v)
+                             :else (when v (.setAttribute node k v))))))
                      (when (seq classes)
                        (.setAttribute node :class
                                       (str (when-let [c (.getAttribute node :class)]
@@ -99,11 +109,13 @@
               (let [old-attrs (aget old ::attrs)
                     new-attrs (aget new ::attrs)]
                 (doseq [o old-attrs]
-                  (if (not (.startsWith o "on"))
-                    (.removeAttribute old o)
-                    (aset old o nil)))
+                  (if (or (.startsWith o "on")
+                          (boolean-attr? o))
+                    (aset old o nil)
+                    (.removeAttribute old o)))
                 (doseq [n new-attrs]
-                  (if (.startsWith n "on")
+                  (if (or (.startsWith n "on")
+                          (boolean-attr? n))
                     (aset old n (aget new n))
                     (if
                       (= :style n)
