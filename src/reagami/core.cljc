@@ -72,7 +72,8 @@
                                          [(create-node* child in-svg?)])]
                        (doseq [child-node child-nodes]
                          (.appendChild node child-node))))
-                   (let [modified-attrs (js/Set.)]
+                   (let [modified-attrs (js/Set.)
+                         modified-styles (js/Set.)]
                      (doseq [[k v] attrs]
                        (let [k (name k)
                              #?@(:squint [] :cljs [v (keyword->str v)])]
@@ -87,7 +88,9 @@
                              (cond
                                (and (= "style" k) (map? v))
                                (doseq [[k v] v]
-                                 (aset (.-style node) (name k) (name v)))
+                                 (let [k (name k)]
+                                   (aset (.-style node) (name k) (name v)))
+                                 (.add modified-styles k))
                                (.startsWith k "on")
                                (let [event (-> k
                                                (.replaceAll "-" "")
@@ -104,8 +107,8 @@
                      (when id
                        (.setAttribute node "id" id)
                        (.add modified-attrs "id"))
-                     (aset node ::attrs #?(:squint modified-attrs
-                                           :cljs (into #{} modified-attrs))))
+                     (aset node ::attrs modified-attrs)
+                     (aset node ::styles modified-styles))
                    node))]
       node)
     :else
@@ -127,21 +130,37 @@
             (let [txt (.-textContent new)]
               (set! (.-textContent old) txt))
             (do
-              (let [old-attrs (aget old ::attrs)
-                    new-attrs (aget new ::attrs)]
+              (let [^js old-attrs (aget old ::attrs)
+                    ^js new-attrs (aget new ::attrs)
+                    ^js old-styles (aget old ::styles)
+                    ^js new-styles (aget new ::styles)]
                 (doseq [o old-attrs]
-                  (when-not (contains? new-attrs o)
+                  (when-not (.has new-attrs o)
                     (if (or (.startsWith o "on") (property? o))
-                      (aset old o nil)
+                      (js-delete old o)
                       (.removeAttribute old o))))
                 (doseq [n new-attrs]
                   (if (or (.startsWith n "on")
                           (property? n))
-                    (aset old n (aget new n))
-                    (if
-                      (= "style" n)
-                      (set! (.-style.cssText old) (.-style.cssText new))
-                      (.setAttribute old n (.getAttribute new n))))))
+                    (let [new-prop (aget new n)]
+                      (when-not (identical? (aget old n)
+                                            new-prop)
+                        (aset old n new-prop)))
+                    (if (= "style" n)
+                      (let [old-style (.-style old)
+                            new-style (.-style new)]
+                        (doseq [o old-styles]
+                          (when-not (.has new-styles o)
+                            (.removeProperty old-style o)))
+                        (doseq [n new-styles]
+                          ;; TODO: setProperty expects properties in kebab style, but aset expects them in camelCase
+                          (let [old-style-prop (.getPropertyValue old-style n)
+                                new-style-prop (.getPropertyValue new-style n)]
+                            (when-not (identical? old-style-prop new-style-prop)
+                              (.setProperty old-style n new-style-prop)))))
+                      (let [new-attr (.getAttribute new n)]
+                        (when-not (identical? new-attr (.getAttribute old n))
+                          (.setAttribute old n (.getAttribute new n))))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
           :else (.replaceChild parent new old))))))
