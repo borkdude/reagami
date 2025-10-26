@@ -1,5 +1,6 @@
 .cache
 node_modules
 *.mjs
+!reagami.mjs
 .shadow-cljs
 lib
