@@ -151,7 +151,7 @@
                 (doseq [o old-attrs]
                   (when-not (.has new-attrs o)
                     (if (or (.startsWith o "on") (property? o))
-                      (js-delete old o)
+                      (aset old o nil)
                       (.removeAttribute old o))))
                 (doseq [n new-attrs]
                   (if (or (.startsWith n "on")
