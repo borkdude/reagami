@@ -29,9 +29,6 @@
 #?(:squint (defn array-seq [s]
              s))
 
-#?(:squint (defn keyword? [s]
-             false))
-
 (defn- create-node*
   [hiccup in-svg?]
   (cond
@@ -42,7 +39,8 @@
     (js/document.createTextNode (str hiccup))
     (vector? hiccup)
     (let [[tag & children] hiccup
-          #?@(:cljs [tag (if (keyword? tag)
+          #?@(:squint []
+              :cljs [tag (if (keyword? tag)
                            (subs (str tag) 1)
                            tag)])
           [tag id class] (if (string? tag) (parse-tag tag) [tag])
