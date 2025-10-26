@@ -1,10 +1,10 @@
+![npm](https://img.shields.io/npm/v/reagami.svg)
+
 # Reagami
 
 Fold your state into the DOM!
 
 A minimal [Reagent](https://github.com/reagent-project/reagent)-like in 100 lines of [Squint](https://github.com/squint-cljs/squint).
-
-![npm](https://img.shields.io/npm/v/reagami.svg)
 
 ## Usage
 
