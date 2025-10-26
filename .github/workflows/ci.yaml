@@ -27,10 +27,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Compile Squint
-        run: |
-          pnpm squint compile
-
       - name: Run tests
         run: |
           pnpm test
