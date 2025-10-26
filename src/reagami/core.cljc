@@ -29,6 +29,9 @@
 #?(:squint (defn array-seq [s]
              s))
 
+#?(:squint (defn keyword? [s]
+             false))
+
 (defn- create-node*
   [hiccup in-svg?]
   (cond

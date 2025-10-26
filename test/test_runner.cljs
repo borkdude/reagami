@@ -2,10 +2,10 @@
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [js-await]}}}}
   (:refer-clojure :exclude [munge])
   (:require
-   ["./jsdom.mjs"]
    ["node:fs" :as fs]
    ["node:util" :refer [parseArgs]]
-   [clojure.string :as str]))
+   [clojure.string :as str]
+   [install-jsdom]))
 
 (defn ends-with? [s suffix]
   (.endsWith s suffix))

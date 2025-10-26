@@ -1,8 +1,7 @@
 (ns basic-test
   (:require
-   [reagami.core :as reagami]
-   #_["../reagami.mjs" :as reagami]
-   ["node:assert" :as assert]))
+   ["node:assert" :as assert]
+   [reagami.core :as reagami]))
 
 (defn render-test []
   (let [el (js/document.createElement "div")]
