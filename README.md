@@ -33,9 +33,9 @@ Quickstart example:
 (render)
 ```
 
-In ClojureScript you would add this library to your `deps.edn` as follows:
+In ClojureScript you would add this library to your `deps.edn` `:deps` as follows:
 
-```
+``` clojure
 io.github.borkdude/reagami {:git/sha "<latest-sha>"}
 ```
 
