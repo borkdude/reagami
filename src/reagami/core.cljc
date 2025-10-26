@@ -108,7 +108,6 @@
   (create-node* hiccup false))
 
 (defn- patch [^js parent new-children]
-  (prn :patch)
   (let [old-children (.-childNodes parent)]
     (if (not= (alength old-children) (alength new-children))
       (.apply parent.replaceChildren parent new-children)
@@ -122,10 +121,10 @@
               (let [old-attrs (aget old ::attrs)
                     new-attrs (aget new ::attrs)]
                 (doseq [o old-attrs]
-                  (if (or (.startsWith o "on")
-                          (boolean-attr? o))
-                    (aset old o nil)
-                    (.removeAttribute old o)))
+                  (when-not (contains? new-attrs o)
+                    (if (or (.startsWith o "on") (boolean-attr? o))
+                      (aset old o nil)
+                      (.removeAttribute old o))))
                 (doseq [n new-attrs]
                   (if (or (.startsWith n "on")
                           (boolean-attr? n))
@@ -133,9 +132,7 @@
                     (if
                       (= "style" n)
                       (set! (.-style.cssText old) (.-style.cssText new))
-                      (do
-                        (prn :n n)
-                        (.setAttribute old n (.getAttribute new n)))))))
+                      (.setAttribute old n (.getAttribute new n))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
           :else (.replaceChild parent new old))))))

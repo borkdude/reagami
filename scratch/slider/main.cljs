@@ -10,10 +10,8 @@
            :step step
            :style {:width "50%"}
            :on-input (fn [e]
-                       (js/console.log :e e)
                        (let [new-value (js/parseFloat
                                          (aget (aget e "target") "value"))]
-                         (js/console.log :new-value new-value)
                          (swap! the-atom
                            (fn [data]
                              (-> data
@@ -31,7 +29,6 @@
 (defn ohms-law-page []
   (let [{:keys [voltage current resistance]} @ohms-data]
     [:div
-     [:pre (pr-str @ohms-data)]
      [:h3 "Ohm's Law Calculator"]
      [:div
       "Voltage: " (.toFixed voltage 2) "V"
@@ -47,8 +44,7 @@
   (reagami/render (js/document.querySelector "#app")
     [ohms-law-page]))
 
-(add-watch ohms-data :state (fn [_ _ _ n]
-                              (prn :new n)
+(add-watch ohms-data :state (fn [_ _ _ _]
                               (render)))
 
 (render)
