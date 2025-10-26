@@ -37,6 +37,18 @@
 #?(:squint (defn name [s]
              s))
 
+;; we could support camelCase, but we could also not
+#_#_(def camel->kebab-cache (js/Map.))
+
+(defn camel->kebab [s]
+  (if-some [cached (.get camel->kebab-cache s)]
+    cached
+    (let [re (js/RegExp. "[A-Z]" "g")  ;; global flag!
+          res (.replace s re (fn [m]
+                               (str "-" (.toLowerCase m))))]
+      (.set camel->kebab-cache s res)
+      res)))
+
 (defn- create-node*
   [hiccup in-svg?]
   (cond
@@ -72,8 +84,7 @@
                                          [(create-node* child in-svg?)])]
                        (doseq [child-node child-nodes]
                          (.appendChild node child-node))))
-                   (let [modified-attrs (js/Set.)
-                         #_#_modified-styles (js/Set.)]
+                   (let [modified-attrs (js/Set.)]
                      (doseq [[k v] attrs]
                        (let [k (name k)
                              #?@(:squint [] :cljs [v (keyword->str v)])]
@@ -87,10 +98,14 @@
                              (.add modified-attrs k)
                              (cond
                                (and (= "style" k) (map? v))
-                               (doseq [[k v] v]
-                                 (let [k (name k)]
-                                   (aset (.-style node) (name k) (name v)))
-                                 #_(.add modified-styles k))
+                               (do (let [style (reduce-kv (fn [s k v]
+                                                            (str s (name k) ": " (name v) ";"))
+                                                          "" v)]
+                                     ;; set/get attribute is faster to set, get
+                                     ;; and compare (in patch)than setting
+                                     ;; individual props and using cssText
+                                     (.setAttribute node "style" style))
+                                   (.add modified-attrs "style"))
                                (.startsWith k "on")
                                (let [event (-> k
                                                (.replaceAll "-" "")
@@ -107,8 +122,7 @@
                      (when id
                        (.setAttribute node "id" id)
                        (.add modified-attrs "id"))
-                     (aset node ::attrs modified-attrs)
-                     #_(aset node ::styles modified-styles))
+                     (aset node ::attrs modified-attrs))
                    node))]
       node)
     :else
@@ -146,22 +160,9 @@
                       (when-not (identical? (aget old n)
                                             new-prop)
                         (aset old n new-prop)))
-                    (if (= "style" n)
-                      (set! (.-style.cssText old) (.-style.cssText new))
-                      #_(let [old-style (.-style old)
-                            new-style (.-style new)]
-                        (doseq [o old-styles]
-                          (when-not (.has new-styles o)
-                            (.removeProperty old-style o)))
-                        (doseq [n new-styles]
-                          ;; TODO: setProperty expects properties in kebab style, but aset expects them in camelCase
-                          (let [old-style-prop (.getPropertyValue old-style n)
-                                new-style-prop (.getPropertyValue new-style n)]
-                            (when-not (identical? old-style-prop new-style-prop)
-                              (.setProperty old-style n new-style-prop)))))
-                      (let [new-attr (.getAttribute new n)]
-                        (when-not (identical? new-attr (.getAttribute old n))
-                          (.setAttribute old n (.getAttribute new n))))))))
+                    (let [new-attr (.getAttribute new n)]
+                      (when-not (identical? new-attr (.getAttribute old n))
+                        (.setAttribute old n (.getAttribute new n)))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
           :else (.replaceChild parent new old))))))
