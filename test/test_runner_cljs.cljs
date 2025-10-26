@@ -7,5 +7,4 @@
   (basic-test/class-test)
   (basic-test/style-test)
   (basic-test/input-test)
-  (basic-test/button-test)
-  )
+  (basic-test/button-test))
