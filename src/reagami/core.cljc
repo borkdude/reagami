@@ -98,13 +98,7 @@
                                      ;; set/get attribute is faster to set, get
                                      ;; and compare (in patch)than setting
                                      ;; individual props and using cssText
-                                     (.setAttribute node "style" style))
-                                   (.add modified-attrs "style"))
-                               (.startsWith k "on")
-                               (let [event (-> k
-                                               (.replaceAll "-" "")
-                                               (.toLowerCase))]
-                                 (aset node event v))
+                                     (.setAttribute node "style" style)))
                                (property? k) (aset node k v)
                                :else (when v (.setAttribute node k v)))))))
                      (when (seq classes)
