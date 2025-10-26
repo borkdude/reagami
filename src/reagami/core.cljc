@@ -19,14 +19,22 @@
      (when class-index
        (.substring tag (inc class-index)))]))
 
-(defn boolean-attr? [x]
-  (or (= "disabled" x)
-      (= "checked" x)))
+(def properties (js/Set. ["value" "checked" "disabled" "selected"]))
 
-#?(:squint (defn name [k]
-             k))
+(defn property? [^js x]
+  (.has properties x))
+
+(do
+  #?@(:squint []
+      :cljs [(defn keyword->str [k]
+               (if (keyword? k)
+                 (name k)
+                 k))]))
 
 #?(:squint (defn array-seq [s]
+             s))
+
+#?(:squint (defn name [s]
              s))
 
 (defn- create-node*
@@ -66,7 +74,8 @@
                          (.appendChild node child-node))))
                    (let [modified-attrs (js/Set.)]
                      (doseq [[k v] attrs]
-                       (let [k (name k)]
+                       (let [k (name k)
+                             #?@(:squint [] :cljs [v (keyword->str v)])]
                          (if (.startsWith k "on")
                            (let [event (-> k
                                            (.replaceAll "-" "")
@@ -84,8 +93,8 @@
                                                (.replaceAll "-" "")
                                                (.toLowerCase))]
                                  (aset node event v))
-                               (boolean-attr? k) (aset node k v)
-                               :else (when v (.setAttribute node k (name v))))))))
+                               (property? k) (aset node k v)
+                               :else (when v (.setAttribute node k v)))))))
                      (when (seq classes)
                        (.setAttribute node "class"
                                       (str (when-let [c (.getAttribute node "class")]
@@ -122,12 +131,12 @@
                     new-attrs (aget new ::attrs)]
                 (doseq [o old-attrs]
                   (when-not (contains? new-attrs o)
-                    (if (or (.startsWith o "on") (boolean-attr? o))
+                    (if (or (.startsWith o "on") (property? o))
                       (aset old o nil)
                       (.removeAttribute old o))))
                 (doseq [n new-attrs]
                   (if (or (.startsWith n "on")
-                          (boolean-attr? n))
+                          (property? n))
                     (aset old n (aget new n))
                     (if
                       (= "style" n)

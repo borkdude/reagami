@@ -40,10 +40,10 @@
     (assert/strictEqual (.-innerHTML el) "<input>")
     (swap! state assoc :input "")
     (reagami/render el [ui])
-    (assert/strictEqual (.-innerHTML el) "<input value=\"\">")
+    (assert/strictEqual (.-value (.querySelector el "input")) "")
     (swap! state assoc :input "k")
     (reagami/render el [ui])
-    (assert/strictEqual (.-innerHTML el) "<input value=\"k\">")))
+    (assert/strictEqual (.-value (.querySelector el "input")) "k")))
 
 (defn button-test []
   (let [el (js/document.createElement "div")
