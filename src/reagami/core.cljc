@@ -63,9 +63,7 @@
                                          (mapv #(create-node* % in-svg?) child)
                                          [(create-node* child in-svg?)])]
                        (doseq [child-node child-nodes]
-                         (.appendChild node child-node))
-                       #_(.replaceChildren node #?(:squint cnild-nodes
-                                                 :cljs (into-array child-nodes)))))
+                         (.appendChild node child-node))))
                    (let [modified-attrs (js/Set.)]
                      (doseq [[k v] attrs]
                        (let [k (name k)]
