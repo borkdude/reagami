@@ -37,6 +37,18 @@
 #?(:squint (defn name [s]
              s))
 
+;; we could support camelCase, but we could also not
+#_#_(def camel->kebab-cache (js/Map.))
+
+(defn camel->kebab [s]
+  (if-some [cached (.get camel->kebab-cache s)]
+    cached
+    (let [re (js/RegExp. "[A-Z]" "g")  ;; global flag!
+          res (.replace s re (fn [m]
+                               (str "-" (.toLowerCase m))))]
+      (.set camel->kebab-cache s res)
+      res)))
+
 (defn- create-node*
   [hiccup in-svg?]
   (cond
@@ -86,8 +98,14 @@
                              (.add modified-attrs k)
                              (cond
                                (and (= "style" k) (map? v))
-                               (doseq [[k v] v]
-                                 (aset (.-style node) (name k) (name v)))
+                               (do (let [style (reduce-kv (fn [s k v]
+                                                            (str s (name k) ": " (name v) ";"))
+                                                          "" v)]
+                                     ;; set/get attribute is faster to set, get
+                                     ;; and compare (in patch)than setting
+                                     ;; individual props and using cssText
+                                     (.setAttribute node "style" style))
+                                   (.add modified-attrs "style"))
                                (.startsWith k "on")
                                (let [event (-> k
                                                (.replaceAll "-" "")
@@ -104,8 +122,7 @@
                      (when id
                        (.setAttribute node "id" id)
                        (.add modified-attrs "id"))
-                     (aset node ::attrs #?(:squint modified-attrs
-                                           :cljs (into #{} modified-attrs))))
+                     (aset node ::attrs modified-attrs))
                    node))]
       node)
     :else
@@ -127,21 +144,25 @@
             (let [txt (.-textContent new)]
               (set! (.-textContent old) txt))
             (do
-              (let [old-attrs (aget old ::attrs)
-                    new-attrs (aget new ::attrs)]
+              (let [^js old-attrs (aget old ::attrs)
+                    ^js new-attrs (aget new ::attrs)
+                    #_#_^js old-styles (aget old ::styles)
+                    #_#_^js new-styles (aget new ::styles)]
                 (doseq [o old-attrs]
-                  (when-not (contains? new-attrs o)
+                  (when-not (.has new-attrs o)
                     (if (or (.startsWith o "on") (property? o))
-                      (aset old o nil)
+                      (js-delete old o)
                       (.removeAttribute old o))))
                 (doseq [n new-attrs]
                   (if (or (.startsWith n "on")
                           (property? n))
-                    (aset old n (aget new n))
-                    (if
-                      (= "style" n)
-                      (set! (.-style.cssText old) (.-style.cssText new))
-                      (.setAttribute old n (.getAttribute new n))))))
+                    (let [new-prop (aget new n)]
+                      (when-not (identical? (aget old n)
+                                            new-prop)
+                        (aset old n new-prop)))
+                    (let [new-attr (.getAttribute new n)]
+                      (when-not (identical? new-attr (.getAttribute old n))
+                        (.setAttribute old n (.getAttribute new n)))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
           :else (.replaceChild parent new old))))))

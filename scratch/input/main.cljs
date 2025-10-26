@@ -9,7 +9,9 @@
    [:button {:on-click #(swap! state update :show not)}
     "Show? " (:show @state)]
    (when (:show @state)
-     [:div {:style {:color :green}}
+     [:div {:style {:color :green
+                    :background-color (if (even? (count (:input @state)))
+                                        :black :green)}}
       [:pre (pr-str @state)]
       [:input {:value (:input @state)
                :on-input #(swap! state assoc :input (-> % :target :value))}]
