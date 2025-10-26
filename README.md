@@ -4,7 +4,7 @@
 
 Fold your state into the DOM!
 
-A minimal [Reagent](https://github.com/reagent-project/reagent)-like in [Squint](https://github.com/squint-cljs/squint) and CLJS.
+A minimal zero-deps [Reagent](https://github.com/reagent-project/reagent)-like in [Squint](https://github.com/squint-cljs/squint) and CLJS.
 
 ## Usage
 
@@ -57,6 +57,8 @@ Reagami does NOT support:
 - Auto-rerendering by watching custom atoms. Instead you use `add-watch` on regular atoms! :)
 - Local state and form-2 components
 - React hooks (it doesn't use React)
+
+Reagami doesn't have any dependencies (except Squint or CLJS).
 
 Reagami uses a very basic patching algorithm explained in [this](https://blog.michielborkent.nl/reagami.html) blog
 post. It may become more advanced in the future, but the (fun) point of this
