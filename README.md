@@ -1,6 +1,6 @@
-![npm](https://img.shields.io/npm/v/reagami.svg)
-
 # Reagami
+
+![npm](https://img.shields.io/npm/v/reagami.svg)
 
 Fold your state into the DOM!
 
