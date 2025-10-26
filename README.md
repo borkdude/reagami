@@ -45,7 +45,7 @@ and then require it with `(:require [reagami.core :as reagami])`.
 
 Reagami supports:
 
-- Building small reactive apps with the only dependency being CLJS or Squint. Smallest app with Squint after minification is around 3.5kb gzip.
+- Building small reactive apps with the only dependency being Squint or CLJS. Smallest app with Squint after minification is around 3.5kb gzip.
 - Rendering [hiccup](https://github.com/weavejester/hiccup) into a container DOM node. The only public function is `render`.
 - Event handlers via `:on-click`, `:on-input`, etc. These get translated to `(.addEventListener node "click" f)`.
 - Id and class short notation: `[:div#foo.class1.class2]`
