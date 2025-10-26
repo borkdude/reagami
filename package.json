@@ -19,7 +19,8 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "esbuild": "^0.25.11",
-    "jsdom": "^27.0.1"
+    "jsdom": "^27.0.1",
+    "shadow-cljs": "^3.2.1"
   },
   "files": [
     "reagami.mjs"

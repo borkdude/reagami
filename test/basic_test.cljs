@@ -1,6 +1,7 @@
 (ns basic-test
   (:require
-   ["../reagami.mjs" :as reagami]
+   [reagami.core :as reagami]
+   #_["../reagami.mjs" :as reagami]
    ["node:assert" :as assert]))
 
 (defn render-test []

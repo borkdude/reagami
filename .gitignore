@@ -1,3 +1,5 @@
 .cache
 node_modules
 *.mjs
+.shadow-cljs
+lib
