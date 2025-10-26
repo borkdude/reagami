@@ -42,5 +42,5 @@
       (.dispatchEvent circle (js/MouseEvent. "click" #js {:bubbles true :cancelable true})))
     (assert-equal 2 @state)
     (let [text (.querySelector el "text")]
-      (assert-equal "myclass other-class another-class" (.getAttribute text :class)))
+      (assert-equal "myclass other-class another-class" (.getAttribute text "class")))
     (println "✓ SVG tests passed")))
