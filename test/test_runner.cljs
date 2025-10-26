@@ -53,4 +53,4 @@
 (def args (parseArgs {:options {:ns {:type :string}
                                 :var {:type :string}}}))
 
-(run-all-tests "test" args)
+(run-all-tests "lib" args)
