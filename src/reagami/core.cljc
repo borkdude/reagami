@@ -133,9 +133,7 @@
               (set! (.-textContent old) txt))
             (do
               (let [^js old-attrs (aget old ::attrs)
-                    ^js new-attrs (aget new ::attrs)
-                    #_#_^js old-styles (aget old ::styles)
-                    #_#_^js new-styles (aget new ::styles)]
+                    ^js new-attrs (aget new ::attrs)]
                 (doseq [o old-attrs]
                   (when-not (.has new-attrs o)
                     (if (or (.startsWith o "on") (property? o))
