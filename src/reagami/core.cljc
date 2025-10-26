@@ -37,17 +37,10 @@
 #?(:squint (defn name [s]
              s))
 
-;; we could support camelCase, but we could also not
-#_#_(def camel->kebab-cache (js/Map.))
-
 (defn camel->kebab [s]
-  (if-some [cached (.get camel->kebab-cache s)]
-    cached
-    (let [re (js/RegExp. "[A-Z]" "g")  ;; global flag!
-          res (.replace s re (fn [m]
-                               (str "-" (.toLowerCase m))))]
-      (.set camel->kebab-cache s res)
-      res)))
+  (.replace s (js/RegExp. "[A-Z]" "g")
+            (fn [m]
+              (str "-" (.toLowerCase m)))))
 
 (defn- create-node*
   [hiccup in-svg?]
@@ -98,9 +91,10 @@
                              (.add modified-attrs k)
                              (cond
                                (and (= "style" k) (map? v))
-                               (do (let [style (reduce-kv (fn [s k v]
-                                                            (str s (name k) ": " (name v) ";"))
-                                                          "" v)]
+                               (do (let [style (reduce-kv
+                                                (fn [s k v]
+                                                  (str s (camel->kebab (name k)) ": " (name v) ";"))
+                                                "" v)]
                                      ;; set/get attribute is faster to set, get
                                      ;; and compare (in patch)than setting
                                      ;; individual props and using cssText
