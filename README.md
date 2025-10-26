@@ -4,15 +4,17 @@ Fold your state into the DOM!
 
 A minimal [Reagent](https://github.com/reagent-project/reagent)-like in 100 lines of [Squint](https://github.com/squint-cljs/squint).
 
+![npm](https://img.shields.io/npm/v/reagami.svg)
+
 ## Usage
 
-Reagami is intended to be used with [Squint](https://github.com/squint-cljs/squint).
+Reagami is intended to be used with [Squint](https://github.com/squint-cljs/squint) or ClojureScript.
 
 Quickstart example:
 
 ``` clojure
 (ns my-app
-  (:require ["https://esm.sh/reagami@0.0.9" :as reagami]))
+  (:require ["https://esm.sh/reagami@0.0.11" :as reagami]))
 
 (def state (atom {:counter 0}))
 
@@ -30,6 +32,14 @@ Quickstart example:
 
 (render)
 ```
+
+In ClojureScript you would add this library to your `deps.edn` as follows:
+
+```
+io.github.borkdude/reagami {:git/sha "<latest-sha>"}
+```
+
+and then require it with `(:require [reagami.core :as reagami])`.
 
 ([Open this example on the Squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE3VQu27DMAzc%2FRWMssiDH101BcgnZDSMQpWY2m30iEQ1CIL8e2FZMbpUHEQQd8c7chvB3BvpfQXARcBrmgPCwCYiH0XXYTRtnLqA8lOa%2BdC3ffvWMxAyQpmNdV1VXOMZIklC4JKcgYdQLlnCAP3zBbDLKuWMdxYtwTBWAIPQ808FpQF2zCwtgAHfJA5ZuR5X3EcichYewtlGXWb1DXseb9LvioHk9fJt7Nmq%2BrlQgR0z3OCOjeNmKqDVGFY7vITqypB%2FxU47lQxaaq8Jw%2F2EF1TkArC99J7VMPwNtR5Dat3cJKmpOBLiJXe2MLxDrpzm38dXRp31Sv8LZLQIB60BAAA%3D))
 
