@@ -19,16 +19,17 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "esbuild": "^0.25.11",
-    "jsdom": "^27.0.1"
+    "jsdom": "^27.0.1",
+    "shadow-cljs": "^3.2.1"
   },
   "files": [
-    "reagami.mjs"
+    "reagami.mjs",
+    "lib/reagami/core.mjs"
   ],
   "scripts": {
-    "build": "pnpm squint compile",
-    "watch:test": "pnpm squint watch --paths test --output-dir test",
-    "build:test": "pnpm squint compile --paths test --output-dir test",
-    "test": "pnpm build && pnpm build:test && node test/test_runner.mjs",
-    "prepublishOnly": "pnpm squint compile"
+    "build": "pnpm squint compile --paths src",
+    "watch": "pnpm squint watch",
+    "test": "pnpm squint compile && node lib/test_runner.mjs",
+    "prepublishOnly": "pnpm build"
   }
 }

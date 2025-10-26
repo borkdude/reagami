@@ -27,10 +27,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Compile Squint
-        run: |
-          pnpm squint compile
-
-      - name: Run tests
+      - name: Run squint tests
         run: |
           pnpm test
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Run shadow tests tests
+        run: |
+          pnpm shadow-cljs compile reagami
+          node lib/tests.js

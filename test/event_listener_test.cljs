@@ -1,8 +1,7 @@
 (ns event-listener-test
   (:require
-   ["../reagami.mjs" :as reagami]
-   ["./jsdom.mjs"]
-   ["node:assert" :as assert]))
+   ["node:assert" :as assert]
+   [reagami.core :as reagami]))
 
 (defn deep-equal
   [expected actual & [msg]]

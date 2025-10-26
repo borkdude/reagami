@@ -1,0 +1,17 @@
+{:source-paths ["src" "test"]
+ :builds
+ {:reagami
+  {:js-options {;; don't bundle any npm libs
+                :js-provider :import}
+   :compiler-options {:infer-externs :auto}
+   :target :esm
+   :runtime :browser
+   :devtools {:enabled false}
+   :output-dir "lib"
+   :modules
+   {:reagami {:exports
+              {render reagami.core/render}}
+    :tests {:init-fn test-runner-cljs/init
+            :depends-on #{:reagami}}}
+   :build-hooks [(shadow.cljs.build-report/hook
+                  {:output-to "report.html"})]}}}

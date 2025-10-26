@@ -1,4 +1,4 @@
-(ns test.jsdom
+(ns install-jsdom
   (:require ["jsdom" :as jsdom]))
 
 (defonce jsdom-instance (jsdom/JSDOM. "<!doctype html><html><body></body></html>"))

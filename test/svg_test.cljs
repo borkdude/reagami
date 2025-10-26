@@ -1,8 +1,8 @@
 (ns svg-test
   (:require
-   ["../reagami.mjs" :as reagami]
-   ["./jsdom.mjs"]
-   ["node:assert" :as assert]))
+   ["node:assert" :as assert]
+   [install-jsdom]
+   [reagami.core :as reagami]))
 
 (defn assert-equal
   [expected actual & [msg]]

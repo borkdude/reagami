@@ -1,4 +1,4 @@
-(ns reagami
+(ns reagami.core
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update!]}}}})
 
 (def svg-ns "http://www.w3.org/2000/svg")
@@ -20,8 +20,14 @@
        (.substring tag (inc class-index)))]))
 
 (defn boolean-attr? [x]
-  (or (= :disabled x)
-      (= :checked x)))
+  (or (= "disabled" x)
+      (= "checked" x)))
+
+#?(:squint (defn name [k]
+             k))
+
+#?(:squint (defn array-seq [s]
+             s))
 
 (defn- create-node*
   [hiccup in-svg?]
@@ -33,6 +39,10 @@
     (js/document.createTextNode (str hiccup))
     (vector? hiccup)
     (let [[tag & children] hiccup
+          #?@(:squint []
+              :cljs [tag (if (keyword? tag)
+                           (subs (str tag) 1)
+                           tag)])
           [tag id class] (if (string? tag) (parse-tag tag) [tag])
           classes (when class (.split class "."))
           [attrs children] (if (map? (first children))
@@ -54,37 +64,39 @@
                                          [(create-node* child in-svg?)])]
                        (doseq [child-node child-nodes]
                          (.appendChild node child-node))))
-                   (let [modified-attrs #{}]
+                   (let [modified-attrs (js/Set.)]
                      (doseq [[k v] attrs]
-                       (if (.startsWith k "on")
-                         (let [event (-> k
-                                         (.replaceAll "-" "")
-                                         (.toLowerCase))]
-                           (aset node event v)
-                           (.add modified-attrs event))
-                         (do
-                           (.add modified-attrs k)
-                           (cond
-                             (and (= :style k) (map? v))
-                             (doseq [[k v] v]
-                               (aset (.-style node) k v))
-                             (.startsWith k "on")
-                             (let [event (-> k
-                                             (.replaceAll "-" "")
-                                             (.toLowerCase))]
-                               (aset node event v))
-                             (boolean-attr? k) (aset node k v)
-                             :else (when v (.setAttribute node k v))))))
+                       (let [k (name k)]
+                         (if (.startsWith k "on")
+                           (let [event (-> k
+                                           (.replaceAll "-" "")
+                                           (.toLowerCase))]
+                             (aset node event v)
+                             (.add modified-attrs event))
+                           (do
+                             (.add modified-attrs k)
+                             (cond
+                               (and (= "style" k) (map? v))
+                               (doseq [[k v] v]
+                                 (aset (.-style node) (name k) (name v)))
+                               (.startsWith k "on")
+                               (let [event (-> k
+                                               (.replaceAll "-" "")
+                                               (.toLowerCase))]
+                                 (aset node event v))
+                               (boolean-attr? k) (aset node k v)
+                               :else (when v (.setAttribute node k (name v))))))))
                      (when (seq classes)
-                       (.setAttribute node :class
-                                      (str (when-let [c (.getAttribute node :class)]
+                       (.setAttribute node "class"
+                                      (str (when-let [c (.getAttribute node "class")]
                                              (str c " "))
                                            (.join classes " ")))
-                       (conj! modified-attrs :class))
+                       (.add modified-attrs "class"))
                      (when id
-                       (.setAttribute node :id id)
-                       (conj! modified-attrs :id))
-                     (aset node ::attrs modified-attrs))
+                       (.setAttribute node "id" id)
+                       (.add modified-attrs "id"))
+                     (aset node ::attrs #?(:squint modified-attrs
+                                           :cljs (into #{} modified-attrs))))
                    node))]
       node)
     :else
@@ -95,11 +107,11 @@
 (defn- create-node [hiccup]
   (create-node* hiccup false))
 
-(defn- patch [parent new-children]
+(defn- patch [^js parent new-children]
   (let [old-children (.-childNodes parent)]
-    (if (not= (count old-children) (count new-children))
-      (parent.replaceChildren.apply parent new-children)
-      (doseq [[old new] (mapv vector old-children new-children)]
+    (if (not= (alength old-children) (alength new-children))
+      (.apply parent.replaceChildren parent new-children)
+      (doseq [[^js old ^js new] (mapv vector (array-seq old-children) (array-seq new-children))]
         (cond
           (and old new (= (.-nodeName old) (.-nodeName new)))
           (if (= 3 (.-nodeType old))
@@ -118,7 +130,7 @@
                           (boolean-attr? n))
                     (aset old n (aget new n))
                     (if
-                      (= :style n)
+                      (= "style" n)
                       (set! (.-style.cssText old) (.-style.cssText new))
                       (.setAttribute old n (.getAttribute new n))))))
               (when-let [new-children (.-childNodes new)]
@@ -127,4 +139,4 @@
 
 (defn render [root hiccup]
   (let [new-node (create-node hiccup)]
-    (patch root [new-node])))
+    (patch root #js [new-node])))
