@@ -29,8 +29,7 @@
   "scripts": {
     "build": "pnpm squint compile --paths src",
     "watch": "pnpm squint watch",
-    "build:test": "pnpm squint compile --paths test --output-dir test",
-    "test": "pnpm build && pnpm build:test && node test/test_runner.mjs",
-    "prepublishOnly": "pnpm squint compile"
+    "test": "pnpm squint compile && node lib/test_runner.mjs",
+    "prepublishOnly": "pnpm build"
   }
 }
