@@ -73,7 +73,7 @@
                        (doseq [child-node child-nodes]
                          (.appendChild node child-node))))
                    (let [modified-attrs (js/Set.)
-                         modified-styles (js/Set.)]
+                         #_#_modified-styles (js/Set.)]
                      (doseq [[k v] attrs]
                        (let [k (name k)
                              #?@(:squint [] :cljs [v (keyword->str v)])]
@@ -90,7 +90,7 @@
                                (doseq [[k v] v]
                                  (let [k (name k)]
                                    (aset (.-style node) (name k) (name v)))
-                                 (.add modified-styles k))
+                                 #_(.add modified-styles k))
                                (.startsWith k "on")
                                (let [event (-> k
                                                (.replaceAll "-" "")
@@ -108,7 +108,7 @@
                        (.setAttribute node "id" id)
                        (.add modified-attrs "id"))
                      (aset node ::attrs modified-attrs)
-                     (aset node ::styles modified-styles))
+                     #_(aset node ::styles modified-styles))
                    node))]
       node)
     :else
@@ -132,8 +132,8 @@
             (do
               (let [^js old-attrs (aget old ::attrs)
                     ^js new-attrs (aget new ::attrs)
-                    ^js old-styles (aget old ::styles)
-                    ^js new-styles (aget new ::styles)]
+                    #_#_^js old-styles (aget old ::styles)
+                    #_#_^js new-styles (aget new ::styles)]
                 (doseq [o old-attrs]
                   (when-not (.has new-attrs o)
                     (if (or (.startsWith o "on") (property? o))
@@ -147,7 +147,8 @@
                                             new-prop)
                         (aset old n new-prop)))
                     (if (= "style" n)
-                      (let [old-style (.-style old)
+                      (set! (.-style.cssText old) (.-style.cssText new))
+                      #_(let [old-style (.-style old)
                             new-style (.-style new)]
                         (doseq [o old-styles]
                           (when-not (.has new-styles o)
