@@ -121,10 +121,10 @@
               (let [old-attrs (aget old ::attrs)
                     new-attrs (aget new ::attrs)]
                 (doseq [o old-attrs]
-                  (if (or (.startsWith o "on")
-                          (boolean-attr? o))
-                    (aset old o nil)
-                    (.removeAttribute old o)))
+                  (when-not (contains? new-attrs o)
+                    (if (or (.startsWith o "on") (boolean-attr? o))
+                      (aset old o nil)
+                      (.removeAttribute old o))))
                 (doseq [n new-attrs]
                   (if (or (.startsWith n "on")
                           (boolean-attr? n))
