@@ -151,7 +151,7 @@
                         (aset old n new-prop)))
                     (let [new-attr (.getAttribute new n)]
                       (when-not (identical? new-attr (.getAttribute old n))
-                        (.setAttribute old n (.getAttribute new n)))))))
+                        (.setAttribute old n new-attr))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
           :else (.replaceChild parent new old))))))
