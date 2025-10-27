@@ -93,27 +93,29 @@
                          (let [value (aget attrs "value")]
                            (js-delete attrs "value")
                            (aset attrs "value" value)))
-                       (doseq [[k v] (js/Object.entries attrs)]
-                         (if (.startsWith k "on")
-                           (let [event (-> k
-                                           (.replaceAll "-" "")
-                                           (.toLowerCase))]
-                             (aset node event v)
-                             (.add modified-attrs event))
-                           (do
-                             (.add modified-attrs k)
-                             (cond
-                               (and (= "style" k) (object? v))
-                               (do (let [style (reduce
-                                                (fn [s e]
-                                                  (str s (camel->kebab (aget e 0)) ": " (aget e 1) ";"))
-                                                "" (js/Object.entries v))]
-                                     ;; set/get attribute is faster to set, get
-                                     ;; and compare (in patch)than setting
-                                     ;; individual props and using cssText
-                                     (.setAttribute node "style" style)))
-                               (property? k) (aset node k v)
-                               :else (when v (.setAttribute node k v))))))))
+                       (doseq [e (js/Object.entries attrs)]
+                         (let [k (aget e 0)
+                               v (aget e 1)]
+                           (if (.startsWith k "on")
+                             (let [event (-> k
+                                             (.replaceAll "-" "")
+                                             (.toLowerCase))]
+                               (aset node event v)
+                               (.add modified-attrs event))
+                             (do
+                               (.add modified-attrs k)
+                               (cond
+                                 (and (= "style" k) (object? v))
+                                 (do (let [style (reduce
+                                                  (fn [s e]
+                                                    (str s (camel->kebab (aget e 0)) ": " (aget e 1) ";"))
+                                                  "" (js/Object.entries v))]
+                                       ;; set/get attribute is faster to set, get
+                                       ;; and compare (in patch)than setting
+                                       ;; individual props and using cssText
+                                       (.setAttribute node "style" style)))
+                                 (property? k) (aset node k v)
+                                 :else (when v (.setAttribute node k v)))))))))
                    (when (seq classes)
                      (.setAttribute node "class"
                                     (str (when-let [c (.getAttribute node "class")]
