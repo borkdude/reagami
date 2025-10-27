@@ -89,6 +89,8 @@
                    (when attrs
                      (let [#?@(:squint []
                                :cljs [attrs (clj->js attrs)])]
+                       ;; make sure value goes last, since setting value before
+                       ;; min and max attributes doesn't work for input range
                        (when (js-in "value" attrs)
                          (let [value (aget attrs "value")]
                            (js-delete attrs "value")
