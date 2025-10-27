@@ -77,17 +77,23 @@
                    (create-node* res in-svg?))
                  (let [node (if in-svg?
                               (js/document.createElementNS svg-ns tag)
-                              (js/document.createElement tag))]
+                              (js/document.createElement tag))
+                       modified-attrs (js/Set.)]
+                   (aset node ::attrs modified-attrs)
                    (doseq [child children]
                      (let [child-nodes (if (hiccup-seq? child)
                                          (mapv #(create-node* % in-svg?) child)
                                          [(create-node* child in-svg?)])]
                        (doseq [child-node child-nodes]
                          (.appendChild node child-node))))
-                   (let [modified-attrs (js/Set.)]
-                     (doseq [[k v] attrs]
-                       (let [k (name k)
-                             #?@(:squint [] :cljs [v (keyword->str v)])]
+                   (when attrs
+                     (let [#?@(:squint []
+                               :cljs [attrs (clj->js attrs)])]
+                       (when (js-in "value" attrs)
+                         (let [value (aget attrs "value")]
+                           (js-delete attrs "value")
+                           (aset attrs "value" value)))
+                       (doseq [[k v] (js/Object.entries attrs)]
                          (if (.startsWith k "on")
                            (let [event (-> k
                                            (.replaceAll "-" "")
@@ -97,27 +103,26 @@
                            (do
                              (.add modified-attrs k)
                              (cond
-                               (and (= "style" k) (map? v))
-                               (do (let [style (reduce-kv
-                                                (fn [s k v]
-                                                  (str s (camel->kebab (name k)) ": " (name v) ";"))
-                                                "" v)]
+                               (and (= "style" k) (object? v))
+                               (do (let [style (reduce
+                                                (fn [s e]
+                                                  (str s (camel->kebab (aget e 0)) ": " (aget e 1) ";"))
+                                                "" (js/Object.entries v))]
                                      ;; set/get attribute is faster to set, get
                                      ;; and compare (in patch)than setting
                                      ;; individual props and using cssText
                                      (.setAttribute node "style" style)))
                                (property? k) (aset node k v)
-                               :else (when v (.setAttribute node k v)))))))
-                     (when (seq classes)
-                       (.setAttribute node "class"
-                                      (str (when-let [c (.getAttribute node "class")]
-                                             (str c " "))
-                                           (.join classes " ")))
-                       (.add modified-attrs "class"))
-                     (when id
-                       (.setAttribute node "id" id)
-                       (.add modified-attrs "id"))
-                     (aset node ::attrs modified-attrs))
+                               :else (when v (.setAttribute node k v))))))))
+                   (when (seq classes)
+                     (.setAttribute node "class"
+                                    (str (when-let [c (.getAttribute node "class")]
+                                           (str c " "))
+                                         (.join classes " ")))
+                     (.add modified-attrs "class"))
+                   (when id
+                     (.setAttribute node "id" id)
+                     (.add modified-attrs "id"))
                    node))]
       node)
     :else
