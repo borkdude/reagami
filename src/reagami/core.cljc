@@ -1,6 +1,30 @@
 (ns reagami.core
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update!]}}}})
 
+(def timers (js-obj))
+
+(defn time-start [name]
+  (let [t (or (aget timers name)
+              (let [obj #js {:total 0 :count 0 :start 0}]
+                (aset timers name obj)
+                obj))]
+    (aset t "start" (js/performance.now))))
+
+(defn time-end [name]
+  (when-some [t (aget timers name)]
+    (let [delta (- (js/performance.now) (aget t "start"))]
+      (aset t "total" (+ (aget t "total") delta))
+      (aset t "count" (inc (aget t "count"))))))
+
+(defn time-report []
+  (let [rows (into-array [])]
+    (doseq [[name t] (js/Object.entries timers)]
+      (.push rows #js {:name name
+                       :total (str (.toFixed (aget t "total") 2) " ms")
+                       :avg   (str (.toFixed (/ (aget t "total") (aget t "count")) 2) " ms")
+                       :count (aget t "count")}))
+    (js/console.table rows)))
+
 (def svg-ns "http://www.w3.org/2000/svg")
 
 (defn- parse-tag
@@ -73,59 +97,61 @@
                                         (cons attrs children)
                                         children))]
                    (create-node* res in-svg?))
-                 (let [node (if in-svg?
-                              (js/document.createElementNS svg-ns tag)
-                              (js/document.createElement tag))
-                       modified-attrs (js/Set.)]
-                   (aset node ::attrs modified-attrs)
-                   (doseq [child children]
-                     (let [child-nodes (if (hiccup-seq? child)
-                                         (mapv #(create-node* % in-svg?) child)
-                                         [(create-node* child in-svg?)])]
-                       (doseq [child-node child-nodes]
-                         (.appendChild node child-node))))
-                   (when attrs
-                     (let [#?@(:squint []
-                               :cljs [attrs (clj->js attrs)])]
-                       ;; make sure value goes last, since setting value before
-                       ;; min and max attributes doesn't work for input range
-                       (when (js-in "value" attrs)
-                         (let [value (aget attrs "value")]
-                           (js-delete attrs "value")
-                           (aset attrs "value" value)))
-                       (doseq [e (js/Object.entries attrs)]
-                         (let [k (aget e 0)
-                               v (aget e 1)]
-                           (if (.startsWith k "on")
-                             (let [event (-> k
-                                             (.replaceAll "-" "")
-                                             (.toLowerCase))]
-                               (aset node event v)
-                               (.add modified-attrs event))
-                             (do
-                               (.add modified-attrs k)
-                               (cond
-                                 (and (= "style" k) (object? v))
-                                 (do (let [style (reduce
-                                                  (fn [s e]
-                                                    (str s (camel->kebab (aget e 0)) ": " (aget e 1) ";"))
-                                                  "" (js/Object.entries v))]
-                                       ;; set/get attribute is faster to set, get
-                                       ;; and compare (in patch)than setting
-                                       ;; individual props and using cssText
-                                       (.setAttribute node "style" style)))
-                                 (property? k) (aset node k v)
-                                 :else (when v (.setAttribute node k v)))))))))
-                   (when (seq classes)
-                     (.setAttribute node "class"
-                                    (str (when-let [c (.getAttribute node "class")]
-                                           (str c " "))
-                                         (.join classes " ")))
-                     (.add modified-attrs "class"))
-                   (when id
-                     (.setAttribute node "id" id)
-                     (.add modified-attrs "id"))
-                   node))]
+                 (do (time-start "node-create")
+                     (let [node (if in-svg?
+                                  (js/document.createElementNS svg-ns tag)
+                                  (js/document.createElement tag))
+                           modified-attrs (js/Set.)]
+                       (aset node ::attrs modified-attrs)
+                       (doseq [child children]
+                         (let [child-nodes (if (hiccup-seq? child)
+                                             (mapv #(create-node* % in-svg?) child)
+                                             [(create-node* child in-svg?)])]
+                           (doseq [child-node child-nodes]
+                             (.appendChild node child-node))))
+                       (when attrs
+                         (let [#?@(:squint []
+                                   :cljs [attrs (clj->js attrs)])]
+                           ;; make sure value goes last, since setting value before
+                           ;; min and max attributes doesn't work for input range
+                           (when (js-in "value" attrs)
+                             (let [value (aget attrs "value")]
+                               (js-delete attrs "value")
+                               (aset attrs "value" value)))
+                           (doseq [e (js/Object.entries attrs)]
+                             (let [k (aget e 0)
+                                   v (aget e 1)]
+                               (if (.startsWith k "on")
+                                 (let [event (-> k
+                                                 (.replaceAll "-" "")
+                                                 (.toLowerCase))]
+                                   (aset node event v)
+                                   (.add modified-attrs event))
+                                 (do
+                                   (.add modified-attrs k)
+                                   (cond
+                                     (and (= "style" k) (object? v))
+                                     (do (let [style (reduce
+                                                      (fn [s e]
+                                                        (str s (camel->kebab (aget e 0)) ": " (aget e 1) ";"))
+                                                      "" (js/Object.entries v))]
+                                           ;; set/get attribute is faster to set, get
+                                           ;; and compare (in patch)than setting
+                                           ;; individual props and using cssText
+                                           (.setAttribute node "style" style)))
+                                     (property? k) (aset node k v)
+                                     :else (when v (.setAttribute node k v)))))))))
+                       (when (seq classes)
+                         (.setAttribute node "class"
+                                        (str (when-let [c (.getAttribute node "class")]
+                                               (str c " "))
+                                             (.join classes " ")))
+                         (.add modified-attrs "class"))
+                       (when id
+                         (.setAttribute node "id" id)
+                         (.add modified-attrs "id"))
+                       (time-end "node-create")
+                       node)))]
       node)
     :else
     (throw (do
@@ -168,5 +194,10 @@
           :else (.replaceChild parent new old))))))
 
 (defn render [root hiccup]
-  (let [new-node (create-node hiccup)]
-    (patch root #js [new-node])))
+  (time-start "create-node-total")
+  (dotimes [_ 1000]
+    (let [new-node (create-node hiccup)]
+      (patch root #js [new-node])
+      ))
+  (time-end "create-node-total")
+  (time-report))
