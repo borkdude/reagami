@@ -45,6 +45,11 @@
             (fn [m]
               (str "-" (.toLowerCase m)))))
 
+(defn hiccup-seq? [x]
+  (and (not (string? x))
+       (seq? x)
+       (not (vector? x))))
+
 (defn- create-node*
   [hiccup in-svg?]
   (cond
@@ -74,8 +79,7 @@
                               (js/document.createElementNS svg-ns tag)
                               (js/document.createElement tag))]
                    (doseq [child children]
-                     (let [child-nodes (if (and (seq? child)
-                                                (not (vector? child)))
+                     (let [child-nodes (if (hiccup-seq? child)
                                          (mapv #(create-node* % in-svg?) child)
                                          [(create-node* child in-svg?)])]
                        (doseq [child-node child-nodes]
