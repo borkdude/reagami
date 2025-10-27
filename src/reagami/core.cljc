@@ -19,7 +19,10 @@
      (when class-index
        (.substring tag (inc class-index)))]))
 
-(def properties (js/Set. ["value" "checked" "disabled" "selected"]))
+(def properties (js/Set. ["checked" "disabled" "selected"
+                          ;; we don't include value here since this causes issues with Ohm's calculator
+                          ;; https://gist.github.com/borkdude/ff65e3c5a10cb657e7df68aec35defc6
+                          ]))
 
 (defn property? [^js x]
   (.has properties x))
