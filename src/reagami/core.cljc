@@ -84,12 +84,15 @@
                      (doseq [[k v] attrs]
                        (let [k (name k)
                              #?@(:squint [] :cljs [v (keyword->str v)])]
-                         (if (.startsWith k "on")
+                         (cond (.startsWith k "on")
                            (let [event (-> k
                                            (.replaceAll "-" "")
                                            (.toLowerCase))]
                              (aset node event v)
                              (.add modified-attrs event))
+                           (= "ref" k)
+                           (aset node ::ref v)
+                           :else
                            (do
                              (.add modified-attrs k)
                              (cond
@@ -124,10 +127,16 @@
 (defn- create-node [hiccup]
   (create-node* hiccup false))
 
+(defn call-ref [node removed?]
+  (when-let [ref (aget node ::ref)]
+    (if removed? (ref nil) (ref node))))
+
 (defn- patch [^js parent new-children]
   (let [old-children (.-childNodes parent)]
     (if (not= (alength old-children) (alength new-children))
-      (.apply parent.replaceChildren parent new-children)
+      (do (.apply parent.replaceChildren parent new-children)
+          (run! #(call-ref % true) old-children)
+          (run! #(call-ref % false) (.-childNodes parent)))
       (doseq [[^js old ^js new] (mapv vector (array-seq old-children) (array-seq new-children))]
         (cond
           (and old new (= (.-nodeName old) (.-nodeName new)))
@@ -154,7 +163,11 @@
                         (.setAttribute old n new-attr))))))
               (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
-          :else (.replaceChild parent new old))))))
+          :else (do
+                  (.replaceChild parent new old)
+                  (call-ref old true)
+                  (call-ref new false)
+                  #_(call-ref old true)))))))
 
 (defn render [root hiccup]
   (let [new-node (create-node hiccup)]
