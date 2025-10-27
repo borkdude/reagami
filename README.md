@@ -8,13 +8,11 @@ A minimal zero-deps [Reagent](https://github.com/reagent-project/reagent)-like i
 
 ## Usage
 
-Reagami is intended to be used with [Squint](https://github.com/squint-cljs/squint) or ClojureScript.
-
 Quickstart example:
 
 ``` clojure
 (ns my-app
-  (:require ["https://esm.sh/reagami@0.0.11" :as reagami]))
+  (:require ["https://esm.sh/reagami@0.0.16" :as reagami]))
 
 (def state (atom {:counter 0}))
 
@@ -33,32 +31,32 @@ Quickstart example:
 (render)
 ```
 
+([Open this example on the Squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE3VQu27DMAzc%2FRWMssiDH106aAqQT%2BhoGIUqMbXb6BGJahAE%2BffCsmJ0qTiIIO6Od%2BQ2grk10vsKgIuAlzQHhIFNRD6KrsNo2jh1AeWnNPOhb%2Fv25ZWBkBHKbKzrquIaTxBJEgKX5AzchXLJEgboH0%2BAXVYpZ7yzaAmGsQIYhJ5%2FKigNsGNmaQEM%2BCZxyMr1uOI%2BEpGzcBfONuo8q2%2FY83iVflcMJK%2BXb2PPVtWPhQrsmOEGd2wcN1MBrcaw2uElVFeG%2FCt22qlk0FJ7SRhub3hGRS4A20vvWQ3D31DrMaTWzVWSmoojIZ5yJwvDO%2BTKaf59fGXUWa%2F0v9s28ICtAQAA))
+
 In ClojureScript you would add this library to your `deps.edn` `:deps` as follows:
 
 ``` clojure
-io.github.borkdude/reagami {:git/sha "<latest-sha>"}
+io.github.borkdude/reagami {:git/sha "<latest-sha>" :git/tag "<latest-tag>"}
 ```
 
 and then require it with `(:require [reagami.core :as reagami])`.
-
-([Open this example on the Squint playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE3VQu27DMAzc%2FRWMssiDH101BcgnZDSMQpWY2m30iEQ1CIL8e2FZMbpUHEQQd8c7chvB3BvpfQXARcBrmgPCwCYiH0XXYTRtnLqA8lOa%2BdC3ffvWMxAyQpmNdV1VXOMZIklC4JKcgYdQLlnCAP3zBbDLKuWMdxYtwTBWAIPQ808FpQF2zCwtgAHfJA5ZuR5X3EcichYewtlGXWb1DXseb9LvioHk9fJt7Nmq%2BrlQgR0z3OCOjeNmKqDVGFY7vITqypB%2FxU47lQxaaq8Jw%2F2EF1TkArC99J7VMPwNtR5Dat3cJKmpOBLiJXe2MLxDrpzm38dXRp31Sv8LZLQIB60BAAA%3D))
 
 Reagami supports:
 
 - Building small reactive apps with the only dependency being Squint or CLJS. Smallest app with Squint after minification is around 3.5kb gzip.
 - Rendering [hiccup](https://github.com/weavejester/hiccup) into a container DOM node. The only public function is `render`.
-- Event handlers via `:on-click`, `:on-input`, etc. These get translated to `(.addEventListener node "click" f)`.
+- Event handlers via `:on-click`, `:on-input`, etc.
 - Id and class short notation: `[:div#foo.class1.class2]`
 - Disabling properties with `false`: `[:button {:disabled (not true)}]`
 - `:style` maps: `{:style {:background-color :green}}`
 
 Reagami does NOT support:
 
-- Auto-rerendering by watching custom atoms. Instead you use `add-watch` on regular atoms! :)
+- Auto-rerendering by auto-watching custom atoms. Instead you use `add-watch` on regular atoms! :)
 - Local state and form-2 components
 - React hooks (it doesn't use React)
 
-Reagami uses a very basic patching algorithm explained in [this](https://blog.michielborkent.nl/reagami.html) blog
+Reagami uses a basic patching algorithm explained in [this](https://blog.michielborkent.nl/reagami.html) blog
 post. It may become more advanced in the future, but the (fun) point of this
 library at this point is that it's small, underengineered and thus suited for
 educational purposes.
