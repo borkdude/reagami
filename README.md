@@ -52,7 +52,8 @@ Reagami supports:
 
 Reagami does NOT support:
 
-- Auto-rerendering by auto-watching custom atoms. Instead you use `add-watch` on regular atoms! :)
+- Auto-rerendering by auto-watching custom atoms. Instead you use `add-watch` +
+  `render` on regular atoms or you call `render` yourself.
 - Local state and form-2 components
 - React hooks (it doesn't use React)
 
