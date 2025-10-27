@@ -4,3 +4,4 @@ node_modules
 !reagami.mjs
 .shadow-cljs
 lib
+dist
