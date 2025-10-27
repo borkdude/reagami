@@ -74,7 +74,8 @@
                               (js/document.createElementNS svg-ns tag)
                               (js/document.createElement tag))]
                    (doseq [child children]
-                     (let [child-nodes (if (and (seq? child)
+                     (let [child-nodes (if (and (not (string? child))
+                                                (seq? child)
                                                 (not (vector? child)))
                                          (mapv #(create-node* % in-svg?) child)
                                          [(create-node* child in-svg?)])]
@@ -127,16 +128,17 @@
 (defn- create-node [hiccup]
   (create-node* hiccup false))
 
-(defn call-ref [node removed?]
-  (when-let [ref (aget node ::ref)]
-    (if removed? (ref nil) (ref node))))
+(defn on-mount [node]
+  (time (do (when-let [ref (aget node ::ref)]
+             (ref node))
+           (run! on-mount (.-childNodes node)))))
 
 (defn- patch [^js parent new-children]
   (let [old-children (.-childNodes parent)]
     (if (not= (alength old-children) (alength new-children))
       (do (.apply parent.replaceChildren parent new-children)
-          (run! #(call-ref % true) old-children)
-          (run! #(call-ref % false) (.-childNodes parent)))
+          (doseq [child (array-seq (.-childNodes parent))]
+            (on-mount child)))
       (doseq [[^js old ^js new] (mapv vector (array-seq old-children) (array-seq new-children))]
         (cond
           (and old new (= (.-nodeName old) (.-nodeName new)))
@@ -165,9 +167,7 @@
                 (patch old new-children))))
           :else (do
                   (.replaceChild parent new old)
-                  (call-ref old true)
-                  (call-ref new false)
-                  #_(call-ref old true)))))))
+                  (on-mount new)))))))
 
 (defn render [root hiccup]
   (let [new-node (create-node hiccup)]
