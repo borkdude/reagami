@@ -74,7 +74,9 @@
                                         children))]
                    (create-vnode* res in-svg?))
                  (let [new-children #js []
-                       node #js {:type :element :svg in-svg? :tag (.toUpperCase tag) :children new-children}
+                       node #js {:type :element :svg in-svg? :tag (if in-svg?
+                                                                    tag
+                                                                    (.toUpperCase tag)) :children new-children}
                        modified-attrs (js/Set.)]
                    (aset node ::attrs modified-attrs)
                    (doseq [child children]
@@ -142,6 +144,7 @@
                  (js/document.createElementNS svg-ns tag)
                  (js/document.createElement tag))
           attrs (aget vnode ::attrs)]
+      (aset node ::attrs attrs)
       (doseq [attr attrs]
         (when-let [v (aget vnode attr)]
           (if (or (.startsWith attr "on")
@@ -187,6 +190,5 @@
           :else (.replaceChild parent (create-node new) old))))))
 
 (defn render [root hiccup]
-  (time (dotimes [i 10]
-          (let [new-node (create-vnode hiccup)]
-            (patch root #js [new-node])))))
+  (let [new-node (create-vnode hiccup)]
+    (patch root #js [new-node])))
