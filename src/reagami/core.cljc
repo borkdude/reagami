@@ -55,7 +55,8 @@
         (string? hiccup)
         (number? hiccup)
         (boolean? hiccup))
-    #js {:text (str hiccup)}
+    #js {:tag "#text"
+         :text (str hiccup)}
     (vector? hiccup)
     (let [[tag & children] hiccup
           #?@(:squint []
@@ -163,33 +164,33 @@
     (if (not= (alength old-children) (count new-children))
       (.apply parent.replaceChildren parent (.map new-children create-node))
       (doseq [[^js old ^js new] (mapv vector (array-seq old-children) new-children)]
-        (cond
-          (and old new (= (.-nodeName old) (aget new "tag")))
-          (if (= 3 (.-nodeType old))
-            (let [txt (aget new "text")]
-              (set! (.-textContent old) txt))
-            (do
-              (let [^js old-attrs (aget old ::attrs)
-                    ^js new-attrs (aget new ::attrs)]
-                (doseq [o old-attrs]
-                  (when-not (.has new-attrs o)
-                    (if (or (.startsWith o "on") (property? o))
-                      (aset old o nil)
-                      (.removeAttribute old o))))
-                (doseq [n new-attrs]
-                  (if (or (.startsWith n "on")
-                          (property? n))
-                    (let [new-prop (aget new n)
-                          new-prop (if (undefined? new-prop) nil new-prop)]
-                      (when-not (identical? (aget old n)
-                                            new-prop)
-                        (aset old n new-prop)))
-                    (let [new-attr (aget new n)]
-                      (when-not (identical? new-attr (.getAttribute old n))
-                        (.setAttribute old n new-attr))))))
-              (when-let [new-children (aget new "children")]
-                (patch old new-children))))
-          :else (.replaceChild parent (create-node new) old))))))
+        (let [tag (aget new "tag")]
+          (cond
+            (and old new (= tag (.-nodeName old)))
+            (if (= 3 (.-nodeType old))
+              (set! (.-textContent old) (aget new "text"))
+              (do
+                (let [^js old-attrs (aget old ::attrs)
+                      ^js new-attrs (aget new ::attrs)]
+                  (doseq [o old-attrs]
+                    (when-not (.has new-attrs o)
+                      (if (or (.startsWith o "on") (property? o))
+                        (aset old o nil)
+                        (.removeAttribute old o))))
+                  (doseq [n new-attrs]
+                    (if (or (.startsWith n "on")
+                            (property? n))
+                      (let [new-prop (aget new n)
+                            new-prop (if (undefined? new-prop) nil new-prop)]
+                        (when-not (identical? (aget old n)
+                                              new-prop)
+                          (aset old n new-prop)))
+                      (let [new-attr (aget new n)]
+                        (when-not (identical? new-attr (.getAttribute old n))
+                          (.setAttribute old n new-attr))))))
+                (when-let [new-children (aget new "children")]
+                  (patch old new-children))))
+            :else (.replaceChild parent (create-node new) old)))))))
 
 (defn render [root hiccup]
   (let [new-node (create-vnode hiccup)]
