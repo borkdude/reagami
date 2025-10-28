@@ -187,5 +187,6 @@
           :else (.replaceChild parent (create-node new) old))))))
 
 (defn render [root hiccup]
-  (let [new-node (create-vnode hiccup)]
-    (patch root #js [new-node])))
+  (time (dotimes [i 10]
+          (let [new-node (create-vnode hiccup)]
+            (patch root #js [new-node])))))
