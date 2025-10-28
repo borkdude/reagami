@@ -1,5 +1,5 @@
 (ns reagami.core
-  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update!]}}}})
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update! js-??]}}}})
 
 (def svg-ns "http://www.w3.org/2000/svg")
 
@@ -81,6 +81,7 @@
                    (aset node ::attrs modified-attrs)
                    (doseq [child children]
                      (let [child-nodes (if (hiccup-seq? child)
+                                         ;; TODO: optimize this
                                          (mapv #(create-vnode* % in-svg?) child)
                                          [(create-vnode* child in-svg?)])]
                        (doseq [child-node child-nodes]
@@ -159,9 +160,9 @@
 
 (defn- patch [^js parent new-children]
   (let [old-children (.-childNodes parent)]
-    (if (not= (alength old-children) (alength new-children))
-      (.apply parent.replaceChildren parent (mapv create-node new-children))
-      (doseq [[^js old ^js new] (mapv vector (array-seq old-children) (array-seq new-children))]
+    (if (not= (alength old-children) (count new-children))
+      (.apply parent.replaceChildren parent (.map new-children create-node))
+      (doseq [[^js old ^js new] (mapv vector (array-seq old-children) new-children)]
         (cond
           (and old new (= (.-nodeName old) (aget new "tag")))
           (if (= 3 (.-nodeType old))
@@ -178,7 +179,8 @@
                 (doseq [n new-attrs]
                   (if (or (.startsWith n "on")
                           (property? n))
-                    (let [new-prop (aget new n)]
+                    (let [new-prop (aget new n)
+                          new-prop (if (undefined? new-prop) nil new-prop)]
                       (when-not (identical? (aget old n)
                                             new-prop)
                         (aset old n new-prop)))
