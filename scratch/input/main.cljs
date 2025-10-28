@@ -5,7 +5,7 @@
 (def state (atom {:counter 0 :show true}))
 
 (defn ui []
-  [:div
+  [:div#ui
    [:button {:on-click #(swap! state update :show not)}
     "Show? " (:show @state)]
    (when (:show @state)

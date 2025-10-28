@@ -1,4 +1,4 @@
-(ns reagami.core
+(ns reagami.old
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update!]}}}})
 
 (def svg-ns "http://www.w3.org/2000/svg")
@@ -48,14 +48,14 @@
        (seq? x)
        (not (vector? x))))
 
-(defn- create-vnode*
+(defn- create-node*
   [hiccup in-svg?]
   (cond
     (or (nil? hiccup)
         (string? hiccup)
         (number? hiccup)
         (boolean? hiccup))
-    #js {:text (str hiccup)}
+    (js/document.createTextNode (str hiccup))
     (vector? hiccup)
     (let [[tag & children] hiccup
           #?@(:squint []
@@ -72,19 +72,18 @@
                  (let [res (apply tag (if attrs
                                         (cons attrs children)
                                         children))]
-                   (create-vnode* res in-svg?))
-                 (let [new-children #js []
-                       node #js {:type :element :svg in-svg? :tag (if in-svg?
-                                                                    tag
-                                                                    (.toUpperCase tag)) :children new-children}
+                   (create-node* res in-svg?))
+                 (let [node (if in-svg?
+                              (js/document.createElementNS svg-ns tag)
+                              (js/document.createElement tag))
                        modified-attrs (js/Set.)]
                    (aset node ::attrs modified-attrs)
                    (doseq [child children]
                      (let [child-nodes (if (hiccup-seq? child)
-                                         (mapv #(create-vnode* % in-svg?) child)
-                                         [(create-vnode* child in-svg?)])]
+                                         (mapv #(create-node* % in-svg?) child)
+                                         [(create-node* child in-svg?)])]
                        (doseq [child-node child-nodes]
-                         (.push new-children child-node))))
+                         (.appendChild node child-node))))
                    (when attrs
                      (let [#?@(:squint []
                                :cljs [attrs (clj->js attrs)])]
@@ -114,17 +113,17 @@
                                        ;; set/get attribute is faster to set, get
                                        ;; and compare (in patch)than setting
                                        ;; individual props and using cssText
-                                       (aset node "style" style)))
+                                       (.setAttribute node "style" style)))
                                  (property? k) (aset node k v)
-                                 :else (when v (aset node k v)))))))))
+                                 :else (when v (.setAttribute node k v)))))))))
                    (when (seq classes)
-                     (aset node "class"
-                                    (str (when-let [c (aget node "class")]
+                     (.setAttribute node "class"
+                                    (str (when-let [c (.getAttribute node "class")]
                                            (str c " "))
                                          (.join classes " ")))
                      (.add modified-attrs "class"))
                    (when id
-                     (aset node "id" id)
+                     (.setAttribute node "id" id)
                      (.add modified-attrs "id"))
                    node))]
       node)
@@ -133,39 +132,18 @@
              (js/console.error "Invalid hiccup:" hiccup)
              (js/Error. (str "Invalid hiccup: " hiccup))))))
 
-(defn- create-vnode [hiccup]
-  (create-vnode* hiccup false))
-
-(defn create-node [vnode]
-  (if-let [text (aget vnode "text")]
-    (js/document.createTextNode text)
-    (let [tag (aget vnode "tag")
-          node (if (aget vnode "svg")
-                 (js/document.createElementNS svg-ns tag)
-                 (js/document.createElement tag))
-          attrs (aget vnode ::attrs)]
-      (aset node ::attrs attrs)
-      (doseq [attr attrs]
-        (when-let [v (aget vnode attr)]
-          (if (or (.startsWith attr "on")
-                  (property? attr))
-            (aset node attr v)
-            (.setAttribute node attr v))))
-      (when-let [children (aget vnode "children")]
-        (when (pos? (alength children))
-          (doseq [child children]
-            (.appendChild node (create-node child)))))
-      node)))
+(defn- create-node [hiccup]
+  (create-node* hiccup false))
 
 (defn- patch [^js parent new-children]
   (let [old-children (.-childNodes parent)]
     (if (not= (alength old-children) (alength new-children))
-      (.apply parent.replaceChildren parent (mapv create-node new-children))
+      (.apply parent.replaceChildren parent new-children)
       (doseq [[^js old ^js new] (mapv vector (array-seq old-children) (array-seq new-children))]
         (cond
-          (and old new (= (.-nodeName old) (aget new "tag")))
+          (and old new (= (.-nodeName old) (.-nodeName new)))
           (if (= 3 (.-nodeType old))
-            (let [txt (aget new "text")]
+            (let [txt (.-textContent new)]
               (set! (.-textContent old) txt))
             (do
               (let [^js old-attrs (aget old ::attrs)
@@ -182,13 +160,13 @@
                       (when-not (identical? (aget old n)
                                             new-prop)
                         (aset old n new-prop)))
-                    (let [new-attr (aget new n)]
+                    (let [new-attr (.getAttribute new n)]
                       (when-not (identical? new-attr (.getAttribute old n))
                         (.setAttribute old n new-attr))))))
-              (when-let [new-children (aget new "children")]
+              (when-let [new-children (.-childNodes new)]
                 (patch old new-children))))
-          :else (.replaceChild parent (create-node new) old))))))
+          :else (.replaceChild parent new old))))))
 
 (defn render [root hiccup]
-  (let [new-node (create-vnode hiccup)]
+  (let [new-node (create-node hiccup)]
     (patch root #js [new-node])))
