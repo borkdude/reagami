@@ -1,0 +1,9 @@
+{:tasks {install {:task (shell "pnpm install")}
+         dev {:depends [install]
+              :task (shell "pnpm watch")}
+         test {:depends [install]
+               :task (shell "pnpm test")}
+         publish {:depends [test]
+                  :task (do (shell "pnpm build")
+                            (shell "pnpm version patch")
+                            (shell "git push --follow-tags"))}}}
