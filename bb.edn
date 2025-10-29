@@ -4,6 +4,6 @@
          test {:depends [install]
                :task (shell "pnpm test")}
          publish {:depends [test]
-                  :task (do (shell "pnpm build")
-                            (shell "pnpm version patch")
+                  :task (do (shell "pnpm version patch")
+                            (shell "pnpm publish")
                             (shell "git push --follow-tags"))}}}
