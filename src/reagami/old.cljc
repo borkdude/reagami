@@ -167,7 +167,7 @@
         (let [tag (aget new "tag")]
           (cond
             (and old new (= tag (.-nodeName old)))
-            (if (= "#text" tag)
+            (if (= 3 (.-nodeType old))
               (set! (.-textContent old) (aget new "text"))
               (do
                 (let [^js old-attrs (aget old ::attrs)

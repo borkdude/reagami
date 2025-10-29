@@ -13,7 +13,7 @@
 
 (defn hiccup []
   [:div.app
-   (for [i (range 1000)]
+   (for [i (range 100)]
      [:div.item {:style {:color (if (odd? i) "red" "blue")}}
       "Item " i " " (:text @state)
       [:button {:on-click #(swap! state update :text str "x")}
@@ -31,8 +31,8 @@
     (new/render container2 (hiccup))
 
     (js/console.log "Benchmarking...")
-    (let [old-time (measure "Old renderer" #(dotimes [_ 20] (old/render container1 (hiccup))))
-          new-time (measure "New renderer" #(dotimes [_ 20] (new/render container2 (hiccup))))]
+    (let [new-time (measure "New renderer" #(dotimes [_ 1] (new/render container2 (hiccup))))
+          old-time (measure "Old renderer" #(dotimes [_ 1] (old/render container1 (hiccup))))]
       (js/console.log "Speedup:" (/ old-time new-time) "× faster"))))
 
 (add-watch state ::state benchmark)
