@@ -31,9 +31,8 @@
     (new/render container2 (hiccup))
 
     (js/console.log "Benchmarking...")
-    (let [new-time (measure "New renderer" #(dotimes [_ 100] (new/render container2 (hiccup))))
-          old-time (measure "Old renderer" #(dotimes [_ 100] (old/render container1 (hiccup))))
-          ]
+    (let [new-time (measure "New renderer" #(dotimes [_ 1] (new/render container2 (hiccup))))
+          old-time (measure "Old renderer" #(dotimes [_ 1] (old/render container1 (hiccup))))]
       (js/console.log "Speedup:" (/ old-time new-time) "× faster"))))
 
 (add-watch state ::state benchmark)

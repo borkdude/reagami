@@ -81,12 +81,10 @@
                        modified-attrs (js/Set.)]
                    (aset node ::attrs modified-attrs)
                    (doseq [child children]
-                     (let [child-nodes (if (hiccup-seq? child)
-                                         ;; TODO: optimize this
-                                         (mapv #(create-vnode* % in-svg?) child)
-                                         [(create-vnode* child in-svg?)])]
-                       (doseq [child-node child-nodes]
-                         (.push new-children child-node))))
+                     (if (hiccup-seq? child)
+                       (doseq [x child]
+                         (.push new-children (create-vnode* x in-svg?)))
+                       (.push new-children (create-vnode* child in-svg?))))
                    (when attrs
                      (let [#?@(:squint []
                                :cljs [attrs (clj->js attrs)])]
