@@ -81,12 +81,10 @@
                        modified-attrs (js/Set.)]
                    (aset node ::attrs modified-attrs)
                    (doseq [child children]
-                     (let [child-nodes (if (hiccup-seq? child)
-                                         ;; TODO: optimize this
-                                         (mapv #(create-vnode* % in-svg?) child)
-                                         [(create-vnode* child in-svg?)])]
-                       (doseq [child-node child-nodes]
-                         (.push new-children child-node))))
+                     (if (hiccup-seq? child)
+                       (doseq [x child]
+                         (.push new-children (create-vnode* x in-svg?)))
+                       (.push new-children (create-vnode* child in-svg?))))
                    (when attrs
                      (let [#?@(:squint []
                                :cljs [attrs (clj->js attrs)])]
@@ -160,15 +158,20 @@
       node)))
 
 (defn- patch [^js parent new-children]
-  (let [old-children (.-childNodes parent)]
-    (if (not= (alength old-children) (count new-children))
+  (let [old-children (.-childNodes parent)
+        new-children-count (count new-children)]
+    (if (not (== (alength old-children) new-children-count))
       (.apply parent.replaceChildren parent (.map new-children create-node))
-      (doseq [[^js old ^js new] (mapv vector (array-seq old-children) new-children)]
-        (let [tag (aget new "tag")]
-          (cond
-            (and old new (= tag (.-nodeName old)))
-            (if (= 3 (.-nodeType old))
-              (set! (.-textContent old) (aget new "text"))
+      (dotimes [i new-children-count]
+        (let [^js old (aget old-children i)
+              ^js new (aget new-children i)
+              txt (aget new "text")]
+          (let [tag (aget new "tag")]
+            (cond
+              (and (== 3 (.-nodeType old)) txt)
+              (when-not (identical? txt (.-textContent old))
+                (set! (.-textContent old) txt))
+              (and old new (= tag (.-nodeName old)))
               (do
                 (let [^js old-attrs (aget old ::attrs)
                       ^js new-attrs (aget new ::attrs)]
@@ -189,8 +192,8 @@
                         (when-not (identical? new-attr (.getAttribute old n))
                           (.setAttribute old n new-attr))))))
                 (when-let [new-children (aget new "children")]
-                  (patch old new-children))))
-            :else (.replaceChild parent (create-node new) old)))))))
+                  (patch old new-children)))
+              :else (.replaceChild parent (create-node new) old))))))))
 
 (defn render [root hiccup]
   (let [new-node (create-vnode hiccup)]
