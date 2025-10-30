@@ -1,7 +1,6 @@
 (ns main
   (:require
-   ["../../reagami.mjs" :as r]))
-
+   ["../../lib/reagami/core.mjs" :as r]))
 
 (defn rand
   "Returns a random floating point number between 0 (inclusive) and

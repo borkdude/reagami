@@ -10,15 +10,19 @@
     (println "✓ render test passed")))
 
 (defn class-test []
-  (let [el (js/document.createElement "div")]
+  (let [el (js/document.createElement "div")
+        ref (atom nil)]
     (reagami/render el [:div#myid.class1.class2 {:class :myclass}
                         "hello"])
+    (reset! ref (.querySelector el "#myid"))
     (assert/strictEqual (.-innerHTML el) "<div class=\"myclass class1 class2\" id=\"myid\">hello</div>")
     (reagami/render el [:div#myid.class1.class2
                         "hello"])
+    (assert/equal @ref (.querySelector el "#myid"))
     (assert/strictEqual (.-innerHTML el) "<div class=\"class1 class2\" id=\"myid\">hello</div>")
     (reagami/render el [:div.class1.class2
                         "hello"])
+    (assert/equal @ref (.querySelector el ".class1"))
     (assert/strictEqual (.-innerHTML el) "<div class=\"class1 class2\">hello</div>")
     (println "✓ class test passed")))
 
