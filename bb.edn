@@ -1,4 +1,6 @@
-{:tasks {install {:task (shell "pnpm install")}
+{:tasks {:requires ([babashka.fs :as fs]
+                    [clojure.string :as str])
+         install {:task (shell "pnpm install")}
          dev {:depends [install]
               :task (shell "pnpm watch")}
          test {:depends [install]
@@ -6,4 +8,7 @@
          publish {:depends [test]
                   :task (do (shell "pnpm version patch")
                             (shell "pnpm publish")
-                            (shell "git push --follow-tags"))}}}
+                            (shell "git push --follow-tags"))}
+         swap-old {:task (let [current (slurp "src/reagami/core.cljc")
+                               with-old-ns (str/replace current "reagami.core" "reagami.old")]
+                           (spit "src/reagami/old.cljc" with-old-ns))}}}
