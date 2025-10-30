@@ -118,7 +118,7 @@
                                  (property? k) (aset modified-props k v)
                                  :else (when v
                                          ;; not adding means it will be removed on new render
-                                         (aset modified-attrs k (str v))))))))))
+                                         (aset modified-attrs k v)))))))))
                    (when (seq classes)
                      (aset modified-attrs "class"
                            (str (when-let [c (aget modified-attrs "class")]
@@ -194,13 +194,11 @@
                   (doseq [n (js/Object.getOwnPropertyNames new-props)]
                     (let [new-prop (aget new-props n)
                           new-prop (if (undefined? new-prop) nil new-prop)]
-                      (when-not (identical? (aget old n)
-                                            new-prop)
-                        ;; (prn :patch n)
+                      (when-not (identical? (aget old-attrs n) new-prop)
                         (aset old n new-prop))))
                   (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
                     (let [new-attr (aget new-attrs n)]
-                      (when-not (identical? new-attr (.getAttribute old n))
+                      (when-not (identical? new-attr (aget old-attrs n))
                         (.setAttribute old n new-attr)))))
                 (when-let [new-children (aget new-vnode "children")]
                   (patch old new-children)))
