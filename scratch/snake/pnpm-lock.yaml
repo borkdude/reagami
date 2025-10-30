@@ -16,7 +16,7 @@ importers:
         version: 0.0.15
       squint-cljs:
         specifier: latest
-        version: 0.9.176
+        version: 0.9.177
       vite:
         specifier: ^7.1.7
         version: 7.1.12
@@ -428,8 +428,8 @@ packages:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
-  squint-cljs@0.9.176:
-    resolution: {integrity: sha512-HjUSrmK+pFhMLYGPDWymiuWZyxlVpe9foPChFfCV792Fb7QVueQ0o9HS1gXcX5SC17w3NnCVCozc0GUZldwm7Q==}
+  squint-cljs@0.9.177:
+    resolution: {integrity: sha512-Za/QC5XVnAXyUDuxC9dwYP6oWTHbGnp0zd9RGIK0aKLfEuvyjlKu6GGo2DihTerSWbFk7LVO8EZNZIIeEiQZPw==}
     hasBin: true
 
   string-width@4.2.3:
@@ -827,7 +827,7 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
-  squint-cljs@0.9.176:
+  squint-cljs@0.9.177:
     dependencies:
       chokidar: 4.0.3
 
