@@ -201,7 +201,6 @@
                   (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
                     (let [new-attr (aget new-attrs n)]
                       (when-not (identical? new-attr (.getAttribute old n))
-                        ;; (prn :patch n new-attr (.getAttribute old n) (identical? new-attr (.getAttribute old n)))
                         (.setAttribute old n new-attr)))))
                 (when-let [new-children (aget new-vnode "children")]
                   (patch old new-children)))
