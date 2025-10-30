@@ -78,7 +78,9 @@
                        node #js {:type :element :svg in-svg? :tag (if in-svg?
                                                                     tag
                                                                     (.toUpperCase tag)) :children new-children}
-                       modified-attrs (js/Set.)]
+                       modified-props #js {}
+                       modified-attrs #js {}]
+                   (aset node ::props modified-props)
                    (aset node ::attrs modified-attrs)
                    (doseq [child children]
                      (if (hiccup-seq? child)
@@ -101,10 +103,8 @@
                              (let [event (-> k
                                              (.replaceAll "-" "")
                                              (.toLowerCase))]
-                               (aset node event v)
-                               (.add modified-attrs event))
+                               (aset modified-props event v))
                              (do
-                               (.add modified-attrs k)
                                (cond
                                  (and (= "style" k) (object? v))
                                  (do (let [style (reduce
@@ -114,18 +114,18 @@
                                        ;; set/get attribute is faster to set, get
                                        ;; and compare (in patch)than setting
                                        ;; individual props and using cssText
-                                       (aset node "style" style)))
-                                 (property? k) (aset node k v)
-                                 :else (when v (aset node k v)))))))))
+                                       (aset modified-attrs "style" style)))
+                                 (property? k) (aset modified-props k v)
+                                 :else (when v
+                                         ;; not adding means it will be removed on new render
+                                         (aset modified-attrs k (str v))))))))))
                    (when (seq classes)
-                     (aset node "class"
-                                    (str (when-let [c (aget node "class")]
-                                           (str c " "))
-                                         (.join classes " ")))
-                     (.add modified-attrs "class"))
+                     (aset modified-attrs "class"
+                           (str (when-let [c (aget modified-attrs "class")]
+                                  (str c " "))
+                                (.join classes " "))))
                    (when id
-                     (aset node "id" id)
-                     (.add modified-attrs "id"))
+                     (aset modified-attrs "id" id))
                    node))]
       node)
     :else
@@ -143,14 +143,17 @@
                node (if (aget vnode "svg")
                       (js/document.createElementNS svg-ns tag)
                       (js/document.createElement tag))
+               props (aget vnode ::props)
                attrs (aget vnode ::attrs)]
+           (aset node ::props props)
            (aset node ::attrs attrs)
-           (doseq [attr attrs]
-             (when-let [v (aget vnode attr)]
-               (if (or (.startsWith attr "on")
-                       (property? attr))
-                 (aset node attr v)
-                 (.setAttribute node attr v))))
+           (doseq [n (js/Object.getOwnPropertyNames props)]
+             (let [new-prop (aget props n)
+                   new-prop (if (undefined? new-prop) nil new-prop)]
+               (aset node n new-prop)))
+           (doseq [n (js/Object.getOwnPropertyNames attrs)]
+             (let [new-attr (aget attrs n)]
+               (.setAttribute node n new-attr)))
            (when-let [children (aget vnode "children")]
              (when (pos? (alength children))
                (doseq [child children]
@@ -178,24 +181,28 @@
               (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
               (do
                 (aset old ::vnode new-vnode)
-                (let [^js old-attrs (aget old ::attrs)
+                (let [^js old-props (aget old-vnode ::props)
+                      ^js old-attrs (aget old-vnode ::attrs)
+                      ^js new-props (aget new-vnode ::props)
                       ^js new-attrs (aget new-vnode ::attrs)]
-                  (doseq [o old-attrs]
-                    (when-not (.has new-attrs o)
-                      (if (or (.startsWith o "on") (property? o))
-                        (aset old o nil)
-                        (.removeAttribute old o))))
-                  (doseq [n new-attrs]
-                    (if (or (.startsWith n "on")
-                            (property? n))
-                      (let [new-prop (aget new-vnode n)
-                            new-prop (if (undefined? new-prop) nil new-prop)]
-                        (when-not (identical? (aget old n)
-                                              new-prop)
-                          (aset old n new-prop)))
-                      (let [new-attr (aget new-vnode n)]
-                        (when-not (identical? new-attr (.getAttribute old n))
-                          (.setAttribute old n new-attr))))))
+                  (doseq [o (js/Object.getOwnPropertyNames old-props)]
+                    (when-not (js-in o new-props)
+                      (aset old o nil)))
+                  (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
+                    (when-not (js-in o new-attrs)
+                      (.removeAttribute old o)))
+                  (doseq [n (js/Object.getOwnPropertyNames new-props)]
+                    (let [new-prop (aget new-props n)
+                          new-prop (if (undefined? new-prop) nil new-prop)]
+                      (when-not (identical? (aget old n)
+                                            new-prop)
+                        ;; (prn :patch n)
+                        (aset old n new-prop))))
+                  (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
+                    (let [new-attr (aget new-attrs n)]
+                      (when-not (identical? new-attr (.getAttribute old n))
+                        ;; (prn :patch n new-attr (.getAttribute old n) (identical? new-attr (.getAttribute old n)))
+                        (.setAttribute old n new-attr)))))
                 (when-let [new-children (aget new-vnode "children")]
                   (patch old new-children)))
               :else (.replaceChild parent (create-node new-vnode) old))))))))
