@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       squint-cljs:
-        specifier: ^0.9.176
-        version: 0.9.176
+        specifier: ^0.9.177
+        version: 0.9.177
     devDependencies:
       concurrently:
         specifier: ^9.2.1
@@ -446,8 +446,8 @@ packages:
     resolution: {integrity: sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==}
     engines: {node: '>=0.10.0'}
 
-  squint-cljs@0.9.176:
-    resolution: {integrity: sha512-HjUSrmK+pFhMLYGPDWymiuWZyxlVpe9foPChFfCV792Fb7QVueQ0o9HS1gXcX5SC17w3NnCVCozc0GUZldwm7Q==}
+  squint-cljs@0.9.177:
+    resolution: {integrity: sha512-Za/QC5XVnAXyUDuxC9dwYP6oWTHbGnp0zd9RGIK0aKLfEuvyjlKu6GGo2DihTerSWbFk7LVO8EZNZIIeEiQZPw==}
     hasBin: true
 
   string-width@4.2.3:
@@ -915,7 +915,7 @@ snapshots:
 
   source-map@0.6.1: {}
 
-  squint-cljs@0.9.176:
+  squint-cljs@0.9.177:
     dependencies:
       chokidar: 4.0.3
 

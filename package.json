@@ -2,7 +2,7 @@
   "name": "reagami",
   "version": "0.0.26",
   "dependencies": {
-    "squint-cljs": "^0.9.176"
+    "squint-cljs": "^0.9.177"
   },
   "type": "module",
   "main": "reagami.mjs",
