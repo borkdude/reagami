@@ -145,15 +145,14 @@
                       (js/document.createElement tag))
                props (aget vnode ::props)
                attrs (aget vnode ::attrs)]
-           (aset node ::props props)
-           (aset node ::attrs attrs)
+           ;; always make sure to first set attrs, then props because value should go last
+           (doseq [n (js/Object.getOwnPropertyNames attrs)]
+             (let [new-attr (aget attrs n)]
+               (.setAttribute node n new-attr)))
            (doseq [n (js/Object.getOwnPropertyNames props)]
              (let [new-prop (aget props n)
                    new-prop (if (undefined? new-prop) nil new-prop)]
                (aset node n new-prop)))
-           (doseq [n (js/Object.getOwnPropertyNames attrs)]
-             (let [new-attr (aget attrs n)]
-               (.setAttribute node n new-attr)))
            (when-let [children (aget vnode "children")]
              (when (pos? (alength children))
                (doseq [child children]
@@ -191,15 +190,16 @@
                   (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
                     (when-not (js-in o new-attrs)
                       (.removeAttribute old o)))
+                  ;; always make sure to first set attrs, then props because value should go last
+                  (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
+                    (let [new-attr (aget new-attrs n)]
+                      (when-not (identical? new-attr (aget old-attrs n))
+                        (.setAttribute old n new-attr))))
                   (doseq [n (js/Object.getOwnPropertyNames new-props)]
                     (let [new-prop (aget new-props n)
                           new-prop (if (undefined? new-prop) nil new-prop)]
                       (when-not (identical? (aget old-attrs n) new-prop)
-                        (aset old n new-prop))))
-                  (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
-                    (let [new-attr (aget new-attrs n)]
-                      (when-not (identical? new-attr (aget old-attrs n))
-                        (.setAttribute old n new-attr)))))
+                        (aset old n new-prop)))))
                 (when-let [new-children (aget new-vnode "children")]
                   (patch old new-children)))
               :else (.replaceChild parent (create-node new-vnode) old))))))))
