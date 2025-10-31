@@ -198,7 +198,7 @@
                   (doseq [n (js/Object.getOwnPropertyNames new-props)]
                     (let [new-prop (aget new-props n)
                           new-prop (if (undefined? new-prop) nil new-prop)]
-                      (when-not (identical? (aget old-attrs n) new-prop)
+                      (when-not (identical? (aget old-props n) new-prop)
                         (aset old n new-prop)))))
                 (when-let [new-children (aget new-vnode "children")]
                   (patch old new-children)))
