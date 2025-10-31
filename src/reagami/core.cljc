@@ -75,9 +75,11 @@
                                         children))]
                    (create-vnode* res in-svg?))
                  (let [new-children #js []
-                       node #js {:type :element :svg in-svg? :tag (if in-svg?
-                                                                    tag
-                                                                    (.toUpperCase tag)) :children new-children}
+                       node #js {:type :element :svg in-svg?
+                                 :tag (if in-svg?
+                                        tag
+                                        (.toUpperCase tag))
+                                 :children new-children}
                        modified-props #js {}
                        modified-attrs #js {}]
                    (aset node ::props modified-props)
@@ -99,11 +101,13 @@
                        (doseq [e (js/Object.entries attrs)]
                          (let [k (aget e 0)
                                v (aget e 1)]
-                           (if (.startsWith k "on")
+                           (cond (.startsWith k "on")
                              (let [event (-> k
                                              (.replaceAll "-" "")
                                              (.toLowerCase))]
                                (aset modified-props event v))
+                             (= "ref" k) (aset node ::ref v)
+                             :else
                              (do
                                (cond
                                  (and (= "style" k) (object? v))
@@ -160,11 +164,42 @@
            node))
     (aset ::vnode vnode)))
 
+(defn- call-ref [vnode dom-node]
+  (when-let [ref-fn (aget vnode ::ref)]
+    (ref-fn dom-node)))
+
+(defn- unmount! [^js node]
+  (when-let [vnode (aget node ::vnode)]
+    ;; call nil on this node
+    (call-ref vnode nil)
+    ;; recurse on children
+    (doseq [child (.-childNodes node)]
+      (unmount! child))))
+
+(defn- onmount! [^js node]
+  (let [vnode (aget node ::vnode)]
+    ;; call nil on this node
+    (call-ref vnode node)
+    ;; recurse on children
+    (doseq [child (.-childNodes node)]
+      (onmount! child))))
+
+(prn :dude)
+
 (defn- patch [^js parent new-children]
-  (let [old-children (.-childNodes parent)
+  (let [old-children-count (or (some-> (aget parent ::vnode)
+                                       (aget ::children)
+                                       alength)
+                               (count (.-childNodes parent)))
+        old-children (.-childNodes parent)
         new-children-count (count new-children)]
-    (if (not (== (alength old-children) new-children-count))
-      (.apply parent.replaceChildren parent (.map new-children create-node))
+    (if (not (== old-children-count new-children-count))
+      (do
+        (js/console.log :replacing-all-children parent new-children old-children-count new-children-count)
+        (doseq [child (array-seq old-children)] (unmount! child))
+        (.apply parent.replaceChildren parent (.map new-children create-node))
+        (doseq [child (.-childNodes parent)]
+          (onmount! child)))
       (dotimes [i new-children-count]
         (let [^js old (aget old-children i)
               ^js old-vnode (aget old ::vnode)
@@ -202,7 +237,11 @@
                         (aset old n new-prop)))))
                 (when-let [new-children (aget new-vnode "children")]
                   (patch old new-children)))
-              :else (.replaceChild parent (create-node new-vnode) old))))))))
+              :else (do
+                      (unmount! old)
+                      (let [new-node (create-node new-vnode)]
+                        (.replaceChild parent new-node old)
+                        (call-ref new-vnode new-node))))))))))
 
 (defn render [root hiccup]
   (when-not (aget root ::initialized)
