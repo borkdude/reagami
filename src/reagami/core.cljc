@@ -165,7 +165,7 @@
     (aset ::vnode vnode)))
 
 (defn- call-ref [vnode dom-node]
-  (when-let [ref-fn (aget vnode ::ref)]
+  #_(when-let [ref-fn (aget vnode ::ref)]
     (ref-fn dom-node)))
 
 (defn- unmount! [^js node]
@@ -184,69 +184,76 @@
     (doseq [child (.-childNodes node)]
       (onmount! child))))
 
-(prn :dude)
+(defn- patch [^js parent new-children render-cnt]
+  (prn :rendr-cnt render-cnt)
+  (let [parent-vnode (aget parent ::vnode)
+        old-children-count (if parent-vnode
+                             (alength (aget parent-vnode :children))
+                             (if (identical? render-cnt (aget parent ::initialized))
+                               (alength (.-childNodes parent))
+                               -1))]
+    (prn :old-children-count old-children-count)
+    ;; -1 means: we've stumbled upon a different render root
+    (when-not (identical? -1 old-children-count)
+      (let [old-children (.-childNodes parent)
+            new-children-count (count new-children)]
+        (if (not (== old-children-count new-children-count))
+          (do
+            ;;(js/console.log :replacing-all-children parent new-children old-children-count new-children-count)
+            (doseq [child (array-seq old-children)] (unmount! child))
+            (.apply parent.replaceChildren parent (.map new-children create-node))
+            (doseq [child (.-childNodes parent)]
+              (onmount! child)))
+          (dotimes [i new-children-count]
+            (let [^js old (aget old-children i)
+                  ^js old-vnode (aget old ::vnode)
+                  ^js new-vnode (aget new-children i)
+                  txt-old (aget old-vnode "text")
+                  txt (aget new-vnode "text")]
+              (let [new-tag (aget new-vnode "tag")]
+                (cond
+                  (and txt-old txt)
+                  (when-not (identical? txt txt-old)
+                    (do (set! (.-textContent old) txt)
+                        (aset old ::vnode new-vnode)))
+                  (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
+                  (do
+                    (aset old ::vnode new-vnode)
+                    (let [^js old-props (aget old-vnode ::props)
+                          ^js old-attrs (aget old-vnode ::attrs)
+                          ^js new-props (aget new-vnode ::props)
+                          ^js new-attrs (aget new-vnode ::attrs)]
+                      (doseq [o (js/Object.getOwnPropertyNames old-props)]
+                        (when-not (js-in o new-props)
+                          (aset old o nil)))
+                      (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
+                        (when-not (js-in o new-attrs)
+                          (.removeAttribute old o)))
+                      ;; always make sure to first set attrs, then props because value should go last
+                      (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
+                        (let [new-attr (aget new-attrs n)]
+                          (when-not (identical? new-attr (aget old-attrs n))
+                            (.setAttribute old n new-attr))))
+                      (doseq [n (js/Object.getOwnPropertyNames new-props)]
+                        (let [new-prop (aget new-props n)
+                              new-prop (if (undefined? new-prop) nil new-prop)]
+                          (when-not (identical? (aget old-props n) new-prop)
+                            (aset old n new-prop)))))
+                    (when-let [new-children (aget new-vnode "children")]
+                      (patch old new-children render-cnt)))
+                  :else (do
+                          (unmount! old)
+                          (let [new-node (create-node new-vnode)]
+                            (.replaceChild parent new-node old)
+                            (call-ref new-vnode new-node))))))))))))
 
-(defn- patch [^js parent new-children]
-  (let [old-children-count (or (some-> (aget parent ::vnode)
-                                       (aget ::children)
-                                       alength)
-                               (count (.-childNodes parent)))
-        old-children (.-childNodes parent)
-        new-children-count (count new-children)]
-    (if (not (== old-children-count new-children-count))
-      (do
-        (js/console.log :replacing-all-children parent new-children old-children-count new-children-count)
-        (doseq [child (array-seq old-children)] (unmount! child))
-        (.apply parent.replaceChildren parent (.map new-children create-node))
-        (doseq [child (.-childNodes parent)]
-          (onmount! child)))
-      (dotimes [i new-children-count]
-        (let [^js old (aget old-children i)
-              ^js old-vnode (aget old ::vnode)
-              ^js new-vnode (aget new-children i)
-              txt-old (aget old-vnode "text")
-              txt (aget new-vnode "text")]
-          (let [new-tag (aget new-vnode "tag")]
-            (cond
-              (and txt-old txt)
-              (when-not (identical? txt txt-old)
-                (do (set! (.-textContent old) txt)
-                    (aset old ::vnode new-vnode)))
-              (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
-              (do
-                (aset old ::vnode new-vnode)
-                (let [^js old-props (aget old-vnode ::props)
-                      ^js old-attrs (aget old-vnode ::attrs)
-                      ^js new-props (aget new-vnode ::props)
-                      ^js new-attrs (aget new-vnode ::attrs)]
-                  (doseq [o (js/Object.getOwnPropertyNames old-props)]
-                    (when-not (js-in o new-props)
-                      (aset old o nil)))
-                  (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
-                    (when-not (js-in o new-attrs)
-                      (.removeAttribute old o)))
-                  ;; always make sure to first set attrs, then props because value should go last
-                  (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
-                    (let [new-attr (aget new-attrs n)]
-                      (when-not (identical? new-attr (aget old-attrs n))
-                        (.setAttribute old n new-attr))))
-                  (doseq [n (js/Object.getOwnPropertyNames new-props)]
-                    (let [new-prop (aget new-props n)
-                          new-prop (if (undefined? new-prop) nil new-prop)]
-                      (when-not (identical? (aget old-props n) new-prop)
-                        (aset old n new-prop)))))
-                (when-let [new-children (aget new-vnode "children")]
-                  (patch old new-children)))
-              :else (do
-                      (unmount! old)
-                      (let [new-node (create-node new-vnode)]
-                        (.replaceChild parent new-node old)
-                        (call-ref new-vnode new-node))))))))))
+(def render-count (atom 0))
 
 (defn render [root hiccup]
-  (when-not (aget root ::initialized)
-    ;; clear all root children so we can rely on every child having a vnode
-    (set! root -innerText "")
-    (aset root ::initialized true))
-  (let [new-node (create-vnode hiccup)]
-    (patch root #js [new-node])))
+  (let [render-cnt (swap! render-count inc)]
+    (when-not (aget root ::initialized)
+      ;; clear all root children so we can rely on every child having a vnode
+      (set! root -innerText "")
+      (aset root ::initialized render-cnt))
+    (let [new-node (create-vnode hiccup)]
+      (patch root #js [new-node] render-cnt))))
