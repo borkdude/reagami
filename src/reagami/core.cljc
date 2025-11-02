@@ -140,7 +140,9 @@
 (defn- create-vnode [hiccup]
   (create-vnode* hiccup false))
 
-(defn create-node [vnode]
+(def ref-registry (js/Map.))
+
+(defn create-node [vnode render-cnt]
   (doto (if-let [text (aget vnode "text")]
          (js/document.createTextNode text)
          (let [tag (aget vnode "tag")
@@ -160,30 +162,13 @@
            (when-let [children (aget vnode "children")]
              (when (pos? (alength children))
                (doseq [child children]
-                 (.appendChild node (create-node child)))))
+                 (.appendChild node (create-node child render-cnt)))))
+           (when-let [ref (::ref vnode)]
+             (aset node ::ref ref)
+             (update! ref-registry render-cnt (fnil conj #{}) node))
            node))
     (aset ::vnode vnode)
     #_(println ::created)))
-
-(defn- call-ref [vnode dom-node]
-  (when-let [ref-fn (aget vnode ::ref)]
-    (ref-fn dom-node)))
-
-(defn- unmount! [^js node]
-  (when-let [vnode (aget node ::vnode)]
-    ;; call nil on this node
-    (call-ref vnode nil)
-    ;; recurse on children
-    (doseq [child (.-childNodes node)]
-      (unmount! child))))
-
-(defn- onmount! [^js node]
-  (let [vnode (aget node ::vnode)]
-    ;; call nil on this node
-    (call-ref vnode node)
-    ;; recurse on children
-    (doseq [child (.-childNodes node)]
-      (onmount! child))))
 
 (defn- patch [^js parent new-children render-cnt]
   (let [parent-vnode (aget parent ::vnode)
@@ -197,11 +182,7 @@
       (let [old-children (.-childNodes parent)
             new-children-count (count new-children)]
         (if (not (== old-children-count new-children-count))
-          (do
-            (doseq [child (array-seq old-children)] (unmount! child))
-            (.apply parent.replaceChildren parent (.map new-children create-node))
-            (doseq [child (.-childNodes parent)]
-              (onmount! child)))
+          (.apply parent.replaceChildren parent (.map new-children #(create-node % render-cnt)))
           (dotimes [i new-children-count]
             (let [^js old (aget old-children i)
                   ^js old-vnode (aget old ::vnode)
@@ -239,12 +220,8 @@
                             (aset old n new-prop)))))
                     (when-let [new-children (aget new-vnode "children")]
                       (patch old new-children render-cnt)))
-                  :else (do
-                          (unmount! old)
-                          (let [new-node (create-node new-vnode)]
-                            (.replaceChild parent new-node old)
-                            (println :new-node-patched old :-> new-node)
-                            (onmount! new-node))))))))))))
+                  :else (let [new-node (create-node new-vnode render-cnt)]
+                          (.replaceChild parent new-node old)))))))))))
 
 (def render-count (atom 0))
 
@@ -255,4 +232,13 @@
                          (aset root ::initialized render-cnt)
                          render-cnt))]
     (let [new-node (create-vnode hiccup)]
-      (patch root #js [new-node] render-cnt))))
+      (patch root #js [new-node] render-cnt))
+    (println :ref-registry ref-registry)
+    (doseq [node (.get ref-registry render-cnt)]
+      (let [ref (aget node ::ref)]
+        (if (.-isConnected node)
+          ;; TODO: check if ref has been called already
+          (ref node)
+          (do (ref nil)
+              (update! ref-registry render-cnt disj node))))
+      (js/console.log :ref-node node))))
