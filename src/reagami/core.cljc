@@ -188,7 +188,7 @@
 (defn- patch [^js parent new-children render-cnt]
   (let [parent-vnode (aget parent ::vnode)
         old-children-count (if parent-vnode
-                             (alength (aget parent-vnode :children))
+                             (alength (aget parent-vnode "children"))
                              (if (identical? render-cnt (aget parent ::initialized))
                                (alength (.-childNodes parent))
                                -1))]
