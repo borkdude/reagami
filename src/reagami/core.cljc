@@ -233,7 +233,6 @@
                          render-cnt))]
     (let [new-node (create-vnode hiccup)]
       (patch root #js [new-node] render-cnt))
-    (println :ref-registry ref-registry)
     (doseq [node (.get ref-registry render-cnt)]
       (let [ref (aget node ::ref)]
         (if (.-isConnected node)
