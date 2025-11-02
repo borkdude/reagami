@@ -101,12 +101,15 @@
                        (doseq [e (js/Object.entries attrs)]
                          (let [k (aget e 0)
                                v (aget e 1)]
-                           (cond (.startsWith k "on")
+                           (cond
+                             (= "on-render" k) (do
+                                                 (prn :on-render)
+                                                 (aset node ::ref v))
+                             (.startsWith k "on")
                              (let [event (-> k
                                              (.replaceAll "-" "")
                                              (.toLowerCase))]
                                (aset modified-props event v))
-                             (= "ref" k) (aset node ::ref v)
                              :else
                              (do
                                (cond
@@ -164,6 +167,7 @@
                (doseq [child children]
                  (.appendChild node (create-node child render-cnt)))))
            (when-let [ref (::ref vnode)]
+             (prn :ref)
              (aset node ::ref ref)
              (update! ref-registry render-cnt (fnil conj #{}) node))
            node))
@@ -233,11 +237,14 @@
                          render-cnt))]
     (let [new-node (create-vnode hiccup)]
       (patch root #js [new-node] render-cnt))
-    (doseq [node (.get ref-registry render-cnt)]
-      (let [ref (aget node ::ref)]
-        (if (.-isConnected node)
-          ;; TODO: check if ref has been called already
-          (ref node)
-          (do (ref nil)
-              (update! ref-registry render-cnt disj node))))
-      (js/console.log :ref-node node))))
+    (time (do (let [])
+              (doseq [node (.get ref-registry render-cnt)]
+                (println :node node)
+                (let [ref (aget node ::ref)]
+                  (if (.-isConnected node)
+                    (if (not (aget ref ::is-run))
+                      (do (ref node :mount)
+                          (aset ref ::is-run true))
+                      (ref node :update))
+                    (do (ref node :unmount)
+                        (update! ref-registry render-cnt disj node)))))))))
