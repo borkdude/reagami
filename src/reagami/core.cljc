@@ -162,7 +162,8 @@
                (doseq [child children]
                  (.appendChild node (create-node child)))))
            node))
-    (aset ::vnode vnode)))
+    (aset ::vnode vnode)
+    #_(println ::created)))
 
 (defn- call-ref [vnode dom-node]
   (when-let [ref-fn (aget vnode ::ref)]
@@ -242,7 +243,8 @@
                           (unmount! old)
                           (let [new-node (create-node new-vnode)]
                             (.replaceChild parent new-node old)
-                            (call-ref new-vnode new-node))))))))))))
+                            (println :new-node-patched old :-> new-node)
+                            (onmount! new-node))))))))))))
 
 (def render-count (atom 0))
 
