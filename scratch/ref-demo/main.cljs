@@ -16,12 +16,11 @@
                     :background-color (if (even? (count (:input @state)))
                                         :black :green)}}
       [:pre (pr-str @state)]
-      [:div#my-custom {:ref #(when-let [el %]
-                               (js/console.log :el-mount el)
-                               (let [elt (js/document.createElement "div")]
-                                 (set! (.-innerHTML elt) #html [:div {:style {:color "red"}} "I feel good"])
-                                 (.append el elt))
-                               #_(reagami/render el [sub-component]))}]
+      [:div#my-custom {:ref #(do
+                               (println :ref-el %)
+                               (when-let [el %]
+                                 (js/console.log :el-mount el)
+                                 (reagami/render el [sub-component])))}]
       [:input {:value (:input @state)
                :on-input #(swap! state assoc :input (-> % :target :value))}]
       [:button {:on-click #(swap! state update :counter inc)}

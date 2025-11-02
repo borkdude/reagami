@@ -165,7 +165,7 @@
     (aset ::vnode vnode)))
 
 (defn- call-ref [vnode dom-node]
-  #_(when-let [ref-fn (aget vnode ::ref)]
+  (when-let [ref-fn (aget vnode ::ref)]
     (ref-fn dom-node)))
 
 (defn- unmount! [^js node]
@@ -185,21 +185,18 @@
       (onmount! child))))
 
 (defn- patch [^js parent new-children render-cnt]
-  (prn :rendr-cnt render-cnt)
   (let [parent-vnode (aget parent ::vnode)
         old-children-count (if parent-vnode
                              (alength (aget parent-vnode :children))
                              (if (identical? render-cnt (aget parent ::initialized))
                                (alength (.-childNodes parent))
                                -1))]
-    (prn :old-children-count old-children-count)
     ;; -1 means: we've stumbled upon a different render root
     (when-not (identical? -1 old-children-count)
       (let [old-children (.-childNodes parent)
             new-children-count (count new-children)]
         (if (not (== old-children-count new-children-count))
           (do
-            ;;(js/console.log :replacing-all-children parent new-children old-children-count new-children-count)
             (doseq [child (array-seq old-children)] (unmount! child))
             (.apply parent.replaceChildren parent (.map new-children create-node))
             (doseq [child (.-childNodes parent)]
@@ -250,10 +247,10 @@
 (def render-count (atom 0))
 
 (defn render [root hiccup]
-  (let [render-cnt (swap! render-count inc)]
-    (when-not (aget root ::initialized)
-      ;; clear all root children so we can rely on every child having a vnode
-      (set! root -innerText "")
-      (aset root ::initialized render-cnt))
+  (let [render-cnt (or (aget root ::initialized)
+                       (let [render-cnt (swap! render-count inc)]
+                         (set! root -innerText "")
+                         (aset root ::initialized render-cnt)
+                         render-cnt))]
     (let [new-node (create-vnode hiccup)]
       (patch root #js [new-node] render-cnt))))
