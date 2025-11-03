@@ -18,7 +18,8 @@
    (when (:show @state)
      [:div
       [:div#my-custom {:on-render (fn [node lifecycle]
-                                    (swap! events #(doto % (.push (name lifecycle))))
+                                    (swap! events #(doto % (.push #?(:squint lifecycle
+                                                                     :cljs (name lifecycle)))))
                                     (case lifecycle
                                       (:mount :update)
                                       (reagami/render node [sub-component (:counter @state)])
