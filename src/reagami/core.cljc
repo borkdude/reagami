@@ -168,8 +168,7 @@
              (aset node ::ref ref)
              (update! ref-registry render-cnt (fnil conj #{}) node))
            node))
-    (aset ::vnode vnode)
-    #_(println ::created)))
+    (aset ::vnode vnode)))
 
 (defn- patch [^js parent new-children render-cnt]
   (let [parent-vnode (aget parent ::vnode)
