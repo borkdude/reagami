@@ -55,7 +55,7 @@ Reagami does NOT support:
 
 - Auto-rerendering by auto-watching custom atoms. Instead you use `add-watch` +
   `render` on regular atoms or you call `render` yourself.
-- Local state and form-2 components (although you can mimic local state by using nested renders)
+- Local state and form-2 components, although you can mimic local state by using nested renders like in [this example](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE42Su27cMBBFe33FNbchC1mp2SSAP8GlIAQ0NRsxWT7MR%2BSFsf8eSOJqbRfBSoVIcQ7nztzhLsEq4xqAy0ivxURqAPRsyjkk2XWU7GOaukjql7KGQaqEuhmEaBo%2B0hEpq0zgKnuLd6l9cZkivkGmyc%2FIsdDlGuuQykurvQ3ekcvo34YG6OVo%2FoI9VdKsUbcghrdh54tBvzOHYla98qXk7B3epXetPhn9BweeZhUeqrgSxuWzKXI%2Bi8vCgT1Pfv4OBr6d%2FFijxXI%2F%2BDyR%2B3KwQlvqbYlehkjgIbYpx0%2F8NfBgz60uaWuOd20kN1IEPzr0zo%2BEkzmSPusTXbH%2FP1yr9AG6i1n8tUt3IbdOCPBqY1f1rFL6z%2B7w3cxrYeLOdLK4LR8P0e07IcTl1pt7PdP7WOhq2%2BLc00pYemDDIG7jUatZR%2BRrifx36kaviyWXH18LxfMznUhnH8EOKgQm0Jc612oc21llPVUxUn707SfWd1hSLH%2FFytT1Pxm18o5WAwAA).
 - React hooks (it doesn't use React)
 
 Reagami uses a basic patching algorithm explained in [this](https://blog.michielborkent.nl/reagami.html) blog
