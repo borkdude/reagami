@@ -176,11 +176,9 @@
 
 (defn- patch [^js parent new-children root]
   (let [parent-vnode (aget parent ::vnode)
-        old-children-count (if parent-vnode
-                             (alength (aget parent-vnode "children"))
-                             (if (identical? root parent)
-                               (alength (.-childNodes parent))
-                               -1))]
+        old-children-count (cond parent-vnode (alength (aget parent-vnode "children"))
+                             (identical? root parent) (alength (.-childNodes parent))
+                             :else -1)]
     ;; -1 means: we've stumbled upon a different render root
     (when-not (identical? -1 old-children-count)
       (let [old-children (.-childNodes parent)
