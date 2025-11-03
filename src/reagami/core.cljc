@@ -230,16 +230,14 @@
 (def render-count (atom 0))
 
 (defn render [root hiccup]
-  (let []
-    (let [new-node (create-vnode hiccup)]
-      (patch root #js [new-node] root))
-    (do (let [])
-        (doseq [node (.get ref-registry root)]
-          (let [ref (aget node ::on-render)]
-            (if (.-isConnected node)
-              (if (not (aget ref ::is-run))
-                (do (ref node :mount)
-                    (aset ref ::is-run true))
-                (ref node :update))
-              (do (ref node :unmount)
-                  (update! ref-registry root disj node))))))))
+  (let [new-node (create-vnode hiccup)]
+    (patch root #js [new-node] root))
+  (doseq [node (.get ref-registry root)]
+    (let [ref (aget node ::on-render)]
+      (if (.-isConnected node)
+        (if (not (aget ref ::is-run))
+          (do (ref node :mount)
+              (aset ref ::is-run true))
+          (ref node :update))
+        (do (ref node :unmount)
+            (update! ref-registry root disj node))))))
