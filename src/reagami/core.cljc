@@ -1,5 +1,5 @@
 (ns reagami.core
-  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update! js-??]}}}})
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}}})
 
 (def svg-ns "http://www.w3.org/2000/svg")
 
@@ -75,9 +75,11 @@
                                         children))]
                    (create-vnode* res in-svg?))
                  (let [new-children #js []
-                       node #js {:type :element :svg in-svg? :tag (if in-svg?
-                                                                    tag
-                                                                    (.toUpperCase tag)) :children new-children}
+                       node #js {:type :element :svg in-svg?
+                                 :tag (if in-svg?
+                                        tag
+                                        (.toUpperCase tag))
+                                 :children new-children}
                        modified-props #js {}
                        modified-attrs #js {}]
                    (aset node ::props modified-props)
@@ -99,11 +101,14 @@
                        (doseq [e (js/Object.entries attrs)]
                          (let [k (aget e 0)
                                v (aget e 1)]
-                           (if (.startsWith k "on")
+                           (cond
+                             (= "on-render" k) (aset node ::on-render v)
+                             (.startsWith k "on")
                              (let [event (-> k
                                              (.replaceAll "-" "")
                                              (.toLowerCase))]
                                (aset modified-props event v))
+                             :else
                              (do
                                (cond
                                  (and (= "style" k) (object? v))
@@ -136,7 +141,13 @@
 (defn- create-vnode [hiccup]
   (create-vnode* hiccup false))
 
-(defn create-node [vnode]
+(def ref-registry (js/Map.))
+
+#?(:squint nil
+   :cljs (defn update! [^js js-map k f & args]
+           (.set js-map k (apply f (.get js-map k) args))))
+
+(defn create-node [vnode root]
   (doto (if-let [text (aget vnode "text")]
          (js/document.createTextNode text)
          (let [tag (aget vnode "tag")
@@ -156,58 +167,77 @@
            (when-let [children (aget vnode "children")]
              (when (pos? (alength children))
                (doseq [child children]
-                 (.appendChild node (create-node child)))))
+                 (.appendChild node (create-node child root)))))
+           (when-let [ref (aget vnode ::on-render)]
+             (aset node ::on-render ref)
+             (update! ref-registry root (fnil conj #{}) node))
            node))
     (aset ::vnode vnode)))
 
-(defn- patch [^js parent new-children]
-  (let [old-children (.-childNodes parent)
-        new-children-count (count new-children)]
-    (if (not (== (alength old-children) new-children-count))
-      (.apply parent.replaceChildren parent (.map new-children create-node))
-      (dotimes [i new-children-count]
-        (let [^js old (aget old-children i)
-              ^js old-vnode (aget old ::vnode)
-              ^js new-vnode (aget new-children i)
-              txt-old (aget old-vnode "text")
-              txt (aget new-vnode "text")]
-          (let [new-tag (aget new-vnode "tag")]
-            (cond
-              (and txt-old txt)
-              (when-not (identical? txt txt-old)
-                (do (set! (.-textContent old) txt)
-                    (aset old ::vnode new-vnode)))
-              (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
-              (do
-                (aset old ::vnode new-vnode)
-                (let [^js old-props (aget old-vnode ::props)
-                      ^js old-attrs (aget old-vnode ::attrs)
-                      ^js new-props (aget new-vnode ::props)
-                      ^js new-attrs (aget new-vnode ::attrs)]
-                  (doseq [o (js/Object.getOwnPropertyNames old-props)]
-                    (when-not (js-in o new-props)
-                      (aset old o nil)))
-                  (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
-                    (when-not (js-in o new-attrs)
-                      (.removeAttribute old o)))
-                  ;; always make sure to first set attrs, then props because value should go last
-                  (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
-                    (let [new-attr (aget new-attrs n)]
-                      (when-not (identical? new-attr (aget old-attrs n))
-                        (.setAttribute old n new-attr))))
-                  (doseq [n (js/Object.getOwnPropertyNames new-props)]
-                    (let [new-prop (aget new-props n)
-                          new-prop (if (undefined? new-prop) nil new-prop)]
-                      (when-not (identical? (aget old-props n) new-prop)
-                        (aset old n new-prop)))))
-                (when-let [new-children (aget new-vnode "children")]
-                  (patch old new-children)))
-              :else (.replaceChild parent (create-node new-vnode) old))))))))
+(defn- patch [^js parent new-children root]
+  (let [parent-vnode (aget parent ::vnode)
+        old-children-count (if parent-vnode
+                             (alength (aget parent-vnode "children"))
+                             (if (identical? root parent)
+                               (alength (.-childNodes parent))
+                               -1))]
+    ;; -1 means: we've stumbled upon a different render root
+    (when-not (identical? -1 old-children-count)
+      (let [old-children (.-childNodes parent)
+            new-children-count (count new-children)]
+        (if (not (== old-children-count new-children-count))
+          (.apply parent.replaceChildren parent (.map new-children #(create-node % root)))
+          (dotimes [i new-children-count]
+            (let [^js old (aget old-children i)
+                  ^js old-vnode (aget old ::vnode)
+                  ^js new-vnode (aget new-children i)
+                  txt-old (aget old-vnode "text")
+                  txt (aget new-vnode "text")]
+              (let [new-tag (aget new-vnode "tag")]
+                (cond
+                  (and txt-old txt)
+                  (when-not (identical? txt txt-old)
+                    (do (set! (.-textContent old) txt)
+                        (aset old ::vnode new-vnode)))
+                  (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
+                  (do
+                    (aset old ::vnode new-vnode)
+                    (let [^js old-props (aget old-vnode ::props)
+                          ^js old-attrs (aget old-vnode ::attrs)
+                          ^js new-props (aget new-vnode ::props)
+                          ^js new-attrs (aget new-vnode ::attrs)]
+                      (doseq [o (js/Object.getOwnPropertyNames old-props)]
+                        (when-not (js-in o new-props)
+                          (aset old o nil)))
+                      (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
+                        (when-not (js-in o new-attrs)
+                          (.removeAttribute old o)))
+                      ;; always make sure to first set attrs, then props because value should go last
+                      (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
+                        (let [new-attr (aget new-attrs n)]
+                          (when-not (identical? new-attr (aget old-attrs n))
+                            (.setAttribute old n new-attr))))
+                      (doseq [n (js/Object.getOwnPropertyNames new-props)]
+                        (let [new-prop (aget new-props n)
+                              new-prop (if (undefined? new-prop) nil new-prop)]
+                          (when-not (identical? (aget old-props n) new-prop)
+                            (aset old n new-prop)))))
+                    (when-let [new-children (aget new-vnode "children")]
+                      (patch old new-children root)))
+                  :else (let [new-node (create-node new-vnode root)]
+                          (.replaceChild parent new-node old)))))))))))
+
+(def render-count (atom 0))
 
 (defn render [root hiccup]
-  (when-not (aget root ::initialized)
-    ;; clear all root children so we can rely on every child having a vnode
-    (set! root -innerText "")
-    (aset root ::initialized true))
   (let [new-node (create-vnode hiccup)]
-    (patch root #js [new-node])))
+    (patch root #js [new-node] root))
+  (doseq [node (.get ref-registry root)]
+    (let [ref (aget node ::on-render)]
+      (if (.-isConnected node)
+        (if (not (aget ref ::is-run))
+          (do (ref node :mount)
+              (aset ref ::is-run true))
+          (ref node :update))
+        (do (ref node :unmount)
+            (update! ref-registry root disj node))))))
