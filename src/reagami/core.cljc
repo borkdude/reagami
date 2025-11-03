@@ -148,6 +148,7 @@
            (.set js-map k (apply f (.get js-map k) args))))
 
 (defn create-node [vnode root]
+  (println :create-node vnode)
   (doto (if-let [text (aget vnode "text")]
          (js/document.createTextNode text)
          (let [tag (aget vnode "tag")
@@ -183,6 +184,7 @@
     (when-not (identical? -1 old-children-count)
       (let [old-children (.-childNodes parent)
             new-children-count (count new-children)]
+        (println old-children-count new-children-count)
         (if (not (== old-children-count new-children-count))
           (.apply parent.replaceChildren parent (.map new-children #(create-node % root)))
           (dotimes [i new-children-count]
@@ -228,6 +230,7 @@
 (defn render [root hiccup]
   (when-not (aget root ::initialized)
     ;; clear all root children so we can rely on every child having a vnode
+    (prn :init-root)
     (set! root -textContent "")
     (aset root ::initialized true))
   (let [new-node (create-vnode hiccup)]
