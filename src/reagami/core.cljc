@@ -225,9 +225,11 @@
                   :else (let [new-node (create-node new-vnode root)]
                           (.replaceChild parent new-node old)))))))))))
 
-(def render-count (atom 0))
-
 (defn render [root hiccup]
+  (when-not (aget root ::initialized)
+    ;; clear all root children so we can rely on every child having a vnode
+    (set! root -textContent "")
+    (aset root ::initialized true))
   (let [new-node (create-vnode hiccup)]
     (patch root #js [new-node] root))
   (doseq [node (.get ref-registry root)]

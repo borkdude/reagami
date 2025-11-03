@@ -29,6 +29,9 @@
 
 (defn render-test []
   (let [el (js/document.createElement "div")]
+    ;; adding unexpected element crashes if we don't clear it beforehand
+    (.appendChild el (doto (js/document.createElement "div")
+                       (set! -id "loading")))
     ;; connect to DOM, so .-isConnected returns true
     (js/document.body.appendChild el)
     (add-watch state ::render (fn [_ _ _ _] (reagami/render el [ui])))
