@@ -49,7 +49,7 @@ Reagami supports:
 - Id and class short notation: `[:div#foo.class1.class2]`
 - Disabling properties with `false`: `[:button {:disabled (not true)}]`
 - `:style` maps: `{:style {:background-color :green}}`
-- `:on-render` function that gets called with the node and either `:mount`, `:update` or `:unmount` after updating the DOM
+- `:on-render` function that gets called with the node and either `:mount`, `:update` or `:unmount` after updating the DOM. This can be used to mount/update/unmount 3rd party Java library components. [Demo here](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE4VUwW7bMAy95ytY9yIf4nRX5zKgG7AO2yndyTAGTWZitTKlSnSzYui%2FD5KcNO3m1D5YMknp8T2SggIMUtMCQNQeH0btcQEATdEzu1CvVhiGKvQrj3InB11ALQNMm7YsFwvR4RYCS0YQku0Af%2BrQ2z2wH%2FH54ECgKbA0ZqmMVfcXC4Ditte%2BAyc9P8HXDSg7OEtIXMACoCHbYRtRGWRogpMEolIeJeNngwMSw11YdVaNaV1Ej6KM0NPjkTr0021wKQLyBYhqyfibry1xjIkhLxH%2FPKJi%2B80qafBWD7hhr2kH4i6sPknGqixfQlkP6JMpIN8Qo3%2BU5g2ED1dXV2WbQsQrSz5GVNI5pO6616aDmPwJvPUaPPLoCZRBSaODLeWoLUHTTjji%2FcpSsAYrY3dQjDTYkTjC5h4hXXekKHkblP6IN2VxNFceB%2FuIb%2FGUL4qOOqr4XWqCHzdF1CwiaepOP14mGzT1r5HZEvypLS2V0eo%2BSrGX7mKqmNF18ZMrhiyXzzkvvQWRf35MjiUUX3SHcJ1ygGITTXmTSRX7HulNTE4lAZqyyuASEQfxErQsSKYz5Wr0FtWTMtj%2Bvz6EkuHEa66I6iTAnHW9hmSvIxmegbW617SbcxcyIGcp6nqkVw0F4nV%2FJbco1RywTPwZZNaxtiRNDcqOpjso5bx1AXr0s7GkzZlr6T1GAlv3LhNR7GUaDIeGEHI3S045I2I6ajrg3Bw4xztpE3viuW3L9tgZUzmlfhDTrFwdauxkalUPI%2FqnDRpUbD0Ul9K5ooRmnCar7LrlXrLqp26p69NC%2FQnpbQ%2FzJLfmtP4LOxWf2tgFAAA%3D).
 
 Reagami does NOT support:
 
