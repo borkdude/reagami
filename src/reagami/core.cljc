@@ -1,5 +1,5 @@
 (ns reagami.core
-  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude [update! js-??]}}}})
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}}})
 
 (def svg-ns "http://www.w3.org/2000/svg")
 
@@ -102,7 +102,7 @@
                          (let [k (aget e 0)
                                v (aget e 1)]
                            (cond
-                             (= "on-render" k) (aset node ::ref v)
+                             (= "on-render" k) (aset node ::on-render v)
                              (.startsWith k "on")
                              (let [event (-> k
                                              (.replaceAll "-" "")
@@ -143,7 +143,11 @@
 
 (def ref-registry (js/Map.))
 
-(defn create-node [vnode render-cnt]
+#?(:squint nil
+   :cljs (defn update! [^js js-map k f & args]
+           (.set js-map k (apply f (.get js-map k) args))))
+
+(defn create-node [vnode root]
   (doto (if-let [text (aget vnode "text")]
          (js/document.createTextNode text)
          (let [tag (aget vnode "tag")
@@ -163,18 +167,18 @@
            (when-let [children (aget vnode "children")]
              (when (pos? (alength children))
                (doseq [child children]
-                 (.appendChild node (create-node child render-cnt)))))
-           (when-let [ref (::ref vnode)]
-             (aset node ::ref ref)
-             (update! ref-registry render-cnt (fnil conj #{}) node))
+                 (.appendChild node (create-node child root)))))
+           (when-let [ref (aget vnode ::on-render)]
+             (aset node ::on-render ref)
+             (update! ref-registry root (fnil conj #{}) node))
            node))
     (aset ::vnode vnode)))
 
-(defn- patch [^js parent new-children render-cnt]
+(defn- patch [^js parent new-children root]
   (let [parent-vnode (aget parent ::vnode)
         old-children-count (if parent-vnode
                              (alength (aget parent-vnode "children"))
-                             (if (identical? render-cnt (aget parent ::initialized))
+                             (if (identical? root parent)
                                (alength (.-childNodes parent))
                                -1))]
     ;; -1 means: we've stumbled upon a different render root
@@ -182,7 +186,7 @@
       (let [old-children (.-childNodes parent)
             new-children-count (count new-children)]
         (if (not (== old-children-count new-children-count))
-          (.apply parent.replaceChildren parent (.map new-children #(create-node % render-cnt)))
+          (.apply parent.replaceChildren parent (.map new-children #(create-node % root)))
           (dotimes [i new-children-count]
             (let [^js old (aget old-children i)
                   ^js old-vnode (aget old ::vnode)
@@ -219,27 +223,23 @@
                           (when-not (identical? (aget old-props n) new-prop)
                             (aset old n new-prop)))))
                     (when-let [new-children (aget new-vnode "children")]
-                      (patch old new-children render-cnt)))
-                  :else (let [new-node (create-node new-vnode render-cnt)]
+                      (patch old new-children root)))
+                  :else (let [new-node (create-node new-vnode root)]
                           (.replaceChild parent new-node old)))))))))))
 
 (def render-count (atom 0))
 
 (defn render [root hiccup]
-  (let [render-cnt (or (aget root ::initialized)
-                       (let [render-cnt (swap! render-count inc)]
-                         (set! root -innerText "")
-                         (aset root ::initialized render-cnt)
-                         render-cnt))]
+  (let []
     (let [new-node (create-vnode hiccup)]
-      (patch root #js [new-node] render-cnt))
+      (patch root #js [new-node] root))
     (do (let [])
-        (doseq [node (.get ref-registry render-cnt)]
-          (let [ref (aget node ::ref)]
+        (doseq [node (.get ref-registry root)]
+          (let [ref (aget node ::on-render)]
             (if (.-isConnected node)
               (if (not (aget ref ::is-run))
                 (do (ref node :mount)
                     (aset ref ::is-run true))
                 (ref node :update))
               (do (ref node :unmount)
-                  (update! ref-registry render-cnt disj node))))))))
+                  (update! ref-registry root disj node))))))))

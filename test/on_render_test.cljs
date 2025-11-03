@@ -6,7 +6,7 @@
 
 (def state (atom {:counter 0 :show true}))
 
-(def events (atom []))
+(def events (atom #js []))
 
 (defn sub-component [x]
   [:div "Counter in subcomponent: " x])
@@ -18,7 +18,7 @@
    (when (:show @state)
      [:div
       [:div#my-custom {:on-render (fn [node lifecycle]
-                                    (swap! events conj lifecycle)
+                                    (swap! events #(doto % (.push (name lifecycle))))
                                     (case lifecycle
                                       (:mount :update)
                                       (reagami/render node [sub-component (:counter @state)])
@@ -33,14 +33,14 @@
     (add-watch state ::render (fn [_ _ _ _] (reagami/render el [ui])))
     (reagami/render el [ui])
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 0"))
-    (assert/deepEqual @events ["mount"])
+    (assert/deepEqual @events #js ["mount"])
     (.click (js/document.querySelector "#inc"))
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
-    (assert/deepEqual @events ["mount" "update"])
+    (assert/deepEqual @events #js ["mount" "update"])
     (.click (js/document.querySelector "#show"))
-    (assert/deepEqual @events ["mount" "update" "unmount"])
+    (assert/deepEqual @events #js ["mount" "update" "unmount"])
     (.click (js/document.querySelector "#show"))
-    (assert/deepEqual @events ["mount" "update" "unmount" "mount"])
+    (assert/deepEqual @events #js ["mount" "update" "unmount" "mount"])
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
     (.click (js/document.querySelector "#inc"))
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 2"))
