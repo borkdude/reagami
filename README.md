@@ -49,12 +49,13 @@ Reagami supports:
 - Id and class short notation: `[:div#foo.class1.class2]`
 - Disabling properties with `false`: `[:button {:disabled (not true)}]`
 - `:style` maps: `{:style {:background-color :green}}`
+- `:on-render` function that gets called with the node and either `:mount`, `:update` or `:unmount` after updating the DOM
 
 Reagami does NOT support:
 
 - Auto-rerendering by auto-watching custom atoms. Instead you use `add-watch` +
   `render` on regular atoms or you call `render` yourself.
-- Local state and form-2 components
+- Local state and form-2 components (although you can mimic local state by using nested renders)
 - React hooks (it doesn't use React)
 
 Reagami uses a basic patching algorithm explained in [this](https://blog.michielborkent.nl/reagami.html) blog
