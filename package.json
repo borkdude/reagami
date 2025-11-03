@@ -1,6 +1,6 @@
 {
   "name": "reagami",
-  "version": "0.0.28",
+  "version": "0.0.29",
   "dependencies": {
     "squint-cljs": "^0.9.177"
   },
