@@ -148,31 +148,32 @@
            (.set js-map k (apply f (.get js-map k) args))))
 
 (defn create-node [vnode root]
-  (doto (if-let [text (aget vnode "text")]
-         (js/document.createTextNode text)
-         (let [tag (aget vnode "tag")
-               node (if (aget vnode "svg")
-                      (js/document.createElementNS svg-ns tag)
-                      (js/document.createElement tag))
-               props (aget vnode ::props)
-               attrs (aget vnode ::attrs)]
-           ;; always make sure to first set attrs, then props because value should go last
-           (doseq [n (js/Object.getOwnPropertyNames attrs)]
-             (let [new-attr (aget attrs n)]
-               (.setAttribute node n new-attr)))
-           (doseq [n (js/Object.getOwnPropertyNames props)]
-             (let [new-prop (aget props n)
-                   new-prop (if (undefined? new-prop) nil new-prop)]
-               (aset node n new-prop)))
-           (when-let [children (aget vnode "children")]
-             (when (pos? (alength children))
-               (doseq [child children]
-                 (.appendChild node (create-node child root)))))
-           (when-let [ref (aget vnode ::on-render)]
-             (aset node ::on-render ref)
-             (update! ref-registry root (fnil conj #{}) node))
-           node))
-    (aset ::vnode vnode)))
+  (let [node (if-let [text (aget vnode "text")]
+              (js/document.createTextNode text)
+              (let [tag (aget vnode "tag")
+                    node (if (aget vnode "svg")
+                           (js/document.createElementNS svg-ns tag)
+                           (js/document.createElement tag))
+                    props (aget vnode ::props)
+                    attrs (aget vnode ::attrs)]
+                ;; always make sure to first set attrs, then props because value should go last
+                (doseq [n (js/Object.getOwnPropertyNames attrs)]
+                  (let [new-attr (aget attrs n)]
+                    (.setAttribute node n new-attr)))
+                (doseq [n (js/Object.getOwnPropertyNames props)]
+                  (let [new-prop (aget props n)
+                        new-prop (if (undefined? new-prop) nil new-prop)]
+                    (aset node n new-prop)))
+                (when-let [children (aget vnode "children")]
+                  (when (pos? (alength children))
+                    (doseq [child children]
+                      (.appendChild node (create-node child root)))))
+                (when-let [ref (aget vnode ::on-render)]
+                  (aset node ::on-render ref)
+                  (update! ref-registry root (fnil conj #{}) node))
+                node))]
+    (aset node ::vnode vnode)
+    node))
 
 (defn- patch [^js parent new-children root]
   (let [parent-vnode (aget parent ::vnode)
@@ -202,30 +203,32 @@
                     (do (set! (.-textContent old) txt)
                         (aset old ::vnode new-vnode)))
                   (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
-                  (do
-                    (aset old ::vnode new-vnode)
-                    (let [^js old-props (aget old-vnode ::props)
-                          ^js old-attrs (aget old-vnode ::attrs)
-                          ^js new-props (aget new-vnode ::props)
-                          ^js new-attrs (aget new-vnode ::attrs)]
-                      (doseq [o (js/Object.getOwnPropertyNames old-props)]
-                        (when-not (js-in o new-props)
-                          (aset old o nil)))
-                      (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
-                        (when-not (js-in o new-attrs)
-                          (.removeAttribute old o)))
-                      ;; always make sure to first set attrs, then props because value should go last
-                      (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
-                        (let [new-attr (aget new-attrs n)]
-                          (when-not (identical? new-attr (aget old-attrs n))
-                            (.setAttribute old n new-attr))))
-                      (doseq [n (js/Object.getOwnPropertyNames new-props)]
-                        (let [new-prop (aget new-props n)
-                              new-prop (if (undefined? new-prop) nil new-prop)]
-                          (when-not (identical? (aget old-props n) new-prop)
-                            (aset old n new-prop)))))
+                  (let [^js old-props (aget old-vnode ::props)
+                        ^js old-attrs (aget old-vnode ::attrs)
+                        ^js new-props (aget new-vnode ::props)
+                        ^js new-attrs (aget new-vnode ::attrs)]
+                    (doseq [o (js/Object.getOwnPropertyNames old-props)]
+                      (when-not (js-in o new-props)
+                        (aset old o nil)))
+                    (doseq [o (js/Object.getOwnPropertyNames old-attrs)]
+                      (when-not (js-in o new-attrs)
+                        (.removeAttribute old o)))
+                    ;; always make sure to first set attrs, then props because value should go last
+                    (doseq [n (js/Object.getOwnPropertyNames new-attrs)]
+                      (let [new-attr (aget new-attrs n)]
+                        (when-not (identical? new-attr (aget old-attrs n))
+                          (.setAttribute old n new-attr))))
+                    (doseq [n (js/Object.getOwnPropertyNames new-props)]
+                      (let [new-prop (aget new-props n)
+                            new-prop (if (undefined? new-prop) nil new-prop)]
+                        (when-not (identical? (aget old-props n) new-prop)
+                          (aset old n new-prop))))
                     (when-let [new-children (aget new-vnode "children")]
-                      (patch old new-children root)))
+                      (patch old new-children root))
+                    ;; it's important that we set the vnode of the old node last
+                    ;; since while patching children, the old vnode should
+                    ;; remain in place since it's used at the top for reading the amount of children
+                    (aset old ::vnode new-vnode))
                   :else (let [new-node (create-node new-vnode root)]
                           (.replaceChild parent new-node old)))))))))))
 

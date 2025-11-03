@@ -83,3 +83,14 @@
     (assert/strictEqual (.-innerHTML el) "<button disabled=\"\"></button>")
     (reagami/render el [ui false])
     (assert/strictEqual (.-innerHTML el) "<button></button>")))
+
+(defn table-test []
+  (let [el (js/document.createElement "div")
+        ui (fn [elts]
+             [:table
+              (for [e elts]
+                [:tr [:td e]])])]
+    (reagami/render el [ui [1]])
+    (reagami/render el [ui [1 2]])
+    (assert/equal 2 (count (seq (.querySelectorAll el "tr"))))
+    (println "✓ table test passed")))
