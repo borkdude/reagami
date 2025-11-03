@@ -9,7 +9,7 @@
 (def events (atom #js []))
 
 (defn sub-component [x]
-  [:div "Counter in subcomponent: " x])
+  [:div#sub "Counter in subcomponent: " x])
 
 (defn ui []
   [:div#ui
@@ -28,7 +28,8 @@
        "Click me!"]])])
 
 (defn render-test []
-  (let [el (js/document.createElement "div")]
+  (let [el (js/document.createElement "div")
+        !div (atom nil)]
     ;; adding unexpected element crashes if we don't clear it beforehand
     (.appendChild el (doto (js/document.createElement "div")
                        (set! -id "loading")))
@@ -36,15 +37,19 @@
     (js/document.body.appendChild el)
     (add-watch state ::render (fn [_ _ _ _] (reagami/render el [ui])))
     (reagami/render el [ui])
-    (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 0"))
     (assert/deepEqual @events #js ["mount"])
+    (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 0"))
+    (reset! !div (js/document.querySelector "#sub"))
+    (reagami/render el [ui])
+    (assert/ok (identical? @!div (js/document.querySelector "#sub")))
+    (assert/deepEqual @events #js ["mount" "update"])
     (.click (js/document.querySelector "#inc"))
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
-    (assert/deepEqual @events #js ["mount" "update"])
+    (assert/deepEqual @events #js ["mount" "update" "update"])
     (.click (js/document.querySelector "#show"))
-    (assert/deepEqual @events #js ["mount" "update" "unmount"])
+    (assert/deepEqual @events #js ["mount" "update" "update" "unmount"])
     (.click (js/document.querySelector "#show"))
-    (assert/deepEqual @events #js ["mount" "update" "unmount" "mount"])
+    (assert/deepEqual @events #js ["mount" "update" "update" "unmount" "mount"])
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
     (.click (js/document.querySelector "#inc"))
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 2"))

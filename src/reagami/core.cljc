@@ -148,7 +148,6 @@
            (.set js-map k (apply f (.get js-map k) args))))
 
 (defn create-node [vnode root]
-  (println :create-node vnode)
   (doto (if-let [text (aget vnode "text")]
          (js/document.createTextNode text)
          (let [tag (aget vnode "tag")
@@ -177,14 +176,17 @@
 
 (defn- patch [^js parent new-children root]
   (let [parent-vnode (aget parent ::vnode)
-        old-children-count (cond parent-vnode (alength (aget parent-vnode "children"))
-                             (identical? root parent) (alength (.-childNodes parent))
+        old-children-count (cond (and parent-vnode
+                                      ;; other render root
+                                      (not (aget parent ::root)))
+                                 (alength (aget parent-vnode "children"))
+                                 ;; current render root
+                                 (identical? root parent) (alength (.-childNodes parent))
                              :else -1)]
-    ;; -1 means: we've stumbled upon a different render root
+    ;; -1: we've stumbled upon a different render root
     (when-not (identical? -1 old-children-count)
       (let [old-children (.-childNodes parent)
             new-children-count (count new-children)]
-        (println old-children-count new-children-count)
         (if (not (== old-children-count new-children-count))
           (.apply parent.replaceChildren parent (.map new-children #(create-node % root)))
           (dotimes [i new-children-count]
@@ -228,11 +230,10 @@
                           (.replaceChild parent new-node old)))))))))))
 
 (defn render [root hiccup]
-  (when-not (aget root ::initialized)
+  (when-not (aget root ::root)
     ;; clear all root children so we can rely on every child having a vnode
-    (prn :init-root)
     (set! root -textContent "")
-    (aset root ::initialized true))
+    (aset root ::root true))
   (let [new-node (create-vnode hiccup)]
     (patch root #js [new-node] root))
   (doseq [node (.get ref-registry root)]
