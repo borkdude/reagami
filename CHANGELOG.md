@@ -2,6 +2,14 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## v0.0.31 (2025-11-04)
+
+-  Fix child count mismatch
+
+## v0.0.30 (2025-11-04)
+
+- Fix re-rendering/patching of subroots
+
 ## v0.0.29 (2025-11-03)
 
 - Add `:on-render` hook for mounting/updating/unmounting third part JS components
