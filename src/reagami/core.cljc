@@ -68,7 +68,7 @@
           [attrs children] (if (map? (first children))
                              [(first children) (rest children)]
                              [nil children])
-          in-svg? (or in-svg? (= :svg tag))
+          in-svg? (or in-svg? (= "svg" tag))
           node (if (fn? tag)
                  (let [res (apply tag (if attrs
                                         (cons attrs children)
