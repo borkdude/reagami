@@ -2,6 +2,10 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## v0.0.32 (2025-11-05)
+
+- Support default values for uncontrolled components
+
 ## v0.0.31 (2025-11-04)
 
 -  Fix child count mismatch
