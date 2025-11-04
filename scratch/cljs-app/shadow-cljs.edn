@@ -1,0 +1,8 @@
+;; shadow-cljs configuration
+{:deps true
+ :builds {:app {:target     :browser
+                :output-dir "public/js"
+                :asset-path "/js"
+                :modules    {:main {:init-fn my-app.core/init}}
+                :devtools   {:after-load my-app.core/after-load}}}
+ :dev-http {8280 "public"}}
