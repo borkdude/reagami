@@ -1,8 +1,8 @@
-{:deps {#_#_org.clojure/clojurescript {:git/url "https://github.com/clojure/clojurescript" :git/sha "d912f929e4ca9b486a182575659dde95be20c386"}
+{:deps {org.clojure/clojurescript {:git/url "https://github.com/clojure/clojurescript" :git/sha "d912f929e4ca9b486a182575659dde95be20c386"}
         #_#_com.google.javascript/closure-compiler {:mvn/version "v20250402"}
         io.github.borkdude/reagami {:local/root "/Users/borkdude/dev/reagami"}
         #_{:git/sha "8ba36cd3e3c6ba52882873a7193a4d8a3e5c64a3" }
-        thheller/shadow-cljs {:mvn/version "3.2.1"}}
+        #_#_thheller/shadow-cljs {:mvn/version "3.2.1"}}
  :paths ["src" "dev"]
  #_#_:aliases {:cljs {:extra-deps {}}}
  }
