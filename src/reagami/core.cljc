@@ -108,6 +108,11 @@
                                              (.replaceAll "-" "")
                                              (.toLowerCase))]
                                (aset modified-props event v))
+                             (.startsWith k "default")
+                             (let [default-attr (-> (subs k 7)
+                                                    (.replaceAll "-" "")
+                                                    (.toLowerCase))]
+                               (aset modified-attrs default-attr v))
                              :else
                              (do
                                (cond

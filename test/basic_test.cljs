@@ -61,7 +61,19 @@
     (assert/strictEqual (.-value (.querySelector el "input")) "")
     (swap! state assoc :input "k")
     (reagami/render el [ui])
-    (assert/strictEqual (.-value (.querySelector el "input")) "k")))
+    (assert/strictEqual (.-value (.querySelector el "input")) "k"))
+  ;; input with default value
+  (let [el (js/document.createElement "div")
+        ui (fn []
+             [:input#input {:default-value "Hello"}])]
+    (reagami/render el [ui])
+    (assert/strictEqual (.-innerHTML el) "<input value=\"Hello\" id=\"input\">")
+    (assert/strictEqual (.-value (.querySelector el "input")) "Hello")
+    (set! (.-value (.querySelector el "input")) "I typed")
+    ;; render doesn't overwrite what you typed because of default value
+    (reagami/render el [ui])
+    (assert/strictEqual (.-value (.querySelector el "input")) "I typed")
+    (assert/strictEqual (.getAttribute (.querySelector el "input") "value") "Hello")))
 
 (defn input-range-test []
   (let [el (js/document.createElement "div")

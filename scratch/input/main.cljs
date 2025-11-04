@@ -15,6 +15,8 @@
       [:pre (pr-str @state)]
       [:input {:value (:input @state)
                :on-input #(swap! state assoc :input (-> % :target :value))}]
+      [:input {:placeholder "yes"
+               :default-value "This is my default"}]
       [:button {:on-click #(swap! state update :counter inc)}
        "Click me!"]
       (if(even? (count (:input @state)))
