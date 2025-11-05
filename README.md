@@ -50,7 +50,7 @@ Reagami supports:
 - Id and class short notation: `[:div#foo.class1.class2]`
 - Disabling properties with `false`: `[:button {:disabled (not true)}]`
 - `:style` maps: `{:style {:background-color :green}}`
-- `:on-render` function that gets called with the node and either `:mount`, `:update` or `:unmount` after updating the DOM. This can be used to mount/update/unmount 3rd party Java library components. [Demo here](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE4VUwW7bMAy95ytY9yIf4nRX5zKgG7AO2yndyTAGTWZitTKlSnSzYui%2FD5KcNO3m1D5YMknp8T2SggIMUtMCQNQeH0btcQEATdEzu1CvVhiGKvQrj3InB11ALQNMm7YsFwvR4RYCS0YQku0Af%2BrQ2z2wH%2FH54ECgKbA0ZqmMVfcXC4Ditte%2BAyc9P8HXDSg7OEtIXMACoCHbYRtRGWRogpMEolIeJeNngwMSw11YdVaNaV1Ej6KM0NPjkTr0021wKQLyBYhqyfibry1xjIkhLxH%2FPKJi%2B80qafBWD7hhr2kH4i6sPknGqixfQlkP6JMpIN8Qo3%2BU5g2ED1dXV2WbQsQrSz5GVNI5pO6616aDmPwJvPUaPPLoCZRBSaODLeWoLUHTTjji%2FcpSsAYrY3dQjDTYkTjC5h4hXXekKHkblP6IN2VxNFceB%2FuIb%2FGUL4qOOqr4XWqCHzdF1CwiaepOP14mGzT1r5HZEvypLS2V0eo%2BSrGX7mKqmNF18ZMrhiyXzzkvvQWRf35MjiUUX3SHcJ1ygGITTXmTSRX7HulNTE4lAZqyyuASEQfxErQsSKYz5Wr0FtWTMtj%2Bvz6EkuHEa66I6iTAnHW9hmSvIxmegbW617SbcxcyIGcp6nqkVw0F4nV%2FJbco1RywTPwZZNaxtiRNDcqOpjso5bx1AXr0s7GkzZlr6T1GAlv3LhNR7GUaDIeGEHI3S045I2I6ajrg3Bw4xztpE3viuW3L9tgZUzmlfhDTrFwdauxkalUPI%2FqnDRpUbD0Ul9K5ooRmnCar7LrlXrLqp26p69NC%2FQnpbQ%2FzJLfmtP4LOxWf2tgFAAA%3D).
+- `:on-render` hook. See docs [here](https://github.com/borkdude/reagami?tab=readme-ov-file#on-render).
 
 Reagami does NOT support:
 
@@ -81,17 +81,19 @@ Example:
 (fn [node lifecycle {:keys [unmount updates] :as data}]
   (case lifecycle
     :mount
-    {:unmount (install-js-component! node)
+    {:unmount (install-clock! node)
      :updates 0}
 
     :update
-    (do (update-js-component! node)
-        (update data :updates inc))
+    (update data :updates inc)
 
     :unmount
-    ;; call the unmount function returned at :mount with the total amount of updates
-    (unmount updates)))
+    (do
+      (println "Number of updates in total: " updates)
+      (unmount))))
 ```
+
+See a full working example [on the playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE41UTW%2FbMAy951ew7kU%2BxMmu7mVANmAdtl3SnQxjUGUmVitTrkQ3C4r890Gy8tFsCeYcIpsi%2Bcj3SEEeOqlpAiBKhy%2BDdjgBgCprmXtfzmbou8K3M4dyLTudQSk9pJc6zycT0eAKPEtGEJJtB2%2Blb%2B0G2A0Ipe2l0rwF4SQ1%2BW7vQKDJszRmqoxVzzcTgOyh1a6BXjrewtclKNv1lpA4gwlARbbBOqA0yFD5XhKIQjmUjJ8NdkgMT37WWDXEcxZuZHkoJT4OqUGXssGt8Mg3IIop429eWOLgE1yOHn89omD7zSpp8EF3uGSnaQ3iyc8%2BScYiz4%2BurDt00eSR74nRvUpzBuHDfD7P6%2Bgi3lnGMKKQfY%2FULFptGgjFn8C7uwOHPDgCZVDS0MOKRq8VQVUnHCG%2FsuStwcLYNWQDdXYgDrC5RYjpDi2Ktw1Kd8AbqziYC4edfcVzPPmR0UEHFr9LTfDzfiQtQKnKRr%2FeRiNUZe8QRO%2Bmnh18jKoZm1CVjwOzJXgrLU2V0eo5sLSR%2FU0S19A34W8UF1nOd2PJegVi%2FJjiQfZFNwiLWB5ky2AaX%2F43lfTeqnPtpnzZopW0RkjGLIYUmxbpDMbYuFh96uHYidj2vVTeSs9bgwHKPtnhlOLsDrIKcEepjERHFoxeodqqGOMZtx6qRHNqmK%2FjxDaS5a7%2Bt7iFkv4k0KUJKGPYS9a3cp9XvB%2FtKJbLY1UmmDDfTS5mHu9cMoskjVDjMZ4mlV%2BJSFerEY29sgh6p4kNQfZj6B7RgV3BMSuwZWlKyPbfrq2UBCOM0a6u8%2FowTInnOEEirdvZnvyTRVe8DOi2SzSo2DrIbmXfZzlUQ1rOsmmmG8mqTdIuy1MF%2FYL4q%2FcraJzmdP4DI1TwhhsGAAA%3D).
 
 ## Examples
 
