@@ -248,8 +248,11 @@
     (let [ref (aget node ::on-render)]
       (if (.-isConnected node)
         (if (not (aget ref ::is-run))
-          (do (ref node :mount)
-              (aset ref ::is-run true))
-          (ref node :update))
-        (do (ref node :unmount)
+          (do (let [data (ref node :mount nil)]
+                (aset ref ::is-run true)
+                (aset ref ::data data)))
+          (let [data (ref node :update (aget ref ::data))]
+            (aset ref ::data data)))
+        (do (ref node :unmount (aget ref ::data))
+            (js-delete ref ::data)
             (update! ref-registry root disj node))))))

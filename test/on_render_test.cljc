@@ -11,19 +11,24 @@
 (defn sub-component [x]
   [:div#sub "Counter in subcomponent: " x])
 
+(def end-state (atom nil))
+
 (defn ui []
   [:div#ui
    [:button#show {:on-click #(swap! state update :show not)}
     "Show? " (:show @state)]
    (when (:show @state)
      [:div
-      [:div#my-custom {:on-render (fn [node lifecycle]
-                                    (swap! events #(doto % (.push #?(:squint lifecycle
-                                                                     :cljs (name lifecycle)))))
-                                    (case lifecycle
-                                      (:mount :update)
-                                      (reagami/render node [sub-component (:counter @state)])
-                                      :unmount nil))}]
+      [:div#my-custom {:on-render
+                       (fn [node lifecycle data]
+                         (when-not (:data @state)
+                           (swap! events #(doto % (.push #?(:squint lifecycle
+                                                            :cljs (name lifecycle)))))
+                           (case lifecycle
+                             (:mount :update)
+                             (do (reagami/render node [sub-component (:counter @state)])
+                                 (update data :updates (fnil inc 0)))
+                             :unmount (swap! end-state assoc :data data))))}]
       [:button#inc {:on-click #(swap! state update :counter inc)}
        "Click me!"]])])
 
@@ -53,4 +58,5 @@
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
     (.click (js/document.querySelector "#inc"))
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 2"))
+    (assert/ok (= {:updates 3} (:data @end-state )))
     (println "✓ on-render-test passed")))
