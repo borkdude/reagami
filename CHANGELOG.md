@@ -2,6 +2,10 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## v0.0.33 (2025-11-05)
+
+- Support data param in `:on-render`
+
 ## v0.0.32 (2025-11-05)
 
 - Support default values for uncontrolled components
