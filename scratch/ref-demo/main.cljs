@@ -55,3 +55,19 @@
 (add-watch state ::render (fn [_ _ _ _] (render)))
 
 (render)
+
+(fn [node lifecycle {:keys [unmount updates] :as data}]
+  (case lifecycle
+    :mount
+    ;; mount: start ticking
+    {:unmount (install-clock! node)
+     :updates 0}
+
+    :update
+    ;; optional: could update props here
+    (do (update-clock! node (:counter @state))
+        (update data :updates inc))
+
+    :unmount
+    ;; stop ticking
+    (unmount updates)))

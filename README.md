@@ -66,6 +66,33 @@ educational purposes.
 
 For a more fully featured version of Reagent in squint, check out [Eucalypt](https://github.com/chr15m/eucalypt).
 
+## `:on-render`
+
+The `:on-render` function takes 3 arguments: `(fn [node lifecycle data])`
+
+- `node`: the DOM node that is mounted, updated or unmounted.
+- `lifecycle`: one of `:mount`, `:update` or `:unmount`
+- `data`: the result of the `:on-render` function every time it is called. By
+  returning data you can pass data from one lifecycle to another. E.g. when you mount a JS component, you can return `{:unmount unmount}` so you can call the unmount function in the `:unmount` lifecycle.
+
+Example:
+
+``` clojure
+(fn [node lifecycle {:keys [unmount updates] :as data}]
+  (case lifecycle
+    :mount
+    {:unmount (install-js-component! node)
+     :updates 0}
+
+    :update
+    (do (update-js-component! node)
+        (update data :updates inc))
+
+    :unmount
+    ;; call the unmount function returned at :mount with the total amount of updates
+    (unmount updates)))
+```
+
 ## Examples
 
 Examples on the Squint playground:
