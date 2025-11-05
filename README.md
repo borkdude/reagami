@@ -68,7 +68,7 @@ For a more fully featured version of Reagent in squint, check out [Eucalypt](htt
 
 ## `:on-render`
 
-The `:on-render` can be used to do something after a DOM node is mounted, updated or unmounted.
+The `:on-render` hook can be used to do something after a DOM node is mounted, updated or unmounted.
 It takes 3 arguments: `(fn [node lifecycle data])`
 
 - `node`: the DOM node that is mounted, updated or unmounted.
