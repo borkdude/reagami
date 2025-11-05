@@ -58,5 +58,5 @@
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
     (.click (js/document.querySelector "#inc"))
     (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 2"))
-    (assert/deepEqual (:data @end-state) #js {:updates 3})
+    (assert/ok (= {:updates 3} (:data @end-state )))
     (println "✓ on-render-test passed")))
