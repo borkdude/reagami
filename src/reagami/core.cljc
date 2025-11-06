@@ -69,13 +69,16 @@
           [tag id class] (if (string? tag) (parse-tag tag) [tag])
           classes (when class (.split class "."))
           first-child (aget hiccup children-idx)
-          [attr-idx children-idx] (if (map? first-child)
-                                    [1 2]
-                                    [-1 1])
+          attr-idx (if (map? first-child) 1 -1)
+          children-idx (if (identical? -1 attr-idx)
+                         children-idx (inc children-idx))
           in-svg? (or in-svg? (= "svg" tag))
           node (if (fn? tag)
-                 (let [res (apply tag (subvec hiccup 1))]
-                   (create-vnode* res in-svg?))
+                 (do
+                   ;; NOTE: mutating hiccup!
+                   (.shift hiccup)
+                   (let [res (apply tag hiccup)]
+                       (create-vnode* res in-svg?)))
                  (let [new-children #js []
                        node #js {:type :element :svg in-svg?
                                  :tag (if in-svg?
@@ -132,7 +135,8 @@
                                    :else (when v
                                            ;; not adding means it will be removed on new render
                                            (aset modified-attrs k v))))))))))
-                   (when (seq classes)
+                   (when (and (some? classes)
+                              (pos? (alength classes)))
                      (aset modified-attrs "class"
                            (str (when-let [c (aget modified-attrs "class")]
                                   (str c " "))

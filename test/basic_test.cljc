@@ -113,3 +113,13 @@
     (reagami/render el [ui [1 2]])
     (assert/equal 2 (count (seq (.querySelectorAll el "tr"))))
     (println "✓ table test passed")))
+
+(defn hiccup-fn-test []
+  (let [el (js/document.createElement "div")
+        sub-ui (fn [x]
+                 [:div x])
+        ui (fn []
+             [sub-ui "Hello world"])]
+    (reagami/render el [ui])
+    (assert/equal (.-innerHTML el) "<div>Hello world</div>")
+    (println "✓ fn test passed")))
