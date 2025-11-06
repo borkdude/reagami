@@ -135,7 +135,7 @@
                                    :else (when v
                                            ;; not adding means it will be removed on new render
                                            (aset modified-attrs k v))))))))))
-                   (when (and (some? classes)
+                   (when (and (not (nil? classes))
                               (pos? (alength classes)))
                      (aset modified-attrs "class"
                            (str (when-let [c (aget modified-attrs "class")]
