@@ -2,6 +2,11 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## v0.0.35 (2025-11-06)
+
+- Performance enhancements
+- treat `innerHTML` as a property rather than an attribute
+
 ## v0.0.34 (2025-11-06)
 
 - Drop support for camelCased properties / (css) attributes

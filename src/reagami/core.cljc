@@ -20,7 +20,7 @@
        (.substring tag (inc class-index)))]))
 
 (def properties (js/Set. ["checked" "disabled" "selected"
-                          "value"]))
+                          "value" "innerHTML"]))
 
 (defn property? [^js x]
   (.has properties x))
