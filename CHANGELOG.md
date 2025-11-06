@@ -2,6 +2,11 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## v0.0.34 (2025-11-06)
+
+- Drop support for camelCased properties / (css) attributes
+- Fix `:default-value` in input range
+
 ## v0.0.33 (2025-11-05)
 
 - Support data param in `:on-render`

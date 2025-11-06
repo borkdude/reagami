@@ -75,17 +75,24 @@
     (assert/strictEqual (.-value (.querySelector el "input")) "I typed")
     (assert/strictEqual (.getAttribute (.querySelector el "input") "value") "Hello")))
 
+(defn get-value [node k]
+  (let [k #?(:squint k :cljs (name k))]
+    (if (= "value" k)
+      (.-value node)
+      (.getAttribute node "value"))))
+
 (defn input-range-test []
-  (let [el (js/document.createElement "div")
-        ui (fn [value min max]
-             [:input {:value value
-                      :type "range"
-                      :min min
-                      :max max}])]
-    (reagami/render el [ui 150 100 200])
-    (assert/strictEqual "150" (.-value (.querySelector el "input")))
-    (reagami/render el [ui 140 101 200])
-    (assert/strictEqual "140" (.-value (.querySelector el "input")))))
+  (doseq [k [:value :default-value]]
+    (let [el (js/document.createElement "div")
+          ui (fn [value min max]
+               [:input {k value
+                        :type "range"
+                        :min min
+                        :max max}])]
+      (reagami/render el [ui 150 100 200])
+      (assert/strictEqual (get-value (.querySelector el "input") k) "150")
+      (reagami/render el [ui 140 101 200])
+      (assert/strictEqual (get-value (.querySelector el "input") k) "140"))))
 
 (defn button-test []
   (let [el (js/document.createElement "div")

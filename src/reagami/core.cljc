@@ -38,15 +38,16 @@
 #?(:squint (defn name [s]
              s))
 
-(defn camel->kebab [s]
-  (.replace s (js/RegExp. "[A-Z]" "g")
-            (fn [m]
-              (str "-" (.toLowerCase m)))))
-
 (defn hiccup-seq? [x]
   (and (not (string? x))
        (seq? x)
        (not (vector? x))))
+
+(defn- move-to-back [o v]
+  (when (js-in v o)
+    (let [value (aget o v)]
+      (js-delete o v)
+      (aset o v value))))
 
 (defn- create-vnode*
   [hiccup in-svg?]
@@ -91,44 +92,45 @@
                        (.push new-children (create-vnode* child in-svg?))))
                    (when attrs
                      (let [#?@(:squint []
-                               :cljs [attrs (clj->js attrs)])]
-                       ;; make sure value goes last, since setting value before
-                       ;; min and max attributes doesn't work for input range
-                       (when (js-in "value" attrs)
-                         (let [value (aget attrs "value")]
-                           (js-delete attrs "value")
-                           (aset attrs "value" value)))
-                       (doseq [e (js/Object.entries attrs)]
-                         (let [k (aget e 0)
-                               v (aget e 1)]
-                           (cond
-                             (= "on-render" k) (aset node ::on-render v)
-                             (.startsWith k "on")
-                             (let [event (-> k
-                                             (.replaceAll "-" "")
-                                             (.toLowerCase))]
-                               (aset modified-props event v))
-                             (.startsWith k "default")
-                             (let [default-attr (-> (subs k 7)
-                                                    (.replaceAll "-" "")
-                                                    (.toLowerCase))]
-                               (aset modified-attrs default-attr v))
-                             :else
-                             (do
+                               :cljs [attrs (clj->js attrs)])
+                           entries (js/Object.entries attrs)
+                           entry-count (alength entries)]
+                       ;; fix for input type range where min / max must be in place before value / default-value
+                       (when (or (js-in "max" attrs) (js-in "min" attrs))
+                         (move-to-back attrs "default-value")
+                         (move-to-back attrs "value"))
+                       (loop [i 0]
+                         (when (< i entry-count)
+                           (let [e (aget entries i)]
+                             (let [k (aget e 0)
+                                   v (aget e 1)]
                                (cond
-                                 (and (= "style" k) (object? v))
-                                 (do (let [style (reduce
-                                                  (fn [s e]
-                                                    (str s (camel->kebab (aget e 0)) ": " (aget e 1) ";"))
-                                                  "" (js/Object.entries v))]
-                                       ;; set/get attribute is faster to set, get
-                                       ;; and compare (in patch)than setting
-                                       ;; individual props and using cssText
-                                       (aset modified-attrs "style" style)))
-                                 (property? k) (aset modified-props k v)
-                                 :else (when v
-                                         ;; not adding means it will be removed on new render
-                                         (aset modified-attrs k v)))))))))
+                                 (= "on-render" k) (aset node ::on-render v)
+                                 (.startsWith k "on")
+                                 (let [event (-> k
+                                                 (.replaceAll "-" ""))]
+                                   (aset modified-props event v))
+                                 (.startsWith k "default")
+                                 (let [default-attr (-> (subs k 7)
+                                                        (.replaceAll "-" ""))]
+                                   (aset modified-attrs default-attr v))
+                                 :else
+                                 (do
+                                   (cond
+                                     (and (= "style" k) (object? v))
+                                     (do (let [style (reduce
+                                                      (fn [s e]
+                                                        (str s (aget e 0) ": " (aget e 1) ";"))
+                                                      "" (js/Object.entries v))]
+                                           ;; set/get attribute is faster to set, get
+                                           ;; and compare (in patch)than setting
+                                           ;; individual props and using cssText
+                                           (aset modified-attrs "style" style)))
+                                     (property? k) (aset modified-props k v)
+                                     :else (when v
+                                             ;; not adding means it will be removed on new render
+                                             (aset modified-attrs k v)))))))
+                           (recur (inc i))))))
                    (when (seq classes)
                      (aset modified-attrs "class"
                            (str (when-let [c (aget modified-attrs "class")]
