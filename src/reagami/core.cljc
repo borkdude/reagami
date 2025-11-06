@@ -59,21 +59,22 @@
     #js {:tag "#text"
          :text (str hiccup)}
     (vector? hiccup)
-    (let [[tag & children] hiccup
+    (let [#?@(:squint [] :cljs [hiccup (into-array hiccup)])
+          tag (aget hiccup 0)
+          children-idx 1
           #?@(:squint []
               :cljs [tag (if (keyword? tag)
                            (subs (str tag) 1)
                            tag)])
           [tag id class] (if (string? tag) (parse-tag tag) [tag])
           classes (when class (.split class "."))
-          [attrs children] (if (map? (first children))
-                             [(first children) (rest children)]
-                             [nil children])
+          first-child (aget hiccup children-idx)
+          [attr-idx children-idx] (if (map? first-child)
+                                    [1 2]
+                                    [-1 1])
           in-svg? (or in-svg? (= "svg" tag))
           node (if (fn? tag)
-                 (let [res (apply tag (if attrs
-                                        (cons attrs children)
-                                        children))]
+                 (let [res (apply tag (subvec hiccup 1))]
                    (create-vnode* res in-svg?))
                  (let [new-children #js []
                        node #js {:type :element :svg in-svg?
@@ -85,13 +86,15 @@
                        modified-attrs #js {}]
                    (aset node ::props modified-props)
                    (aset node ::attrs modified-attrs)
-                   (doseq [child children]
-                     (if (hiccup-seq? child)
-                       (doseq [x child]
-                         (.push new-children (create-vnode* x in-svg?)))
-                       (.push new-children (create-vnode* child in-svg?))))
-                   (when attrs
-                     (let [#?@(:squint []
+                   (dotimes [i (- (alength hiccup) children-idx)]
+                     (let [child (aget hiccup (+ i children-idx))]
+                       (if (hiccup-seq? child)
+                         (doseq [x child]
+                           (.push new-children (create-vnode* x in-svg?)))
+                         (.push new-children (create-vnode* child in-svg?)))))
+                   (when-not (identical? -1 attr-idx)
+                     (let [attrs (aget hiccup 1)
+                           #?@(:squint []
                                :cljs [attrs (clj->js attrs)])
                            entries (js/Object.entries attrs)
                            entry-count (alength entries)]
