@@ -99,38 +99,36 @@
                        (when (or (js-in "max" attrs) (js-in "min" attrs))
                          (move-to-back attrs "default-value")
                          (move-to-back attrs "value"))
-                       (loop [i 0]
-                         (when (< i entry-count)
-                           (let [e (aget entries i)]
-                             (let [k (aget e 0)
-                                   v (aget e 1)]
-                               (cond
-                                 (= "on-render" k) (aset node ::on-render v)
-                                 (.startsWith k "on")
-                                 (let [event (-> k
-                                                 (.replaceAll "-" ""))]
-                                   (aset modified-props event v))
-                                 (.startsWith k "default")
-                                 (let [default-attr (-> (subs k 7)
-                                                        (.replaceAll "-" ""))]
-                                   (aset modified-attrs default-attr v))
-                                 :else
-                                 (do
-                                   (cond
-                                     (and (= "style" k) (object? v))
-                                     (do (let [style (reduce
-                                                      (fn [s e]
-                                                        (str s (aget e 0) ": " (aget e 1) ";"))
-                                                      "" (js/Object.entries v))]
-                                           ;; set/get attribute is faster to set, get
-                                           ;; and compare (in patch)than setting
-                                           ;; individual props and using cssText
-                                           (aset modified-attrs "style" style)))
-                                     (property? k) (aset modified-props k v)
-                                     :else (when v
-                                             ;; not adding means it will be removed on new render
-                                             (aset modified-attrs k v)))))))
-                           (recur (inc i))))))
+                       (dotimes [i entry-count]
+                         (let [e (aget entries i)]
+                           (let [k (aget e 0)
+                                 v (aget e 1)]
+                             (cond
+                               (= "on-render" k) (aset node ::on-render v)
+                               (.startsWith k "on")
+                               (let [event (-> k
+                                               (.replaceAll "-" ""))]
+                                 (aset modified-props event v))
+                               (.startsWith k "default")
+                               (let [default-attr (-> (subs k 7)
+                                                      (.replaceAll "-" ""))]
+                                 (aset modified-attrs default-attr v))
+                               :else
+                               (do
+                                 (cond
+                                   (and (= "style" k) (object? v))
+                                   (do (let [style (reduce
+                                                    (fn [s e]
+                                                      (str s (aget e 0) ": " (aget e 1) ";"))
+                                                    "" (js/Object.entries v))]
+                                         ;; set/get attribute is faster to set, get
+                                         ;; and compare (in patch)than setting
+                                         ;; individual props and using cssText
+                                         (aset modified-attrs "style" style)))
+                                   (property? k) (aset modified-props k v)
+                                   :else (when v
+                                           ;; not adding means it will be removed on new render
+                                           (aset modified-attrs k v))))))))))
                    (when (seq classes)
                      (aset modified-attrs "class"
                            (str (when-let [c (aget modified-attrs "class")]
