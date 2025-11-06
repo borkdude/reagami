@@ -1,9 +1,6 @@
 {
   "name": "reagami",
   "version": "0.0.34",
-  "dependencies": {
-    "squint-cljs": "^0.9.177"
-  },
   "type": "module",
   "main": "reagami.mjs",
   "exports": "./reagami.mjs",
@@ -18,8 +15,8 @@
   "license": "MIT",
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "esbuild": "^0.25.11",
-    "jsdom": "^27.0.1",
+    "esbuild": "^0.25.12",
+    "jsdom": "^27.1.0",
     "shadow-cljs": "^3.2.1"
   },
   "files": [
@@ -31,5 +28,8 @@
     "watch": "pnpm squint watch",
     "test": "pnpm squint compile && node lib/test_runner.mjs",
     "prepublishOnly": "pnpm build"
+  },
+  "dependencies": {
+    "squint-cljs": "^0.9.178"
   }
 }
