@@ -99,16 +99,15 @@
                      (let [attrs (aget hiccup 1)
                            #?@(:squint []
                                :cljs [attrs (clj->js attrs)])
-                           entries (js/Object.entries attrs)
-                           entry-count (alength entries)]
+                           entry-names (js/Object.getOwnPropertyNames attrs)
+                           entry-count (alength entry-names)]
                        ;; fix for input type range where min / max must be in place before value / default-value
                        (when (or (js-in "max" attrs) (js-in "min" attrs))
                          (move-to-back attrs "default-value")
                          (move-to-back attrs "value"))
                        (dotimes [i entry-count]
-                         (let [e (aget entries i)]
-                           (let [k (aget e 0)
-                                 v (aget e 1)]
+                         (let [k (aget entry-names i)]
+                           (let [v (aget attrs k)]
                              (cond
                                (= "on-render" k) (aset node ::on-render v)
                                (.startsWith k "on")
@@ -167,19 +166,24 @@
                            (js/document.createElementNS svg-ns tag)
                            (js/document.createElement tag))
                     props (aget vnode ::props)
-                    attrs (aget vnode ::attrs)]
+                    attrs (aget vnode ::attrs)
+                    attr-names (js/Object.getOwnPropertyNames attrs)
+                    prop-names (js/Object.getOwnPropertyNames props)]
                 ;; always make sure to first set attrs, then props because value should go last
-                (doseq [n (js/Object.getOwnPropertyNames attrs)]
-                  (let [new-attr (aget attrs n)]
+                (dotimes [i (alength attr-names)]
+                  (let [n (aget attr-names i)
+                        new-attr (aget attrs n)]
                     (.setAttribute node n new-attr)))
-                (doseq [n (js/Object.getOwnPropertyNames props)]
-                  (let [new-prop (aget props n)
+                (dotimes [i (alength prop-names)]
+                  (let [n (aget prop-names i)
+                        new-prop (aget props n)
                         new-prop (if (undefined? new-prop) nil new-prop)]
                     (aset node n new-prop)))
                 (when-let [children (aget vnode "children")]
-                  (when (pos? (alength children))
-                    (doseq [child children]
-                      (.appendChild node (create-node child root)))))
+                  (let [len (alength children)]
+                    (dotimes [i len]
+                      (let [child (aget children i)]
+                        (.appendChild node (create-node child root))))))
                 (when-let [ref (aget vnode ::on-render)]
                   (aset node ::on-render ref)
                   (update! ref-registry root (fnil conj #{}) node))
