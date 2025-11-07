@@ -75,9 +75,8 @@
           in-svg? (or in-svg? (= "svg" tag))
           node (if (fn? tag)
                  (do
-                   ;; NOTE: mutating hiccup!
-                   (.shift hiccup)
-                   (let [res (apply tag hiccup)]
+                   (let [;; note: .slice was even faster in benchmarks than .shift-mutating
+                         res (apply tag (.slice hiccup 1))]
                      (create-vnode* res in-svg?)))
                  (let [new-children #js []
                        node #js {:type :element :svg in-svg?
