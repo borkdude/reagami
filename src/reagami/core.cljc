@@ -70,6 +70,21 @@
 (def ^:private data-key #?(:squint ::data
                            :cljs "reagami.core/data"))
 
+(do
+  #?@(:squint []
+      :cljs [(defn ->attrs [m]
+               (let [obj #js {}]
+                 (run! (fn [[k v]]
+                         (let [k (name k)
+                               v (cond (keyword? v)
+                                       (name v)
+                                       (map? v)
+                                       (->attrs v)
+                                       :else v)]
+                           (aset obj k v)))
+                       m)
+                 obj))]))
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
@@ -118,7 +133,7 @@
                    (when-not (identical? -1 attr-idx)
                      (let [attrs (aget hiccup 1)
                            #?@(:squint []
-                               :cljs [attrs (clj->js attrs)])
+                               :cljs [attrs (->attrs attrs)])
                            entry-names (js/Object.getOwnPropertyNames attrs)
                            entry-count (alength entry-names)]
                        ;; fix for input type range where min / max must be in place before value / default-value
