@@ -108,7 +108,7 @@
           attr-idx (if (map? first-child) 1 -1)
           children-idx (if (identical? -1 attr-idx)
                          children-idx (inc children-idx))
-          in-svg? (or in-svg? (= "svg" tag))
+          in-svg? (or in-svg? (identical? "svg" tag))
           node (if (fn? tag)
                  (do
                    (let [;; note: .slice was even faster in benchmarks than .shift-mutating
@@ -144,7 +144,7 @@
                          (let [k (aget entry-names i)]
                            (let [v (aget attrs k)]
                              (cond
-                               (= "on-render" k) (aset node on-render-key v)
+                               (identical? "on-render" k) (aset node on-render-key v)
                                (.startsWith k "on")
                                (let [event (-> k
                                                (.replaceAll "-" ""))]
@@ -156,7 +156,7 @@
                                :else
                                (do
                                  (cond
-                                   (and (= "style" k) (object? v))
+                                   (and (identical? "style" k) (object? v))
                                    (do (let [style (reduce
                                                     (fn [s e]
                                                       (str s (aget e 0) ": " (aget e 1) ";"))
