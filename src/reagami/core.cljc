@@ -49,6 +49,27 @@
       (js-delete o v)
       (aset o v value))))
 
+(def ^:private on-render-key #?(:squint ::on-render
+                                :cljs "reagami.core/on-render"))
+
+(def ^:private attrs-key #?(:squint ::attrs
+                            :cljs "reagami.core/attrs"))
+
+(def ^:private props-key #?(:squint ::props
+                            :cljs "reagami.core/props"))
+
+(def ^:private vnode-key #?(:squint ::vnode
+                            :cljs "reagami.core/vnode"))
+
+(def ^:private root-key #?(:squint ::root
+                           :cljs "reagami.core/root"))
+
+(def ^:private is-run-key #?(:squint ::is-run
+                             :cljs "reagami.core/is-run"))
+
+(def ^:private data-key #?(:squint ::data
+                           :cljs "reagami.core/data"))
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
@@ -64,7 +85,7 @@
           children-idx 1
           #?@(:squint []
               :cljs [tag (if (keyword? tag)
-                           (subs (str tag) 1)
+                           (name tag)
                            tag)])
           [tag id class] (if (string? tag) (parse-tag tag) [tag])
           classes (when class (.split class "."))
@@ -86,8 +107,8 @@
                                  :children new-children}
                        modified-props #js {}
                        modified-attrs #js {}]
-                   (aset node ::props modified-props)
-                   (aset node ::attrs modified-attrs)
+                   (aset node props-key modified-props)
+                   (aset node attrs-key modified-attrs)
                    (dotimes [i (- (alength hiccup) children-idx)]
                      (let [child (aget hiccup (+ i children-idx))]
                        (if (hiccup-seq? child)
@@ -108,7 +129,7 @@
                          (let [k (aget entry-names i)]
                            (let [v (aget attrs k)]
                              (cond
-                               (= "on-render" k) (aset node ::on-render v)
+                               (= "on-render" k) (aset node on-render-key v)
                                (.startsWith k "on")
                                (let [event (-> k
                                                (.replaceAll "-" ""))]
@@ -164,8 +185,8 @@
                      node (if (aget vnode "svg")
                             (js/document.createElementNS svg-ns tag)
                             (js/document.createElement tag))
-                     props (aget vnode ::props)
-                     attrs (aget vnode ::attrs)
+                     props (aget vnode props-key)
+                     attrs (aget vnode attrs-key)
                      attr-names (js/Object.getOwnPropertyNames attrs)
                      prop-names (js/Object.getOwnPropertyNames props)]
                  ;; always make sure to first set attrs, then props because value should go last
@@ -183,18 +204,18 @@
                      (dotimes [i len]
                        (let [child (aget children i)]
                          (.appendChild node (create-node child root))))))
-                 (when-let [ref (aget vnode ::on-render)]
-                   (aset node ::on-render ref)
+                 (when-let [ref (aget vnode on-render-key)]
+                   (aset node on-render-key ref)
                    (update! ref-registry root (fnil conj #{}) node))
                  node))]
-    (aset node ::vnode vnode)
+    (aset node vnode-key vnode)
     node))
 
 (defn- patch [^js parent new-children root]
-  (let [parent-vnode (aget parent ::vnode)
+  (let [parent-vnode (aget parent vnode-key)
         old-children-count (cond (and parent-vnode
                                       ;; other render root
-                                      (not (aget parent ::root)))
+                                      (not (aget parent root-key)))
                                  (alength (aget parent-vnode "children"))
                                  ;; current render root
                                  (identical? root parent) (alength (.-childNodes parent))
@@ -207,7 +228,7 @@
           (.apply parent.replaceChildren parent (.map new-children #(create-node % root)))
           (dotimes [i new-children-count]
             (let [^js old (aget old-children i)
-                  ^js old-vnode (aget old ::vnode)
+                  ^js old-vnode (aget old vnode-key)
                   ^js new-vnode (aget new-children i)
                   txt-old (aget old-vnode "text")
                   txt (aget new-vnode "text")]
@@ -216,12 +237,12 @@
                   (and txt-old txt)
                   (when-not (identical? txt txt-old)
                     (do (set! (.-textContent old) txt)
-                        (aset old ::vnode new-vnode)))
+                        (aset old vnode-key new-vnode)))
                   (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
-                  (let [^js old-props (aget old-vnode ::props)
-                        ^js old-attrs (aget old-vnode ::attrs)
-                        ^js new-props (aget new-vnode ::props)
-                        ^js new-attrs (aget new-vnode ::attrs)
+                  (let [^js old-props (aget old-vnode props-key)
+                        ^js old-attrs (aget old-vnode attrs-key)
+                        ^js new-props (aget new-vnode props-key)
+                        ^js new-attrs (aget new-vnode attrs-key)
                         old-prop-names (js/Object.getOwnPropertyNames old-props)
                         old-attr-names (js/Object.getOwnPropertyNames old-attrs)
                         new-attr-names (js/Object.getOwnPropertyNames new-attrs)
@@ -251,26 +272,26 @@
                     ;; it's important that we set the vnode of the old node last
                     ;; since while patching children, the old vnode should
                     ;; remain in place since it's used at the top for reading the amount of children
-                    (aset old ::vnode new-vnode))
+                    (aset old vnode-key new-vnode))
                   :else (let [new-node (create-node new-vnode root)]
                           (.replaceChild parent new-node old)))))))))))
 
 (defn render [root hiccup]
-  (when-not (aget root ::root)
+  (when-not (aget root root-key)
     ;; clear all root children so we can rely on every child having a vnode
     (set! root -textContent "")
-    (aset root ::root true))
+    (aset root root-key true))
   (let [new-node (create-vnode hiccup)]
     (patch root #js [new-node] root))
   (doseq [node (.get ref-registry root)]
-    (let [ref (aget node ::on-render)]
+    (let [ref (aget node on-render-key)]
       (if (.-isConnected node)
-        (if (not (aget ref ::is-run))
+        (if (not (aget ref is-run-key))
           (do (let [data (ref node :mount nil)]
-                (aset ref ::is-run true)
-                (aset ref ::data data)))
-          (let [data (ref node :update (aget ref ::data))]
-            (aset ref ::data data)))
-        (do (ref node :unmount (aget ref ::data))
-            (js-delete ref ::data)
+                (aset ref is-run-key true)
+                (aset ref data-key data)))
+          (let [data (ref node :update (aget ref data-key))]
+            (aset ref data-key data)))
+        (do (ref node :unmount (aget ref data-key))
+            (js-delete ref data-key)
             (update! ref-registry root disj node))))))
