@@ -1,4 +1,4 @@
-{:deps {org.clojure/clojurescript {:git/url "https://github.com/clojure/clojurescript" :git/sha "ceba37b5a8513ca837f0d6939681b2c05df32e1c"}
+{:deps {org.clojure/clojurescript {:git/url "https://github.com/clojure/clojurescript" :git/sha "10fc535d91f4e0e84c86a4c3e4ded3fec77a1d2b"}
         #_#_com.google.javascript/closure-compiler {:mvn/version "v20250402"}
         io.github.borkdude/reagami {:local/root "../.."}
         #_{:git/sha "8ba36cd3e3c6ba52882873a7193a4d8a3e5c64a3" }
