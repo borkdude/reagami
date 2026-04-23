@@ -19,20 +19,24 @@
       [:button {:on-click #(swap! state update :text str "x")}
        "Click me"]])])
 
-(def container1 (js/document.createElement "div"))
-(def container2 (js/document.createElement "div"))
+(defn benchmark
+  ([] (benchmark {:iterations 1000 :trials 1}))
+  ([{:keys [iterations trials]}]
+   (let [container1 (js/document.createElement "div")
+         container2 (js/document.createElement "div")]
+     (js/console.log "Warming up...")
+     (old/render container1 (hiccup))
+     (new/render container2 (hiccup))
 
-(.appendChild (js/document.querySelector "#app") container1 container2)
-
-(defn benchmark []
-  (let []
-    (js/console.log "Warming up...")
-    (old/render container1 (hiccup))
-    (new/render container2 (hiccup))
-
-    (js/console.log "Benchmarking...")
-    (let [old-time (measure "Old renderer" #(dotimes [_ 1000] (old/render container1 (hiccup))))
-          new-time (measure "New renderer" #(dotimes [_ 1000] (new/render container2 (hiccup))))]
-      (js/console.log "Speedup:" (/ old-time new-time) "× faster"))))
-
-(add-watch state ::state benchmark)
+     (js/console.log "Benchmarking"
+                     (str iterations " iterations × " trials " trials"))
+     (dotimes [trial trials]
+       (when (> trials 1)
+         (js/console.log "--- trial" (inc trial) "---"))
+       (let [old-time (measure "Old renderer"
+                               #(dotimes [_ iterations]
+                                  (old/render container1 (hiccup))))
+             new-time (measure "New renderer"
+                               #(dotimes [_ iterations]
+                                  (new/render container2 (hiccup))))]
+         (js/console.log "Speedup:" (/ old-time new-time) "× faster"))))))

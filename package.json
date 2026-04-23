@@ -27,9 +27,10 @@
     "build": "pnpm squint compile --paths src",
     "watch": "pnpm squint watch",
     "test": "pnpm squint compile && node lib/test_runner.mjs",
+    "bench": "pnpm squint compile && node lib/bench_runner.mjs",
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "squint-cljs": "^0.9.178"
+    "squint-cljs": "^0.11.188"
   }
 }
