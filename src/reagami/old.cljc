@@ -262,21 +262,21 @@
                         old-attr-names (js/Object.getOwnPropertyNames old-attrs)
                         new-attr-names (js/Object.getOwnPropertyNames new-attrs)
                         new-prop-names (js/Object.getOwnPropertyNames new-props)]
-                    (dotimes [i (count old-prop-names)]
+                    (dotimes [i (alength old-prop-names)]
                       (let [o (aget old-prop-names i)]
                         (when-not (js-in o new-props)
                           (aset old o nil))))
-                    (dotimes [i (count old-attr-names)]
+                    (dotimes [i (alength old-attr-names)]
                       (let [o (aget old-attr-names i)]
                         (when-not (js-in o new-attrs)
                           (.removeAttribute old o))))
                     ;; always set attrs first, then props
-                    (dotimes [i (count new-attr-names)]
+                    (dotimes [i (alength new-attr-names)]
                       (let [n (aget new-attr-names i)
                             new-attr (aget new-attrs n)]
                         (when-not (identical? new-attr (aget old-attrs n))
                           (.setAttribute old n new-attr))))
-                    (dotimes [i (count new-prop-names)]
+                    (dotimes [i (alength new-prop-names)]
                       (let [n (aget new-prop-names i)
                             new-prop (let [v (aget new-props n)]
                                        (if (undefined? v) nil v))]
