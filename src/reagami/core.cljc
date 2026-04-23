@@ -70,6 +70,10 @@
 (def ^:private data-key #?(:squint ::data
                            :cljs "reagami.core/data"))
 
+(def ^:private key-prop "key")
+
+(def ^:private has-keys-prop "hasKeys")
+
 (do
   #?@(:squint []
       :cljs [(defn ->attrs [m]
@@ -128,8 +132,14 @@
                      (let [child (aget hiccup (+ i children-idx))]
                        (if (hiccup-seq? child)
                          (doseq [x child]
-                           (.push new-children (create-vnode* x in-svg?)))
-                         (.push new-children (create-vnode* child in-svg?)))))
+                           (let [^js vn (create-vnode* x in-svg?)]
+                             (.push new-children vn)
+                             (when (some? (aget vn key-prop))
+                               (aset node has-keys-prop true))))
+                         (let [^js vn (create-vnode* child in-svg?)]
+                           (.push new-children vn)
+                           (when (some? (aget vn key-prop))
+                             (aset node has-keys-prop true))))))
                    (when-not (identical? -1 attr-idx)
                      (let [attrs (aget hiccup 1)
                            #?@(:squint []
@@ -144,6 +154,7 @@
                          (let [k (aget entry-names i)]
                            (let [v (aget attrs k)]
                              (cond
+                               (identical? "key" k) (aset node key-prop v)
                                (identical? "on-render" k) (aset node on-render-key v)
                                (.startsWith k "on")
                                (let [event (-> k
@@ -226,7 +237,122 @@
     (aset node vnode-key vnode)
     node))
 
-(defn- patch [^js parent new-children root]
+(declare patch)
+
+(defn- diff-in-place
+  "Diff an existing DOM node in-place against a new vnode.
+   Precondition: both are element vnodes with matching tag."
+  [^js old ^js old-vnode ^js new-vnode root]
+  (let [^js old-props (aget old-vnode props-key)
+        ^js old-attrs (aget old-vnode attrs-key)
+        ^js new-props (aget new-vnode props-key)
+        ^js new-attrs (aget new-vnode attrs-key)
+        old-prop-names (js/Object.getOwnPropertyNames old-props)
+        old-attr-names (js/Object.getOwnPropertyNames old-attrs)
+        new-attr-names (js/Object.getOwnPropertyNames new-attrs)
+        new-prop-names (js/Object.getOwnPropertyNames new-props)]
+    (dotimes [i (alength old-prop-names)]
+      (let [o (aget old-prop-names i)]
+        (when-not (js-in o new-props)
+          (aset old o nil))))
+    (dotimes [i (alength old-attr-names)]
+      (let [o (aget old-attr-names i)]
+        (when-not (js-in o new-attrs)
+          (.removeAttribute old o))))
+    ;; always set attrs first, then props
+    (dotimes [i (alength new-attr-names)]
+      (let [n (aget new-attr-names i)
+            new-attr (aget new-attrs n)]
+        (when-not (identical? new-attr (aget old-attrs n))
+          (.setAttribute old n new-attr))))
+    (dotimes [i (alength new-prop-names)]
+      (let [n (aget new-prop-names i)
+            new-prop (let [v (aget new-props n)]
+                       (if (undefined? v) nil v))]
+        (when-not (identical? (aget old-props n) new-prop)
+          (aset old n new-prop))))
+    (when-let [new-children (aget new-vnode "children")]
+      (patch old new-children (aget new-vnode has-keys-prop) root))
+    ;; it's important that we set the vnode of the old node last
+    ;; since while patching children, the old vnode should
+    ;; remain in place since it's used at the top for reading the amount of children
+    (aset old vnode-key new-vnode)))
+
+(defn- reconcile-child!
+  "Reconcile an existing DOM `old` against `new-vnode` at its current position."
+  [^js parent ^js old ^js old-vnode ^js new-vnode root]
+  (let [txt-old (aget old-vnode "text")
+        txt (aget new-vnode "text")
+        new-tag (aget new-vnode "tag")]
+    (cond
+      (and txt-old txt)
+      (when-not (identical? txt txt-old)
+        (set! (.-textContent old) txt)
+        (aset old vnode-key new-vnode))
+      (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
+      (diff-in-place old old-vnode new-vnode root)
+      :else (let [new-node (create-node new-vnode root)]
+              (.replaceChild parent new-node old)))))
+
+
+(defn- patch-keyed [^js parent ^js old-snapshot new-children root]
+  (let [old-len (alength old-snapshot)
+        new-len (count new-children)
+        old-by-key (js/Map.)
+        consumed (js/Set.)
+        cursor #js {:i 0}]
+    ;; Build key -> old-index map for keyed olds
+    (dotimes [i old-len]
+      (let [^js node (aget old-snapshot i)
+            ^js vn (aget node vnode-key)
+            k (when vn (aget vn key-prop))]
+        (when (some? k) (.set old-by-key k i))))
+    ;; Walk new children, reuse or create, place via insertBefore
+    (dotimes [i new-len]
+      (let [^js new-vnode (aget new-children i)
+            new-key (aget new-vnode key-prop)
+            new-tag (aget new-vnode "tag")
+            reuse-idx (if (some? new-key)
+                        ;; Keyed: look up in map; require tag match
+                        (let [cand (.get old-by-key new-key)]
+                          (if (and (some? cand) (not (.has consumed cand)))
+                            (let [^js cand-node (aget old-snapshot cand)
+                                  ^js cand-vn (aget cand-node vnode-key)]
+                              (if (and cand-vn
+                                       (identical? (aget cand-vn "tag") new-tag))
+                                cand
+                                -1))
+                            -1))
+                        ;; Unkeyed: walk forward for next unconsumed unkeyed w/ matching tag
+                        (loop [j (aget cursor "i")]
+                          (cond
+                            (>= j old-len) -1
+                            (.has consumed j) (recur (inc j))
+                            :else
+                            (let [^js cand-node (aget old-snapshot j)
+                                  ^js cand-vn (aget cand-node vnode-key)
+                                  cand-key (when cand-vn (aget cand-vn key-prop))]
+                              (if (or (some? cand-key)
+                                      (and cand-vn
+                                           (not (identical? (aget cand-vn "tag") new-tag))))
+                                (recur (inc j))
+                                (do (aset cursor "i" (inc j)) j))))))
+            current (.item (.-childNodes parent) i)]
+        (if (>= reuse-idx 0)
+          (let [^js reused (aget old-snapshot reuse-idx)
+                ^js old-vnode (aget reused vnode-key)]
+            (.add consumed reuse-idx)
+            (when-not (identical? current reused)
+              (.insertBefore parent reused current))
+            (reconcile-child! parent reused old-vnode new-vnode root))
+          (let [new-node (create-node new-vnode root)]
+            (.insertBefore parent new-node current)))))
+    ;; After main loop, positions 0..new-len-1 hold the new children.
+    ;; Any unconsumed old nodes have shifted to the tail — drop them.
+    (while (> (alength (.-childNodes parent)) new-len)
+      (.removeChild parent (.-lastChild parent)))))
+
+(defn- patch [^js parent new-children new-has-keys? root]
   (let [parent-vnode (aget parent vnode-key)
         old-children-count (cond (and parent-vnode
                                       ;; other render root
@@ -238,58 +364,22 @@
     ;; -1: we've stumbled upon a different render root
     (when-not (identical? -1 old-children-count)
       (let [old-children (.-childNodes parent)
-            new-children-count (count new-children)]
-        (if (not (== old-children-count new-children-count))
-          (.apply parent.replaceChildren parent (.map new-children #(create-node % root)))
+            new-children-count (count new-children)
+            old-has-keys? (and parent-vnode (aget parent-vnode has-keys-prop))]
+        (cond
+          (or new-has-keys? old-has-keys?)
+          (patch-keyed parent (js/Array.from old-children) new-children root)
+
+          (not (== old-children-count new-children-count))
+          (.apply parent.replaceChildren parent
+                  (.map new-children #(create-node % root)))
+
+          :else
           (dotimes [i new-children-count]
             (let [^js old (aget old-children i)
                   ^js old-vnode (aget old vnode-key)
-                  ^js new-vnode (aget new-children i)
-                  txt-old (aget old-vnode "text")
-                  txt (aget new-vnode "text")]
-              (let [new-tag (aget new-vnode "tag")]
-                (cond
-                  (and txt-old txt)
-                  (when-not (identical? txt txt-old)
-                    (do (set! (.-textContent old) txt)
-                        (aset old vnode-key new-vnode)))
-                  (and old old-vnode new-vnode (identical? new-tag (aget old-vnode "tag")))
-                  (let [^js old-props (aget old-vnode props-key)
-                        ^js old-attrs (aget old-vnode attrs-key)
-                        ^js new-props (aget new-vnode props-key)
-                        ^js new-attrs (aget new-vnode attrs-key)
-                        old-prop-names (js/Object.getOwnPropertyNames old-props)
-                        old-attr-names (js/Object.getOwnPropertyNames old-attrs)
-                        new-attr-names (js/Object.getOwnPropertyNames new-attrs)
-                        new-prop-names (js/Object.getOwnPropertyNames new-props)]
-                    (dotimes [i (alength old-prop-names)]
-                      (let [o (aget old-prop-names i)]
-                        (when-not (js-in o new-props)
-                          (aset old o nil))))
-                    (dotimes [i (alength old-attr-names)]
-                      (let [o (aget old-attr-names i)]
-                        (when-not (js-in o new-attrs)
-                          (.removeAttribute old o))))
-                    ;; always set attrs first, then props
-                    (dotimes [i (alength new-attr-names)]
-                      (let [n (aget new-attr-names i)
-                            new-attr (aget new-attrs n)]
-                        (when-not (identical? new-attr (aget old-attrs n))
-                          (.setAttribute old n new-attr))))
-                    (dotimes [i (alength new-prop-names)]
-                      (let [n (aget new-prop-names i)
-                            new-prop (let [v (aget new-props n)]
-                                       (if (undefined? v) nil v))]
-                        (when-not (identical? (aget old-props n) new-prop)
-                          (aset old n new-prop))))
-                    (when-let [new-children (aget new-vnode "children")]
-                      (patch old new-children root))
-                    ;; it's important that we set the vnode of the old node last
-                    ;; since while patching children, the old vnode should
-                    ;; remain in place since it's used at the top for reading the amount of children
-                    (aset old vnode-key new-vnode))
-                  :else (let [new-node (create-node new-vnode root)]
-                          (.replaceChild parent new-node old)))))))))))
+                  ^js new-vnode (aget new-children i)]
+              (reconcile-child! parent old old-vnode new-vnode root))))))))
 
 (defn render [root hiccup]
   (when-not (aget root root-key)
@@ -297,7 +387,7 @@
     (set! root -textContent "")
     (aset root root-key true))
   (let [new-node (create-vnode hiccup)]
-    (patch root #js [new-node] root))
+    (patch root #js [new-node] (aget new-node key-prop) root))
   (doseq [node (.get ref-registry root)]
     (let [ref (aget node on-render-key)]
       (if (.-isConnected node)
