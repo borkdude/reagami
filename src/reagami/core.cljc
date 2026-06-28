@@ -359,9 +359,9 @@
             reused? (and ex (identical? node ex))]
         (.push target node)
         (.push source (if reused? (inc (.get old-index ex)) 0))))
-    (run! (fn [^js n]
-            (when-not (.has used n) (.removeChild parent n)))
-          old-nodes)
+    (dotimes [i (alength old-nodes)]
+      (let [^js n (aget old-nodes i)]
+        (when-not (.has used n) (.removeChild parent n))))
     (let [seq (get-sequence source)
           len (alength target)
           si (volatile! (dec (alength seq)))]
