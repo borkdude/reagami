@@ -5,6 +5,7 @@
 ## Unreleased
 
 - Fix [#21](https://github.com/borkdude/reagami/issues/21): support keyed children via `:key` for stable node identification. Keys enable more efficient diffing and better node reuse.
+- Make CLJS `:lite-mode` compatible and test CLJS `:lite-mode` in CI
 
 ## v0.0.35 (2025-11-06)
 
