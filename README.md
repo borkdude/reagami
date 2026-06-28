@@ -108,6 +108,87 @@ You can add a `:key` property to your elements to identify nodes. This will resu
    [:li {:key id} label])]
 ```
 
+### Patch algorithm
+
+Here we explain in pseudo-code how Reagami's patch algorithm works.
+First we check if any child has a `:key`. Based on that, we invoke either `patch-keyed` or `patch-unkeyed`.
+
+``` clojure
+(defn patch [parent new-children]
+  (if (some :key new-children)
+    (patch-keyed parent new-children)
+    (patch-unkeyed parent new-children)))
+```
+
+Our `patch-node` function determines whether we can re-use an existing node or if we have to build a new one:
+
+``` clojure
+(defn patch-node [old new]
+  (cond
+    (both-text? old new) (do (update-text! old new) old)   ;; reuse
+    (same-tag? old new)  (do (sync-attrs! old new)
+                             (patch old (:children new))   ;; recurse into children
+                             old)                          ;; reuse
+    :else                (create new)))                    ;; fresh node
+```
+
+Unkeyed children match by position and reuse the shared prefix.
+
+<!-- PROSE: unkeyed path. match by position, reuse the shared prefix, fix the tail, no moves, a reorder recreates content -->
+
+``` clojure
+(defn patch-unkeyed [parent new]
+  (let [old    (.-childNodes parent)
+        common (min (count old) (count new))]
+    ;; patch the shared prefix in place
+    (dotimes [i common]
+      (let [result (patch-node (old i) (new i))]
+        (when (not= result (old i))
+          (replace-child parent result (old i)))))
+    ;; fix the tail
+    (cond
+      (> (count new) common) (run! #(append-child parent (create (new %)))
+                                   (range common (count new)))
+      (zero? (count new))    (set! (.-textContent parent) "")
+      :else                  (run! #(remove-child parent (old %))
+                                   (range (count new) (count old))))))
+```
+
+<!-- PROSE: keyed path. three phases, match by key (unkeyed olds by order), drop unused, move minimally -->
+
+``` clojure
+(defn patch-keyed [parent new]
+  (let [old        (.-childNodes parent)
+        old-by-key {}    ;; key -> old node
+        unkeyed    []    ;; old nodes without a key, in order
+        used       #{}
+        target     []    ;; resulting node per new position
+        source     []]   ;; per position: (inc old-index), or 0 if newly created
+    ;; 1. match each new child to an old node
+    (doseq [v new]
+      (let [ex   (if (:key v)
+                   (get old-by-key (:key v))   ;; keyed: by key, if unused
+                   (next-unused unkeyed))      ;; unkeyed: by order
+            node (if ex (patch-node ex v) (create v))]
+        (conj! target node)
+        (conj! source (if (reused? ex node) (inc (index-of old ex)) 0))))
+    ;; 2. remove old nodes nobody reused
+    (doseq [n old]
+      (when-not (used n) (remove-child parent n)))
+    ;; 3. nodes already in the right relative order = LIS of source
+    (let [keep (lis source)]   ;; set of target indices that need no move
+      ;; 4. place right-to-left, move only nodes outside keep
+      (doseq [i (reverse (range (count target)))]
+        (let [node   (target i)
+              anchor (get target (inc i))]   ;; nil past the end
+          (cond
+            (zero? (source i)) (insert-before parent node anchor)   ;; new
+            (keep i)           nil                                  ;; already ordered
+            :else              (insert-before parent node anchor)))))))   ;; reused, move
+```
+
+<!-- PROSE: the three details. (1) source = old positions of reused nodes, 0 marks a new node so (inc old-index). (2) longest increasing subsequence of source = largest already-ordered set, those stay, rest move, so a swap moves 2 not the whole list, LIS from Vue 3. (3) right to left because DOM has insertBefore not insertAfter, the node at i+1 is already placed so it is a valid anchor. mixed keyed/unkeyed siblings work since unkeyed olds match positionally from a side list -->
+
 ## Examples
 
 Examples on the Squint playground:
