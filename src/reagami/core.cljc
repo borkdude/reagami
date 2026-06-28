@@ -1,8 +1,6 @@
 (ns reagami.core
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}}}
-  ;; Functions that leak Persistent*/Chunked* types into a :lite-mode build are
-  ;; excluded so the compiler and clj-kondo both reject them here. Prefer
-  ;; dotimes (arrays), run! (seqs/sets), and map literals.
+  ;; cljs-lite compat:
   #_{:clj-kondo/ignore [:unused-excluded-var]}
   (:refer-clojure :exclude [doseq for set hash-map array-map sorted-map sorted-set
                             sorted-map-by sorted-set-by zipmap frequencies group-by
