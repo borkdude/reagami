@@ -1,1 +1,4 @@
-{}
+{:paths ["src" "test" "lite"]
+ :deps {thheller/shadow-cljs {:mvn/version "3.2.1"}}
+ :aliases
+ {:cljs {:extra-deps {org.clojure/clojurescript {:mvn/version "1.12.145"}}}}}

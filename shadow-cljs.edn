@@ -1,4 +1,5 @@
 {:source-paths ["src" "test" "lite"]
+ :deps {:aliases [:cljs]}
  :builds
  {:lite-app
   {:target :browser
