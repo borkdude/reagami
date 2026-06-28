@@ -1,7 +1,7 @@
 (ns on-render-test
   (:require
-   ["node:assert" :as assert]
    [clojure.string :as str]
+   [clojure.test :refer [deftest is]]
    [reagami.core :as reagami]))
 
 (def state (atom {:counter 0 :show true}))
@@ -32,7 +32,7 @@
       [:button#inc {:on-click #(swap! state update :counter inc)}
        "Click me!"]])])
 
-(defn render-test []
+(deftest render-test
   (let [el (js/document.createElement "div")
         !div (atom nil)]
     ;; adding unexpected element crashes if we don't clear it beforehand
@@ -42,21 +42,20 @@
     (js/document.body.appendChild el)
     (add-watch state ::render (fn [_ _ _ _] (reagami/render el [ui])))
     (reagami/render el [ui])
-    (assert/deepEqual @events #js ["mount"])
-    (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 0"))
+    (is (= ["mount"] (vec @events)))
+    (is (str/includes? (.-innerHTML el) "Counter in subcomponent: 0"))
     (reset! !div (js/document.querySelector "#sub"))
     (reagami/render el [ui])
-    (assert/ok (identical? @!div (js/document.querySelector "#sub")))
-    (assert/deepEqual @events #js ["mount" "update"])
+    (is (identical? @!div (js/document.querySelector "#sub")))
+    (is (= ["mount" "update"] (vec @events)))
     (.click (js/document.querySelector "#inc"))
-    (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
-    (assert/deepEqual @events #js ["mount" "update" "update"])
+    (is (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
+    (is (= ["mount" "update" "update"] (vec @events)))
     (.click (js/document.querySelector "#show"))
-    (assert/deepEqual @events #js ["mount" "update" "update" "unmount"])
+    (is (= ["mount" "update" "update" "unmount"] (vec @events)))
     (.click (js/document.querySelector "#show"))
-    (assert/deepEqual @events #js ["mount" "update" "update" "unmount" "mount"])
-    (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
+    (is (= ["mount" "update" "update" "unmount" "mount"] (vec @events)))
+    (is (str/includes? (.-innerHTML el) "Counter in subcomponent: 1"))
     (.click (js/document.querySelector "#inc"))
-    (assert/ok (str/includes? (.-innerHTML el) "Counter in subcomponent: 2"))
-    (assert/ok (= {:updates 3} (:data @end-state )))
-    (println "✓ on-render-test passed")))
+    (is (str/includes? (.-innerHTML el) "Counter in subcomponent: 2"))
+    (is (= {:updates 3} (:data @end-state)))))
