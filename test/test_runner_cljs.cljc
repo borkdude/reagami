@@ -3,8 +3,10 @@
    [basic-test]
    [event-listener-test]
    [install-jsdom]
+   [keyed-test]
    [on-render-test]
-   [svg-test])
+   [svg-test]
+   [unkeyed-test])
   #?@(:squint []
       :cljs [(:require-macros [test-runner-cljs :refer [find-tests]])]))
 
@@ -15,6 +17,8 @@
 (find-tests event-listener-test)
 (find-tests svg-test)
 (find-tests on-render-test)
+(find-tests keyed-test)
+(find-tests unkeyed-test)
 
 (defn init []
   )
