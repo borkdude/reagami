@@ -1,5 +1,10 @@
 (ns reagami.core
-  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}}})
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}}}
+  ;; cljs-lite compat:
+  #_{:clj-kondo/ignore [:unused-excluded-var]}
+  (:refer-clojure :exclude [doseq for set hash-map array-map sorted-map sorted-set
+                            sorted-map-by sorted-set-by zipmap frequencies group-by
+                            ex-info pr-str prn println vec]))
 
 (def svg-ns "http://www.w3.org/2000/svg")
 
@@ -131,8 +136,7 @@
                    (dotimes [i (- (alength hiccup) children-idx)]
                      (let [child (aget hiccup (+ i children-idx))]
                        (if (hiccup-seq? child)
-                         (doseq [x child]
-                           (.push new-children (create-vnode* x in-svg?)))
+                         (run! (fn [x] (.push new-children (create-vnode* x in-svg?))) child)
                          (.push new-children (create-vnode* child in-svg?)))))
                    (when-not (identical? -1 attr-idx)
                      (let [attrs (aget hiccup 1)
@@ -435,15 +439,16 @@
     (aset root root-key true))
   (let [new-node (create-vnode hiccup)]
     (patch root #js [new-node] root))
-  (doseq [node (.get ref-registry root)]
-    (let [ref (aget node on-render-key)]
-      (if (.-isConnected node)
-        (if (not (aget ref is-run-key))
-          (let [data (ref node :mount nil)]
-            (aset ref is-run-key true)
-            (aset ref data-key data))
-          (let [data (ref node :update (aget ref data-key))]
-            (aset ref data-key data)))
-        (do (ref node :unmount (aget ref data-key))
-            (js-delete ref data-key)
-            (update! ref-registry root disj node))))))
+  (run! (fn [node]
+          (let [ref (aget node on-render-key)]
+            (if (.-isConnected node)
+              (if (not (aget ref is-run-key))
+                (let [data (ref node :mount nil)]
+                  (aset ref is-run-key true)
+                  (aset ref data-key data))
+                (let [data (ref node :update (aget ref data-key))]
+                  (aset ref data-key data)))
+              (do (ref node :unmount (aget ref data-key))
+                  (js-delete ref data-key)
+                  (update! ref-registry root disj node)))))
+        (.get ref-registry root)))
