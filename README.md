@@ -108,13 +108,13 @@ You can add a `:key` property to your elements to identify nodes. This will resu
    [:li {:key id} label])]
 ```
 
-### Patch algorithm
+## Patch algorithm
 
 Reagami first checks whether any child has a `:key`. If one does it runs the keyed patch algorithm, otherwise the unkeyed one.
 
 For a single node, `patch-node` decides reuse of an existing node or to create one from scratch. Two text nodes reuse the old node and update its text. Two elements with the same tag reuse the old node, sync its attributes and recurse into its children. Anything else builds a fresh node.
 
-#### Unkeyed
+### Unkeyed
 
 The unkeyed algorithm (no `:key` used on any child) matches children by position.
 
@@ -127,7 +127,7 @@ Example: old `[a b c]`, new `[x y]`. Positions 0 and 1 overlap, so `a` is patche
 
 The unkeyed algorithm doesn't move any nodes, so expensive collapses can happen, e.g. when a new node must be inserted at or near the front. In a situation where extra performance is needed, add `:key`s so the keyed algorithm will be used, which can reliably move nodes around.
 
-#### Keyed
+### Keyed
 
 When any child has a `:key`, the whole list is reconciled by key. Keyed and unkeyed children can be mixed: the unkeyed ones take part in this same pass, matched positionally. This single example hits every case. `x:n` is node `x` with key `n`, a bare letter like `c` is an unkeyed node.
 
