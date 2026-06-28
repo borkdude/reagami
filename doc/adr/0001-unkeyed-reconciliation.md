@@ -49,10 +49,34 @@ render. It only pays off when it prevents a cascade. Worst case is `select`
 (+28%): one row changes class, so the scan compares nearly all rows to find it
 where index-diff just patches in place.
 
-This matches mainstream vdom libs, which keep unkeyed reconciliation index based
-and use keys for stable identity. Reagami's keyed path (longest increasing
-subsequence) already handles remove and reorder with minimal DOM moves. The answer
-to "stable middle inserts and removes" is `:key`.
+The regression is specific to the structural `vnode=?` compare (tag, attrs,
+children). A cheaper type-only two-end, like Vue ships, was not measured here, so
+that variant stays an open question. It would only help heterogeneous-tag sibling
+lists though, which are rare. Reagami's keyed path (longest increasing subsequence)
+already handles remove and reorder with minimal DOM moves. The answer to "stable
+middle inserts and removes" is `:key`.
+
+## Prior art
+
+Checked Vue and React sources (June 2026):
+
+- React (`reconcileChildrenArray`, `ReactChildFiber.js`): forward-only index pass,
+  no two-end. Its own comment: "This algorithm can't optimize by searching from both
+  ends ... we'll just live with hitting the bad case for every insert/move." The
+  key-to-index map fallback runs only for keyed reorders. Unkeyed `[a a a] -> [b a a a]`
+  recreates the bumped node, same as reagami.
+- Vue 2 (`updateChildren`, `sameVnode` in `patch.ts`): four-pointer two-end for every
+  array. `sameVnode` matches unkeyed by tag, so `[a a a] -> [b a a a]` reuses the three
+  `a` and inserts `b`.
+- Vue 3 (`renderer.ts`): two paths. A compiler-marked unkeyed `v-for`
+  (`UNKEYED_FRAGMENT`) uses `patchUnkeyedChildren`, a pure index diff like reagami. Any
+  other array goes through `patchKeyedChildren` (two-end + LIS) using `isSameVNodeType`
+  (`n1.type === n2.type && n1.key === n2.key`), so unkeyed matches by type and the
+  heterogeneous insert is handled.
+
+So only React (and Vue 3's optimized path) is purely index based. Vue matches unkeyed
+by tag/type at the ends, but compares only the node type (O(1)), not the structural
+`vnode=?` this experiment measured.
 
 ## References
 
