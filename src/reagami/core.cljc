@@ -291,13 +291,17 @@
       :else (create-node new-vnode root))))
 
 (defn- lis-indices
-  ;; indices of a longest increasing subsequence of `arr`, adapted from Vue's
-  ;; getSequence. entries equal to 0 are holes for new nodes and never included.
-  ;; examples, arr -> result indices:
-  ;;   [1 2 3] -> [0 1 2]   already in order, nothing moves
-  ;;   [3 1 2] -> [1 2]     1 and 2 stay in place, index 0 moves
-  ;;   [1 0 2] -> [0 2]     index 1 is a new-node hole and is skipped
-  ;; the returned indices are the nodes to keep, the rest get moved.
+  ;; Indices of a longest increasing subsequence of `arr`. Entries equal to 0
+  ;; are holes for new nodes and never included.
+
+  ;; Examples:
+  ;;   [2 4 6] -> [0 1 2]   already in order, nothing moves
+  ;;   [4 2 6] -> [1 2]     values 2,6 stay in place, index 0 (value 4) moves
+  ;;   [2 0 6] -> [0 2]     index 1 holds a new node (value 0), skipped
+  ;; The returned indices are the nodes to keep, the rest get moved.
+
+  ;; See https://en.wikipedia.org/wiki/Longest_increasing_subsequence
+  ;; and https://github.com/vuejs/core/blob/c0606e91798c8dca4f33d101e1dd836d672592c1/packages/runtime-core/src/renderer.ts#L2565
   [^js arr]
   (let [len (alength arr)
         p (.slice arr)
@@ -349,10 +353,12 @@
                            (let [^js c (aget unkeyed @ptr)]
                              (vswap! ptr inc)
                              (if (.has used c) (recur) c)))))]
+    ;; index old nodes: keyed into a map, unkeyed kept in order
     (dotimes [oi (alength old-nodes)]
       (let [^js n (aget old-nodes oi)]
         (.set old-index n oi)
         (if-let [k (node-key n)] (.set old-by-key k n) (.push unkeyed n))))
+    ;; reuse each new child's old node by key, else next unkeyed, else create
     (dotimes [i cnt]
       (let [^js v (aget new-children i)
             k (aget v key-key)
@@ -363,10 +369,12 @@
             ^js node (if ex (reuse ex v) (create-node v root))
             reused? (and ex (identical? node ex))]
         (.push target node)
-        (.push source (if reused? (inc (.get old-index ex)) 0))))
+        (.push source (if reused? (inc (.get old-index ex)) 0)))) ; source = old pos + 1, or 0 for new
+    ;; drop old nodes left unused
     (dotimes [i (alength old-nodes)]
       (let [^js n (aget old-nodes i)]
         (when-not (.has used n) (.removeChild parent n))))
+    ;; place right to left, moving only nodes outside the stable run
     (let [lis (lis-indices source)
           len (alength target)
           si (volatile! (dec (alength lis)))]
@@ -375,9 +383,9 @@
           (let [^js node (aget target i)
                 ^js nxt (when (< (inc i) len) (aget target (inc i)))]
             (cond
-              (identical? 0 (aget source i)) (.insertBefore parent node nxt)
-              (and (>= @si 0) (identical? i (aget lis @si))) (vswap! si dec)
-              :else (.insertBefore parent node nxt))
+              (identical? 0 (aget source i)) (.insertBefore parent node nxt) ; new
+              (and (>= @si 0) (identical? i (aget lis @si))) (vswap! si dec) ; in stable run, keep
+              :else (.insertBefore parent node nxt)) ; reused, move
             (recur (dec i))))))))
 
 (defn- patch [^js parent new-children root]
