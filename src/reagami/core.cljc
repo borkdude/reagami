@@ -1,5 +1,12 @@
 (ns reagami.core
-  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}}})
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}}}
+  ;; Functions that leak Persistent*/Chunked* types into a :lite-mode build are
+  ;; excluded so the compiler and clj-kondo both reject them here. Prefer
+  ;; dotimes (arrays), run! (seqs/sets), and map literals.
+  #_{:clj-kondo/ignore [:unused-excluded-var]}
+  (:refer-clojure :exclude [doseq for set hash-map array-map sorted-map sorted-set
+                            sorted-map-by sorted-set-by zipmap frequencies group-by
+                            ex-info pr-str prn println vec]))
 
 (def svg-ns "http://www.w3.org/2000/svg")
 
