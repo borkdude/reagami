@@ -110,84 +110,98 @@ You can add a `:key` property to your elements to identify nodes. This will resu
 
 ### Patch algorithm
 
-Here we explain in pseudo-code how Reagami's patch algorithm works.
-First we check if any child has a `:key`. Based on that, we invoke either `patch-keyed` or `patch-unkeyed`.
+Reagami first checks whether any child has a `:key`. If one does it runs the keyed patch algorithm, otherwise the unkeyed one.
 
-``` clojure
-(defn patch [parent new-children]
-  (if (some :key new-children)
-    (patch-keyed parent new-children)
-    (patch-unkeyed parent new-children)))
+For a single node, `patch-node` decides reuse of an existing node or to create one from scratch. Two text nodes reuse the old node and update its text. Two elements with the same tag reuse the old node, sync its attributes and recurse into its children. Anything else builds a fresh node.
+
+#### Unkeyed
+
+The unkeyed algorithm (no `:key` used on any child) matches children by position.
+
+- The shared prefix is patched index-wise using `patch-node`. Example: old has `n` children, new has `n-2` children: the shared prefix is the first `n-2` children or vice versa. So index `0 .. (n- 2 - 1)` are patched using `patch-node`.
+- Then fix the tail which can mean:
+  - More new children than old: extra nodes are appended.
+  - More old children than new: remove the extra old nodes. One special case of this is that there are 0 new children in total: here we clean the parent node as an optimization, with `parent.textContent = ""`.
+
+Example: old `[a b c]`, new `[x y]`. Positions 0 and 1 overlap, so `a` is patched toward `x` and `b` toward `y` in place. Position 2 is old only, so `c` is removed.
+
+The unkeyed algorithm doesn't move any nodes, so expensive collapses can happen, e.g. when a new node must be inserted at or near the front. In a situation where extra performance is needed, add `:key`s so the keyed algorithm will be used, which can reliably move nodes around.
+
+#### Keyed
+
+When any child has a `:key`, the whole list is reconciled by key. Keyed and unkeyed children can be mixed: the unkeyed ones take part in this same pass, matched positionally. This single example hits every case. `x:n` is node `x` with key `n`, a bare letter like `c` is an unkeyed node.
+
+```
+old:  a:1  b:2  c    d:3  e:4
+new:  b:2  a:1  f:5  d:3  c    g
 ```
 
-Our `patch-node` function determines whether we can re-use an existing node or if we have to build a new one:
+1. Match each new child to an old node and note that old node's position (1-based, `0` marks a brand new node):
 
-``` clojure
-(defn patch-node [old new]
-  (cond
-    (both-text? old new) (do (update-text! old new) old)   ;; reuse
-    (same-tag? old new)  (do (sync-attrs! old new)
-                             (patch old (:children new))   ;; recurse into children
-                             old)                          ;; reuse
-    :else                (create new)))                    ;; fresh node
+```
+b:2  ->  old b    pos 2    matched by key
+a:1  ->  old a    pos 1    matched by key
+f:5  ->  create   pos 0    key 5 has no old node
+d:3  ->  old d    pos 4    matched by key
+c    ->  old c    pos 3    first unused unkeyed old, taken in order
+g    ->  create   pos 0    no unkeyed old left
+
+positions = [2 1 0 4 3 0]
 ```
 
-Unkeyed children match by position and reuse the shared prefix.
+2. Remove old nodes nobody matched. `e:4` was not matched, so it is removed.
 
-<!-- PROSE: unkeyed path. match by position, reuse the shared prefix, fix the tail, no moves, a reorder recreates content -->
+3. Find the longest increasing subsequence of the positions, skipping the `0` holes: the largest set of nodes already in the right relative order. From `2 1 _ 4 3 _` that is `a` (1) and `c` (3). Those two will not move.
 
-``` clojure
-(defn patch-unkeyed [parent new]
-  (let [old    (.-childNodes parent)
-        common (min (count old) (count new))]
-    ;; patch the shared prefix in place
-    (dotimes [i common]
-      (let [result (patch-node (old i) (new i))]
-        (when (not= result (old i))
-          (replace-child parent result (old i)))))
-    ;; fix the tail
-    (cond
-      (> (count new) common) (run! #(append-child parent (create (new %)))
-                                   (range common (count new)))
-      (zero? (count new))    (set! (.-textContent parent) "")
-      :else                  (run! #(remove-child parent (old %))
-                                   (range (count new) (count old))))))
+4. Place nodes right to left into the parent, moving only the ones outside that subsequence. The DOM can only insert a node *before* a reference node (`insertBefore`, there is no `insertAfter`), so each node is anchored on its right neighbour. Going right to left means that neighbour is already in its final place. The rightmost node has no right neighbour, so its anchor is `null`, which `insertBefore` treats as "put it last":
+
+```
+g    new             ->  insertBefore null  (last child)
+c    in subsequence  ->  leave in place
+d    reused, moved   ->  insertBefore c
+f    new             ->  insertBefore d
+a    in subsequence  ->  leave in place
+b    reused, moved   ->  insertBefore a
+
 ```
 
-<!-- PROSE: keyed path. three phases, match by key (unkeyed olds by order), drop unused, move minimally -->
+Result: `b a f d c g`, with `e` removed. Only `b` and `d` moved, `f` and `g` were created, `a` and `c` never moved. That subsequence step (from Vue 3) is what keeps moves minimal: a plain swap moves two nodes instead of cascading the whole list.
 
-``` clojure
-(defn patch-keyed [parent new]
-  (let [old        (.-childNodes parent)
-        old-by-key {}    ;; key -> old node
-        unkeyed    []    ;; old nodes without a key, in order
-        used       #{}
-        target     []    ;; resulting node per new position
-        source     []]   ;; per position: (inc old-index), or 0 if newly created
-    ;; 1. match each new child to an old node
-    (doseq [v new]
-      (let [ex   (if (:key v)
-                   (get old-by-key (:key v))   ;; keyed: by key, if unused
-                   (next-unused unkeyed))      ;; unkeyed: by order
-            node (if ex (patch-node ex v) (create v))]
-        (conj! target node)
-        (conj! source (if (reused? ex node) (inc (index-of old ex)) 0))))
-    ;; 2. remove old nodes nobody reused
-    (doseq [n old]
-      (when-not (used n) (remove-child parent n)))
-    ;; 3. nodes already in the right relative order = LIS of source
-    (let [keep (lis source)]   ;; set of target indices that need no move
-      ;; 4. place right-to-left, move only nodes outside keep
-      (doseq [i (reverse (range (count target)))]
-        (let [node   (target i)
-              anchor (get target (inc i))]   ;; nil past the end
-          (cond
-            (zero? (source i)) (insert-before parent node anchor)   ;; new
-            (keep i)           nil                                  ;; already ordered
-            :else              (insert-before parent node anchor)))))))   ;; reused, move
+## Benchmarks
+
+The numbers below come from [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark), keyed variant. All frameworks ran on the same machine with headless Chrome and CPU throttling, 10 iterations each, reported as the median in milliseconds. Reagent runs on React 18.
+
+Reproduce: [borkdude/js-framework-benchmark](https://github.com/borkdude/js-framework-benchmark)
+
+| benchmark (median ms) | Reagami Squint | Reagami CLJS | Replicant CLJS | Replicant Squint | Reagent (React 18) |
+|---|---|---|---|---|---|
+| create 1k | 27.4 | 30.3 | 58.5 | 54.0 | 39.4 |
+| replace 1k | 30.1 | 32.3 | 66.5 | 63.4 | 45.8 |
+| update every 10th | 45.3 | 50.9 | 47.5 | 44.5 | 29.4 |
+| select | 33.0 | 42.3 | 30.8 | 26.9 | 9.7 |
+| swap | 43.8 | 52.3 | 53.8 | 45.1 | 103.2 |
+| remove | 26.6 | 31.0 | 24.5 | 22.1 | 21.1 |
+| create 10k | 295.7 | 297.3 | 453.1 | 471.6 | 532.4 |
+| append 1k | 41.8 | 43.3 | 73.7 | 65.4 | 44.1 |
+| clear | 9.7 | 9.7 | 19.6 | 18.9 | 30.1 |
+
+```mermaid
+xychart-beta
+    title "Perf: geomean of 9 keyed ops (ms, lower is better)"
+    x-axis ["Reagami Squint", "Reagami CLJS", "Reagent R18", "Replicant Squint", "Replicant CLJS"]
+    y-axis "ms" 0 --> 60
+    bar [38.2, 42.2, 45.2, 51.1, 55.4]
 ```
 
-<!-- PROSE: the three details. (1) source = old positions of reused nodes, 0 marks a new node so (inc old-index). (2) longest increasing subsequence of source = largest already-ordered set, those stay, rest move, so a swap moves 2 not the whole list, LIS from Vue 3. (3) right to left because DOM has insertBefore not insertAfter, the node at i+1 is already placed so it is a valid anchor. mixed keyed/unkeyed siblings work since unkeyed olds match positionally from a side list -->
+```mermaid
+xychart-beta
+    title "Bundle size (gzip KB, lower is better)"
+    x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "Reagent R18"]
+    y-axis "KB" 0 --> 90
+    bar [7.8, 16.9, 28.7, 75.9, 84.4]
+```
+
+Reagami under Squint is both the smallest bundle and the fastest at creating, replacing, appending and clearing rows, and at creating 10k rows. Reagent wins partial update and select through React's targeted re-render via `r/track`, but is slowest on swap. Squint beats CLJS on size and on most operations. Replicant and Reagami end up close on keyed swap and remove, since both place nodes with the same longest-increasing-subsequence step.
 
 ## Examples
 
