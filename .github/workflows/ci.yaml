@@ -42,7 +42,24 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          cli: latest
+
       - name: Run shadow tests tests
         run: |
           pnpm shadow-cljs compile reagami
           node lib/tests.js
+
+      - name: Run lite-mode tests
+        run: |
+          pnpm shadow-cljs compile reagami --config-merge '{:compiler-options {:lite-mode true :elide-to-string true}}'
+          node lib/tests.js
+
+      - name: Build lite-app and check gzip size
+        run: |
+          pnpm shadow-cljs release lite-app --config-merge '{:compiler-options {:lite-mode true :elide-to-string true}}'
+          size=$(gzip -9 -c target/lite-app/js/main.js | wc -c | tr -d ' ')
+          echo "lite-app gzip size: $size bytes"
+          test "$size" -lt 22000

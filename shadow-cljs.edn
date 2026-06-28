@@ -1,6 +1,12 @@
-{:source-paths ["src" "test"]
+{:source-paths ["src" "test" "lite"]
+ :deps {:aliases [:cljs]}
  :builds
- {:reagami
+ {:lite-app
+  {:target :browser
+   :modules {:main {:init-fn lite-app/main}}
+   :output-dir "target/lite-app/js"}
+
+  :reagami
   {:js-options {;; don't bundle any npm libs
                 :js-provider :import}
    :compiler-options {:infer-externs :auto}
