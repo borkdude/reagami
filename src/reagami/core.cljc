@@ -32,6 +32,8 @@
 (defn property? [^js x]
   (.has properties x))
 
+
+#_{:clj-kondo/ignore [:redundant-do]}
 (do
   #?@(:squint []
       :cljs [(defn keyword->str [k]
@@ -120,10 +122,9 @@
                          children-idx (inc children-idx))
           in-svg? (or in-svg? (identical? "svg" tag))
           node (if (fn? tag)
-                 (do
-                   (let [;; note: .slice was even faster in benchmarks than .shift-mutating
+                 (let [;; note: .slice was even faster in benchmarks than .shift-mutating
                          res (apply tag (.slice hiccup 1))]
-                     (create-vnode* res in-svg?)))
+                   (create-vnode* res in-svg?))
                  (let [new-children #js []
                        node #js {:type :element :svg in-svg?
                                  :tag (if in-svg?
@@ -150,35 +151,34 @@
                          (move-to-back attrs "default-value")
                          (move-to-back attrs "value"))
                        (dotimes [i entry-count]
-                         (let [k (aget entry-names i)]
-                           (let [v (aget attrs k)]
+                         (let [k (aget entry-names i)
+                               v (aget attrs k)]
+                           (cond
+                             (identical? "key" k) (aset node key-key v)
+                             (identical? "on-render" k) (aset node on-render-key v)
+                             (.startsWith k "on")
+                             (let [event (-> k
+                                             (.replaceAll "-" ""))]
+                               (aset modified-props event v))
+                             (.startsWith k "default")
+                             (let [default-attr (-> (subs k 7)
+                                                    (.replaceAll "-" ""))]
+                               (aset modified-attrs default-attr v))
+                             :else
                              (cond
-                               (identical? "key" k) (aset node key-key v)
-                               (identical? "on-render" k) (aset node on-render-key v)
-                               (.startsWith k "on")
-                               (let [event (-> k
-                                               (.replaceAll "-" ""))]
-                                 (aset modified-props event v))
-                               (.startsWith k "default")
-                               (let [default-attr (-> (subs k 7)
-                                                      (.replaceAll "-" ""))]
-                                 (aset modified-attrs default-attr v))
-                               :else
-                               (do
-                                 (cond
-                                   (and (identical? "style" k) (object? v))
-                                   (do (let [style (reduce
-                                                    (fn [s e]
-                                                      (str s (aget e 0) ": " (aget e 1) ";"))
-                                                    "" (js/Object.entries v))]
-                                         ;; set/get attribute is faster to set, get
-                                         ;; and compare (in patch)than setting
-                                         ;; individual props and using cssText
-                                         (aset modified-attrs "style" style)))
-                                   (property? k) (aset modified-props k v)
-                                   :else (when v
-                                           ;; not adding means it will be removed on new render
-                                           (aset modified-attrs k v))))))))))
+                               (and (identical? "style" k) (object? v))
+                               (let [style (reduce
+                                            (fn [s e]
+                                              (str s (aget e 0) ": " (aget e 1) ";"))
+                                            "" (js/Object.entries v))]
+                                 ;; set/get attribute is faster to set, get
+                                 ;; and compare (in patch)than setting
+                                 ;; individual props and using cssText
+                                 (aset modified-attrs "style" style))
+                               (property? k) (aset modified-props k v)
+                               :else (when v
+                                       ;; not adding means it will be removed on new render
+                                       (aset modified-attrs k v))))))))
                    (when (and (not (nil? classes))
                               (pos? (alength classes)))
                      (aset modified-attrs "class"
@@ -433,9 +433,9 @@
           (let [ref (aget node on-render-key)]
             (if (.-isConnected node)
               (if (not (aget ref is-run-key))
-                (do (let [data (ref node :mount nil)]
-                      (aset ref is-run-key true)
-                      (aset ref data-key data)))
+                (let [data (ref node :mount nil)]
+                  (aset ref is-run-key true)
+                  (aset ref data-key data))
                 (let [data (ref node :update (aget ref data-key))]
                   (aset ref data-key data)))
               (do (ref node :unmount (aget ref data-key))
