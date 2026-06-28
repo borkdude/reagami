@@ -130,8 +130,7 @@
                    (dotimes [i (- (alength hiccup) children-idx)]
                      (let [child (aget hiccup (+ i children-idx))]
                        (if (hiccup-seq? child)
-                         (doseq [x child]
-                           (.push new-children (create-vnode* x in-svg?)))
+                         (run! (fn [x] (.push new-children (create-vnode* x in-svg?))) child)
                          (.push new-children (create-vnode* child in-svg?)))))
                    (when-not (identical? -1 attr-idx)
                      (let [attrs (aget hiccup 1)
@@ -360,8 +359,9 @@
             reused? (and ex (identical? node ex))]
         (.push target node)
         (.push source (if reused? (inc (.get old-index ex)) 0))))
-    (doseq [^js n old-nodes]
-      (when-not (.has used n) (.removeChild parent n)))
+    (run! (fn [^js n]
+            (when-not (.has used n) (.removeChild parent n)))
+          old-nodes)
     (let [seq (get-sequence source)
           len (alength target)
           si (volatile! (dec (alength seq)))]
@@ -422,15 +422,16 @@
     (aset root root-key true))
   (let [new-node (create-vnode hiccup)]
     (patch root #js [new-node] root))
-  (doseq [node (.get ref-registry root)]
-    (let [ref (aget node on-render-key)]
-      (if (.-isConnected node)
-        (if (not (aget ref is-run-key))
-          (do (let [data (ref node :mount nil)]
-                (aset ref is-run-key true)
-                (aset ref data-key data)))
-          (let [data (ref node :update (aget ref data-key))]
-            (aset ref data-key data)))
-        (do (ref node :unmount (aget ref data-key))
-            (js-delete ref data-key)
-            (update! ref-registry root disj node))))))
+  (run! (fn [node]
+          (let [ref (aget node on-render-key)]
+            (if (.-isConnected node)
+              (if (not (aget ref is-run-key))
+                (do (let [data (ref node :mount nil)]
+                      (aset ref is-run-key true)
+                      (aset ref data-key data)))
+                (let [data (ref node :update (aget ref data-key))]
+                  (aset ref data-key data)))
+              (do (ref node :unmount (aget ref data-key))
+                  (js-delete ref data-key)
+                  (update! ref-registry root disj node)))))
+        (.get ref-registry root)))
