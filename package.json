@@ -32,5 +32,10 @@
   },
   "dependencies": {
     "squint-cljs": "^0.11.188"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
