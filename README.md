@@ -118,12 +118,12 @@ For a single node, `patch-node` decides reuse of an existing node or to create o
 
 The unkeyed algorithm (no `:key` used on any child) matches children by position.
 
-- The shared prefix is patched index-wise using `patch-node`. Example: old has `n` children, new has `n-2` children: the shared prefix is the first `n-2` children or vice versa. So index `0 .. (n- 2 - 1)` are patched using `patch-node`.
+- The shared prefix is patched index-wise using `patch-node`. Example: old has `n` children, new has `n-2` children: the shared prefix is the first `n-2` children or vice versa. So index `0 .. (n- 2 - 1)` are patched using `patch-node`. At each index `patch-node` reuses and updates the old node when the tags match (or both are text), but when the tags differ it returns a fresh node that replaces the old one.
 - Then fix the tail which can mean:
   - More new children than old: extra nodes are appended.
   - More old children than new: remove the extra old nodes. One special case of this is that there are 0 new children in total: here we clean the parent node as an optimization, with `parent.textContent = ""`.
 
-Example: old `[a b c]`, new `[x y]`. Positions 0 and 1 overlap, so `a` is patched toward `x` and `b` toward `y` in place. Position 2 is old only, so `c` is removed.
+Example: old `[a b c]`, new `[d e]`. Positions 0 and 1 overlap, so `a` is patched toward `d` and `b` toward `e`: same tag means the node is reused and updated, a different tag means the new node replaces the old. Position 2 is old only, so `c` is removed.
 
 The unkeyed algorithm doesn't move any nodes, so expensive collapses can happen, e.g. when a new node must be inserted at or near the front. In a situation where extra performance is needed, add `:key`s so the keyed algorithm will be used, which can reliably move nodes around.
 
