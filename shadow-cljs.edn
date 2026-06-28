@@ -11,7 +11,7 @@
    :modules
    {:reagami {:exports
               {render reagami.core/render}}
-    :tests {:init-fn test-runner-cljs/init
+    :tests {:init-fn run-tests/init
             :depends-on #{:reagami}}}
    :build-hooks [(shadow.cljs.build-report/hook
                   {:output-to "report.html"})]}}}

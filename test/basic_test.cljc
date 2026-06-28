@@ -1,15 +1,14 @@
 (ns basic-test
   (:require
-   ["node:assert" :as assert]
+   [clojure.test :refer [deftest is]]
    [reagami.core :as reagami]))
 
-(defn render-test []
+(deftest render-test
   (let [el (js/document.createElement "div")]
     (reagami/render el [:div "hello"])
-    (assert/strictEqual (.-innerHTML el) "<div>hello</div>")
-    (println "✓ render test passed")))
+    (is (= "<div>hello</div>" (.-innerHTML el)))))
 
-(defn class-test []
+(deftest class-test
   (let [el (js/document.createElement "div")
         ref (atom nil)
         attrs-changed (atom [])
@@ -23,65 +22,64 @@
                                     (swap! attrs-changed conj attr))))
     (let [old-attr (.-removeAttribute @ref)]
       (set! (.-removeAttribute @ref) (fn [attr]
-                                       (.call old-attr @ref attr )
+                                       (.call old-attr @ref attr)
                                        (swap! attrs-removed conj attr))))
-    (assert/strictEqual (.-innerHTML el) "<div class=\"myclass class1 class2\" id=\"myid\">hello</div>")
+    (is (= "<div class=\"myclass class1 class2\" id=\"myid\">hello</div>" (.-innerHTML el)))
     (reagami/render el [:div#myid.class1.class2
                         "hello"])
-    (assert/deepEqual ["class"] @attrs-changed)
+    (is (= ["class"] @attrs-changed))
     (reset! attrs-changed [])
-    (assert/equal @ref (.querySelector el "#myid"))
-    (assert/strictEqual (.-innerHTML el) "<div class=\"class1 class2\" id=\"myid\">hello</div>")
+    (is (= @ref (.querySelector el "#myid")))
+    (is (= "<div class=\"class1 class2\" id=\"myid\">hello</div>" (.-innerHTML el)))
     (reagami/render el [:div.class1.class2 "hello"])
-    (assert/deepEqual ["id"] @attrs-removed)
-    (assert/deepEqual [] @attrs-changed)
+    (is (= ["id"] @attrs-removed))
+    (is (= [] @attrs-changed))
     (reset! attrs-removed [])
-    (assert/equal @ref (.querySelector el ".class1"))
-    (assert/strictEqual (.-innerHTML el) "<div class=\"class1 class2\">hello</div>")
-    (println "✓ class test passed")))
+    (is (= @ref (.querySelector el ".class1")))
+    (is (= "<div class=\"class1 class2\">hello</div>" (.-innerHTML el)))))
 
-(defn style-test []
+(deftest style-test
   (let [el (js/document.createElement "div")]
     (reagami/render el [:div {:style {:color :blue}}
                         "hello"])
-    (assert/strictEqual (.-innerHTML el) "<div style=\"color: blue;\">hello</div>")
+    (is (= "<div style=\"color: blue;\">hello</div>" (.-innerHTML el)))
     (reagami/render el [:div {:style {:border "1px solid black"}}
                         "hello"])
-    (assert/strictEqual (.-innerHTML el) "<div style=\"border: 1px solid black;\">hello</div>")))
+    (is (= "<div style=\"border: 1px solid black;\">hello</div>" (.-innerHTML el)))))
 
-(defn input-test []
+(deftest input-test
   (let [el (js/document.createElement "div")
         state (atom {})
         ui (fn []
              [:input {:value (:input @state)}])]
     (reagami/render el [ui])
-    (assert/strictEqual (.-innerHTML el) "<input>")
+    (is (= "<input>" (.-innerHTML el)))
     (swap! state assoc :input "")
     (reagami/render el [ui])
-    (assert/strictEqual (.-value (.querySelector el "input")) "")
+    (is (= "" (.-value (.querySelector el "input"))))
     (swap! state assoc :input "k")
     (reagami/render el [ui])
-    (assert/strictEqual (.-value (.querySelector el "input")) "k"))
+    (is (= "k" (.-value (.querySelector el "input")))))
   ;; input with default value
   (let [el (js/document.createElement "div")
         ui (fn []
              [:input#input {:default-value "Hello"}])]
     (reagami/render el [ui])
-    (assert/strictEqual (.-innerHTML el) "<input value=\"Hello\" id=\"input\">")
-    (assert/strictEqual (.-value (.querySelector el "input")) "Hello")
+    (is (= "<input value=\"Hello\" id=\"input\">" (.-innerHTML el)))
+    (is (= "Hello" (.-value (.querySelector el "input"))))
     (set! (.-value (.querySelector el "input")) "I typed")
     ;; render doesn't overwrite what you typed because of default value
     (reagami/render el [ui])
-    (assert/strictEqual (.-value (.querySelector el "input")) "I typed")
-    (assert/strictEqual (.getAttribute (.querySelector el "input") "value") "Hello")))
+    (is (= "I typed" (.-value (.querySelector el "input"))))
+    (is (= "Hello" (.getAttribute (.querySelector el "input") "value")))))
 
-(defn get-value [node k]
+(defn- get-value [node k]
   (let [k #?(:squint k :cljs (name k))]
     (if (= "value" k)
       (.-value node)
       (.getAttribute node "value"))))
 
-(defn input-range-test []
+(deftest input-range-test
   (doseq [k [:value :default-value]]
     (let [el (js/document.createElement "div")
           ui (fn [value min max]
@@ -90,20 +88,20 @@
                         :min min
                         :max max}])]
       (reagami/render el [ui 150 100 200])
-      (assert/strictEqual (get-value (.querySelector el "input") k) "150")
+      (is (= "150" (get-value (.querySelector el "input") k)))
       (reagami/render el [ui 140 101 200])
-      (assert/strictEqual (get-value (.querySelector el "input") k) "140"))))
+      (is (= "140" (get-value (.querySelector el "input") k))))))
 
-(defn button-test []
+(deftest button-test
   (let [el (js/document.createElement "div")
         ui (fn [disabled?]
              [:button {:disabled disabled?}])]
     (reagami/render el [ui true])
-    (assert/strictEqual (.-innerHTML el) "<button disabled=\"\"></button>")
+    (is (= "<button disabled=\"\"></button>" (.-innerHTML el)))
     (reagami/render el [ui false])
-    (assert/strictEqual (.-innerHTML el) "<button></button>")))
+    (is (= "<button></button>" (.-innerHTML el)))))
 
-(defn table-test []
+(deftest table-test
   (let [el (js/document.createElement "div")
         ui (fn [elts]
              [:table
@@ -111,15 +109,13 @@
                 [:tr [:td e]])])]
     (reagami/render el [ui [1]])
     (reagami/render el [ui [1 2]])
-    (assert/equal 2 (count (seq (.querySelectorAll el "tr"))))
-    (println "✓ table test passed")))
+    (is (= 2 (count (seq (.querySelectorAll el "tr")))))))
 
-(defn hiccup-fn-test []
+(deftest hiccup-fn-test
   (let [el (js/document.createElement "div")
         sub-ui (fn [x]
                  [:div x])
         ui (fn []
              [sub-ui "Hello world"])]
     (reagami/render el [ui])
-    (assert/equal (.-innerHTML el) "<div>Hello world</div>")
-    (println "✓ fn test passed")))
+    (is (= "<div>Hello world</div>" (.-innerHTML el)))))

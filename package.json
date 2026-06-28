@@ -26,7 +26,7 @@
   "scripts": {
     "build": "pnpm squint compile --paths src",
     "watch": "pnpm squint watch",
-    "test": "pnpm squint compile && node lib/test_runner.mjs",
+    "test": "pnpm squint compile && node lib/run_tests.mjs",
     "bench": "pnpm squint compile && node lib/bench_runner.mjs",
     "prepublishOnly": "pnpm build"
   },
