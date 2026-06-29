@@ -4,8 +4,8 @@
 
 ## v0.1.36 (2026-06-29)
 
-- Fix [#21](https://github.com/borkdude/reagami/issues/21): support keyed children via `:key` for stable node identification. Keys enable more efficient diffing and better node reuse.
-- Add [benchmarks](https://github.com/borkdude/reagami#benchmarks)
+- Fix [#21](https://github.com/borkdude/reagami/issues/21): support keyed children via `:key` for stable node identification. Keys enable more efficient diffing and better node reuse. See [Patch algorithm](https://github.com/borkdude/reagami#patch-algorithm) for detailed explanation.
+- Add [benchmarks](https://github.com/borkdude/reagami#benchmarks). Tl;dr: Reagami can compete with CLJS React wrappers and React-free solutions, while being the leanest in output size. Performance is generally better in Squint compared to CLJS.
 - Make CLJS `:lite-mode` once again compatible and test CLJS `:lite-mode` in CI
 
 ## v0.0.35 (2025-11-06)
