@@ -60,6 +60,9 @@ multiplied together), one summary number per framework, lower is better:
 ```mermaid
 ---
 config:
+  xyChart:
+    width: 1100
+    height: 500
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"
@@ -68,8 +71,8 @@ xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
     x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
     y-axis "ms" 0 --> 60
-    bar [0, 0, 38.4, 0, 43.0, 0, 0]
-    bar [32.3, 36.0, 0, 42.6, 0, 52.0, 56.0]
+    bar [-5, -5, 38.4, -5, 43.0, -5, -5]
+    bar [32.3, 36.0, -5, 42.6, -5, 52.0, 56.0]
 ```
 
 ## Size
@@ -89,6 +92,9 @@ The same data-table app, compiled with production settings, gzipped:
 ```mermaid
 ---
 config:
+  xyChart:
+    width: 1100
+    height: 500
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"

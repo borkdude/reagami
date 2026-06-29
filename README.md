@@ -183,6 +183,9 @@ Geometric mean across the nine keyed table operations (lower is better):
 ```mermaid
 ---
 config:
+  xyChart:
+    width: 1100
+    height: 500
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"
@@ -200,6 +203,9 @@ The same data-table app was compiled with production settings. Below we compare 
 ```mermaid
 ---
 config:
+  xyChart:
+    width: 1100
+    height: 500
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"
