@@ -118,7 +118,7 @@ When a node is reused, the children must also be reconciled. Reagami first check
 
 The unkeyed algorithm matches children by position.
 
-1. First a shared prefix is determined. E.g. the old list of children is `[a b c]` and the new list of children is `[a b]`: the shared prefix is `[a b]`. If the old list of children was `[a b]` and the new list of children is `[a b c]`, the shared prefix is also `[a b]`.
+1. First the shared prefix is determined: the leading positions present in both lists, that is the first `min(old-count, new-count)` children. For old `[a b c]` and new `[a b]` that is the first two positions, and for old `[a b]` and new `[a b c]` also the first two. The prefix is positional, the nodes at those positions need not match.
 2. The shared prefix is patched index-wise using `patch-node`. At each index `patch-node` is applied to the corresponding elements. See above for how `patch-node` works.
 3. After that, there can be two cases to handle:
   a. There are more new children than old: extra new nodes are created + appended.
@@ -223,6 +223,8 @@ xychart-beta
     y-axis "KB" 0 --> 100
     bar [7.8, 16.9, 28.7, 75.9, 91.7, 98.4, 99.5]
 ```
+
+These are the full benchmark app. A minimal Reagami app under Squint is smaller, around 5 KB gzip.
 
 As you can see Reagami on Squint can perform in the ballpark of modern CLJS React or React-free alternatives, yet is the leanest when it comes to output size.
 
