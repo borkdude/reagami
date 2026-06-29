@@ -181,21 +181,25 @@ A more detailed explanation of the nethodology and how you can run it yourself a
 Geometric mean across the nine keyed table operations (lower is better):
 
 ```mermaid
+%%{init: {"xychart": {"plotColorPalette": "#ff7f0e, #4c78a8"}}}%%
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
     x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
     y-axis "ms" 0 --> 60
-    bar [32.3, 36.0, 38.4, 42.6, 43.0, 52.0, 56.0]
+    bar [0, 0, 38.4, 0, 43.0, 0, 0]
+    bar [32.3, 36.0, 0, 42.6, 0, 52.0, 56.0]
 ```
 
 The same data-table app was compiled with production settings. Below we compare the output size, gzipped.
 
 ```mermaid
+%%{init: {"xychart": {"plotColorPalette": "#ff7f0e, #4c78a8"}}}%%
 xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [7.9, 16.9, 28.7, 75.9, 91.7, 98.4, 99.5]
+    bar [7.9, 0, 28.7, 0, 0, 0, 0]
+    bar [0, 16.9, 0, 75.9, 91.7, 98.4, 99.5]
 ```
 
 The minimal Reagami app under Squint is smaller, around 5 KB gzip, but in the benchmark the js-framework-benchmark's standard table app is compared.
