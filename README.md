@@ -214,6 +214,8 @@ xychart-beta
     bar [32.3, 36.0, 38.4, 42.6, 43.0, 52.0, 56.0]
 ```
 
+The same data-table app was compiled with production settings. Below we compare the output size, gzipped.
+
 ```mermaid
 xychart-beta
     title "Bundle size (gzip KB, lower is better)"
@@ -222,7 +224,7 @@ xychart-beta
     bar [7.8, 16.9, 28.7, 75.9, 91.7, 98.4, 99.5]
 ```
 
-By geometric mean UIX is fastest, with Helix close behind, both helped by React 19's targeted re-renders on update, select and remove. Those React frameworks (UIX, Helix, Reagent) win the row-level operations but are slow on swap (95 to 102 ms) and ship the largest bundles, around 92 to 100 KB gzip. Reagami under Squint is by far the smallest bundle at 7.8 KB, more than ten times smaller, and is fastest at replace, create 10k and clear while staying competitive on the geomean. Squint beats CLJS on both size and most operations, for Reagami and Replicant alike.
+As you can see Reagami on Squint can perform in the ballpark of modern CLJS React or React-free alternatives, yet is the leanest when it comes to output size.
 
 ## Examples
 
