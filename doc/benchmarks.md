@@ -7,7 +7,7 @@ this page has the full numbers, the methodology and how to run it yourself.
 
 ## Methodology
 
-All frameworks ran on the same machine (Macbook Pro M5) with headless Chrome and
+All frameworks ran on the same machine (Macbook M4 Max) with headless Chrome and
 CPU throttling, 10 iterations each, reported as the median in milliseconds.
 
 Framework versions: Reagami 0.1.37, Replicant bb72d7b, Reagent 2.0.1, Helix 0.2.2,
