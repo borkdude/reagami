@@ -61,10 +61,7 @@ Reagami does NOT support:
 
 Local state can be accomplished by using nested renders like in [this example](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE5VTTW%2BDMAy98ys8ekkOLZWmXXJZ%2F0OPCE1ZcEu2kNB8DFUV%2F30KpCr00K3mkOA8Pz87MdEOWi51BkCYxVOQFqHMG%2B87x4oCXbtxTWGRH3krd9vNdvP6lgPjDpKvojTLSI0HcJ57BMK9aeHChAnao4UtMNeYHrwNOFyxGoKEssoASlbLnwzi5jN4bzRcmNFroaT4hhVxPe9eEnPo6rhMdNp4OsQ4yPeN6d8hBzKd7EY0jeRA%2Bgb13cEYNOWFC3P%2BrHCUq4wFdrSIeuK9WpRjUddogRw0lNrUCEoeUJyFwmqBvTMiuJthH0EBWBs7BkShh1IZwdV62dG5bzvQx2wLa8%2FrICf11cNGz1Nc2z33SS3o8ETiu3YsuHazH1o9U066jRVJT7BIjvFmyrHYij68mLkoXtfrnnvRLKpnLJFOy3%2FlkQT%2FA6%2BlonSoYtnT7FhjPJAvV9RGhBa135wC2vMeFQpvLOQr3nX5bXySuHGE7tswcpUhTeatvGVhMTA%2BiA8Yv%2BomPUal%2FS91%2BT%2BoHgQAAA%3D%3D) or using [web components](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE2VSsW7bMBDd9RVXeaEGSZ05FQgKZGjQIdkEDzR5juhQJM07NhUM%2F3shiW5tlBOP9967h3sUnmCaWxVjBSBkwnO2CSsAGOqROZLse6Spo7FPqN7VZGuQiqAU%2BxVJ52w9dzokBJnwiAkGg0ftFNF%2B3zRVJW4lvMzfHU7oeZmHvxm9IThR%2F%2Fz28qN0mqV1tOgMtC5o5VpixQhCcZjgInXInjHB1%2BsiDSB08MQpaw4JBh4trbZAUI6Ymu2ujGk%2FFevxUVPKhN5ggp3oym0RaDbln4cTai4jPGpG86ScOyj98TDokbp6Ki%2F3qLKz%2Fg68NgAGaewvGOQhMwcPFxl8q53VH7AT9Knil0fTOZrV%2B20R1uvmWqTKqZ9W%2BoqAGsRf7Ld7pWZ%2FYw3S%2BpgZLjI6pXEMbrFY8xwRKEzIo%2FXv9XVJc4mzM3i0HkFn4jCV3AjkNLe4Ff%2BCLvF7uK1kX%2F2%2FDHGi3gSdF0J3zpjmV3S4JlrvVIx1A8Od%2BvapNm7zB8tsjFnEAgAA).
 
-Reagami uses a basic patching algorithm explained in [this](https://blog.michielborkent.nl/reagami.html) blog
-post. It may become more advanced in the future, but the (fun) point of this
-library at this point is that it's small, underengineered and thus suited for
-educational purposes.
+Reagami's patching algorithm is detailed in the [Patch algorithm](#patch-algorithm) section.
 
 For a more fully featured version of Reagent in squint, check out [Eucalypt](https://github.com/chr15m/eucalypt).
 
@@ -107,6 +104,129 @@ You can add a `:key` property to your elements to identify nodes. This will resu
  (for [{:keys [id label]} items]
    [:li {:key id} label])]
 ```
+
+## Patch algorithm
+
+The patch algorithm works as follows. When re-rendering elements on the screen, Reagami compares them with the previous corresponding elements.
+
+### `patch-node`
+
+For a single node, `patch-node` decides reuse of an existing node or to create one from scratch. Two text nodes reuse the old node and update its text. Two elements with the same tag reuse the old node, sync its attributes and recurse into its children. In other situations a new node is created and the old one is discarded.
+When a node is reused, the children must also be reconciled. Reagami first checks whether any child has a `:key`. If at least one keyed child is present, the keyed algorithm is used, else the unkeyed (positional) algorithm.
+
+### Unkeyed
+
+The unkeyed algorithm matches children by position.
+
+1. First the shared prefix is determined: the leading positions present in both lists, that is the first `min(old-count, new-count)` children. For old `[a b c]` and new `[a b]` that is the first two positions, and for old `[a b]` and new `[a b c]` also the first two. The prefix is positional, the nodes at those positions need not match.
+2. The shared prefix is patched index-wise using `patch-node`. At each index `patch-node` is applied to the corresponding elements. See above for how `patch-node` works.
+3. After that, there can be two cases to handle:
+  a. There are more new children than old: extra new nodes are created + appended.
+  b. There are more old children than new: extra old nodes are removed. One special case of this is that there are 0 new children in total, so all old children must be removed. Reagami then uses `parent.textContent = ""` as an optimization.
+
+Example: old `[a b c]`, new `[d e]`. Positions 1 and 2 overlap, so `a` is patched toward `d` and `b` toward `e` using `patch-node`. The same tag means the node is reused and updated, a different tag means the new node replaces the old. Position 3 (`c`) is removed.
+
+The unkeyed algorithm doesn't move any nodes, so expensive collapses can happen, e.g. when a new node must be inserted at or near the front. In a situation where extra performance is needed, add `:key`s so the keyed algorithm will be used, which can reliably move nodes around.
+
+### Keyed
+
+The keyed algorithm is inspired by [Vue3](https://vuejs.org/) and uses the [Longest Increasing Subsequence](https://en.wikipedia.org/wiki/Longest_increasing_subsequence) algorithm.
+
+When any child has a `:key`, the whole list is reconciled by key. Keyed and unkeyed children can be mixed, although it's recommended to use keys on all the elements. The unkeyed elements are matched positionally. The algorithm is best shown with an example. Below, a plain letter is a keyed node whose key is that letter, and a parenthesised letter like `(u)` is an unkeyed node.
+
+Let's say we have the following situation:
+
+```
+old:  a    b    c    d    z    (u)
+new:  a    d    b    c    (u)  n    (m)
+```
+
+1. Match each new child to an old node and note that old node's position. Positions are `1`-based, since `0` marks a new node. Each matched old node is reused and patched toward its new vnode with `patch-node` (attributes and children updated, recursively). A new child with no match is built with `create-node`.
+
+```
+a    ->  old a    pos 1    by key
+d    ->  old d    pos 4    by key
+b    ->  old b    pos 2    by key
+c    ->  old c    pos 3    by key
+(u)  ->  old (u)  pos 6    next unused unkeyed old, taken in order
+n    ->  create   pos 0    no old node with key n
+(m)  ->  create   pos 0    no unkeyed old left
+
+old positions (in new order) = [1 4 2 3 6 0 0]
+```
+
+2. Remove old nodes that weren't matched. `z` was not matched, so it is removed.
+
+3. Find the longest increasing subsequence of the old positions, skipping the `0` holes. This is the largest set of nodes already in the right _relative_ order. Relative here means: there can be other positions in between. In `1 4 2 3 6 _ _` the longest increasing subsequence is `1 2 3 6`: that is `a`, `b`, `c` and `(u)`. The `4` (node `d`) is left out. These four will not move.
+
+4. Place nodes right to left into the parent, moving only the ones outside that subsequence. The DOM can only insert a node *before* a reference node (`insertBefore`, there is no `insertAfter`), so each node is anchored on its right neighbour. Therefore we iterate from right to left to ensure the right neighbour is already in place. The rightmost node has no right neighbour, so its reference is `null`. `parent.insertBefore(node, null)` is identical to `appendChild`: with no node to go before, it goes at the end.
+
+```
+(m)  new             ->  append (insertBefore null)
+n    new             ->  insertBefore (m)
+(u)  in subsequence  ->  leave in place
+c    in subsequence  ->  leave in place
+b    in subsequence  ->  leave in place
+d    reused, moved   ->  insertBefore b
+a    in subsequence  ->  leave in place
+```
+
+Result: `a d b c (u) n (m)`, with `z` removed. Only `d` was moved, `n` and `(m)` were created, and the rest never moved.
+
+## Benchmarks
+
+The numbers below come from [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) using the keyed variant. All frameworks ran on the same machine (Macbook Pro M5) with headless Chrome and CPU throttling, 10 iterations each, reported as the median in milliseconds. Reagent 2.0.1, Helix 0.2.2 and UIX 1.4.9 all run on React 19.2.
+
+To reproduce these results, you can use the forked js-framework-benchmark repo at [borkdude/js-framework-benchmark](https://github.com/borkdude/js-framework-benchmark).
+
+The benchmark renders one large data table. Each row is an item with a numeric id and a label of random words. Each operation below is triggered by a button click and timed:
+
+- create 1k / create 10k: build a table of 1,000 (or 10,000) rows from scratch.
+- replace 1k: replace all 1,000 rows with newly generated ones.
+- update every 10th: change the label of every 10th row in a 1,000-row table.
+- select: highlight a single row.
+- swap: exchange two rows far apart in a 1,000-row table (row 2 and row 999).
+- remove: delete a single row.
+- append 1k: add 1,000 rows to an existing 1,000.
+- clear: remove all rows.
+
+Each operation runs several times. The median is the middle value of those timings, in milliseconds, so a single slow run does not skew it. The best result per row is in bold.
+
+| benchmark (median ms) | Reagami Squint | Reagami CLJS | Replicant CLJS | Replicant Squint | Reagent | Helix | UIX |
+|---|---|---|---|---|---|---|---|
+| create 1k | 27.3 | 30.6 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
+| replace 1k | **29.8** | 33.5 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
+| update every 10th | 49.8 | 54.0 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
+| select | 33.9 | 43.8 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
+| swap | 46.2 | 57.0 | 54.8 | **45.8** | 98.8 | 102.0 | 95.3 |
+| remove | 27.6 | 32.5 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
+| create 10k | **294.0** | 294.9 | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
+| append 1k | 38.8 | 42.0 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
+| clear | **9.1** | **9.1** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
+
+The first chart shows the geometric mean across the nine operations: the ninth root of the nine medians multiplied together. It is one summary number per framework, less affected by a single slow operation than a plain average.
+
+```mermaid
+xychart-beta
+    title "Perf: geomean of 9 keyed ops (ms, lower is better)"
+    x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
+    y-axis "ms" 0 --> 60
+    bar [32.3, 36.0, 38.4, 42.6, 43.0, 52.0, 56.0]
+```
+
+The same data-table app was compiled with production settings. Below we compare the output size, gzipped.
+
+```mermaid
+xychart-beta
+    title "Bundle size (gzip KB, lower is better)"
+    x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
+    y-axis "KB" 0 --> 100
+    bar [7.8, 16.9, 28.7, 75.9, 91.7, 98.4, 99.5]
+```
+
+These are the full benchmark app. A minimal Reagami app under Squint is smaller, around 5 KB gzip.
+
+As you can see Reagami on Squint can perform in the ballpark of modern CLJS React or React-free alternatives, yet is the leanest when it comes to output size.
 
 ## Examples
 
