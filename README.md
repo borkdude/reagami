@@ -227,6 +227,7 @@ xychart-beta
 These are the full benchmark app. A minimal Reagami app under Squint is smaller, around 5 KB gzip.
 
 As you can see Reagami on Squint can perform in the ballpark of modern CLJS React or React-free alternatives, yet is the leanest when it comes to output size.
+Performance on Squint tends to be even a tad faster than on CLJS too.
 
 ## Examples
 
