@@ -57,6 +57,14 @@ multiplied together), one summary number per framework, lower is better:
 | Replicant Squint | 52.0 |
 | Replicant CLJS | 56.0 |
 
+```mermaid
+xychart-beta
+    title "Perf: geomean of 9 keyed ops (ms, lower is better)"
+    x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
+    y-axis "ms" 0 --> 60
+    bar [32.3, 36.0, 38.4, 42.6, 43.0, 52.0, 56.0]
+```
+
 ## Size
 
 The same data-table app, compiled with production settings, gzipped:
@@ -70,6 +78,14 @@ The same data-table app, compiled with production settings, gzipped:
 | UIX | 91.7 |
 | Helix | 98.4 |
 | Reagent | 99.5 |
+
+```mermaid
+xychart-beta
+    title "Bundle size (gzip KB, lower is better)"
+    x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
+    y-axis "KB" 0 --> 100
+    bar [7.9, 16.9, 28.7, 75.9, 91.7, 98.4, 99.5]
+```
 
 These are the full benchmark app. A minimal Reagami app under Squint is smaller,
 around 5 KB gzip.
