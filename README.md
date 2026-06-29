@@ -115,19 +115,19 @@ The patch algorithm works as follows. When re-rendering elements on the screen, 
 ### `patch-node`
 
 For a single node, `patch-node` decides reuse of an existing node or to create one from scratch. Two text nodes reuse the old node and update its text. Two elements with the same tag reuse the old node, sync its attributes and recurse into its children. In other situations a new node is created and the old one is discarded.
-When a node is reused, the children must also be reonciled. Reagami first checks whether any child has a `:key`. If at least one keyed child is present, the keyed algorithm is used, else the unkeyed (positional) algorithm.
+When a node is reused, the children must also be reconciled. Reagami first checks whether any child has a `:key`. If at least one keyed child is present, the keyed algorithm is used, else the unkeyed (positional) algorithm.
 
 ### Unkeyed
 
 The unkeyed algorithm matches children by position.
 
 1. First a shared prefix is determined. E.g. the old list of children is `[a b c]` and the new list of children is `[a b]`: the shared prefix is `[a b]`. If the old list of children was `[a b]` and the new list of children is `[a b c]`, the shared prefix is also `[a b]`.
-2. The shared prefix is patched index-wise using `patch-node`. At each index `patch-node` is applied to the correponding elements. See above for how `patch-node` works.
+2. The shared prefix is patched index-wise using `patch-node`. At each index `patch-node` is applied to the corresponding elements. See above for how `patch-node` works.
 3. After that, there can be two cases to handle:
   a. There are more new children than old: extra new nodes are created + appended.
-  b. There are More old children than new: extra old nodes are removed. One special case of this is that there are 0 new children in total, so all old children must be removed. Reagami then uses `parent.textContent = ""` as an optimization.
+  b. There are more old children than new: extra old nodes are removed. One special case of this is that there are 0 new children in total, so all old children must be removed. Reagami then uses `parent.textContent = ""` as an optimization.
 
-Example: old `[a b c]`, new `[d e]`. Positions 0 and 1 overlap, so `a` is patched toward `d` and `b` toward `e` using `patch-node`. A same tag means the node is reused and updated, a different tag means the new node replaces the old. Position 2 (`c`) is removed.
+Example: old `[a b c]`, new `[d e]`. Positions 1 and 2 overlap, so `a` is patched toward `d` and `b` toward `e` using `patch-node`. The same tag means the node is reused and updated, a different tag means the new node replaces the old. Position 3 (`c`) is removed.
 
 The unkeyed algorithm doesn't move any nodes, so expensive collapses can happen, e.g. when a new node must be inserted at or near the front. In a situation where extra performance is needed, add `:key`s so the keyed algorithm will be used, which can reliably move nodes around.
 
@@ -140,8 +140,8 @@ When any child has a `:key`, the whole list is reconciled by key. Keyed and unke
 Let's say we have the following situation:
 
 ```
-old:  a  b  c  d  z (u)
-new:  a  d  b  c (u) n (m)
+old:  a    b    c    d    z    (u)
+new:  a    d    b    c    (u)  n    (m)
 ```
 
 1. Match each new child to an old node and note that old node's position. Positions are `1`-based, since `0` marks a new node. Each matched old node is reused and patched toward its new vnode with `patch-node` (attributes and children updated, recursively). A new child with no match is built with `create-node`.
@@ -160,7 +160,7 @@ old positions (in new order) = [1 4 2 3 6 0 0]
 
 2. Remove old nodes that weren't matched. `z` was not matched, so it is removed.
 
-3. Find the longest increasing subsequence of the old positions, skipping the `0` holes. This is the largest set of nodes already in the right _relative_ order. Relative here means: there can be other positions in between. In `1 4 2 3 6 _ _` the longest increasing subsequence is `1 2 3 6`: that is `a`, `b`, `c` and `(u)`. The `4` (node `d`) is left out. These four will not move according to their old arrangement.
+3. Find the longest increasing subsequence of the old positions, skipping the `0` holes. This is the largest set of nodes already in the right _relative_ order. Relative here means: there can be other positions in between. In `1 4 2 3 6 _ _` the longest increasing subsequence is `1 2 3 6`: that is `a`, `b`, `c` and `(u)`. The `4` (node `d`) is left out. These four will not move.
 
 4. Place nodes right to left into the parent, moving only the ones outside that subsequence. The DOM can only insert a node *before* a reference node (`insertBefore`, there is no `insertAfter`), so each node is anchored on its right neighbour. Therefore we iterate from right to left to ensure the right neighbour is already in place. The rightmost node has no right neighbour, so its reference is `null`. `parent.insertBefore(node, null)` is identical to `appendChild`: with no node to go before, it goes at the end.
 
@@ -210,7 +210,7 @@ xychart-beta
     bar [7.8, 16.9, 28.7, 75.9, 84.4]
 ```
 
-Reagami under Squint is both the smallest bundle and the fastest at creating, replacing, appending and clearing rows, and at creating 10k rows. Reagent wins partial update and select through React's targeted re-render via `r/track`, but is slowest on swap. Squint beats CLJS on size and on most operations. Replicant and Reagami end up close on keyed swap and remove, since both place nodes with the same longest-increasing-subsequence step.
+Reagami under Squint is both the smallest bundle and the fastest at creating, replacing, appending and clearing rows, and at creating 10k rows. Reagent wins partial update and select through React's targeted re-render via `r/track`, but is slowest on swap. Squint beats CLJS on size and on most operations. Replicant and Reagami end up close on keyed swap and remove.
 
 ## Examples
 
