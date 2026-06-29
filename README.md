@@ -175,9 +175,10 @@ Result: `a d b c (u) n (m)`, with `z` removed. Only `d` was moved, `n` and `(m)`
 
 ## Benchmarks
 
-Reagami compared against other CLJS UI libraries with [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark), keyed variant. Reagent, Helix and UIX run on React 19.2. Full per-operation tables, methodology and how to run it yourself are in [doc/benchmarks.md](doc/benchmarks.md).
+In the below benchmarks, Reagami is compared against other CLJS UI libraries with [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) and used the keyed variant. Reagent, Helix and UIX are tested with React 19.2.
+A more detailed explanation of the nethodology and how you can run it yourself are in [doc/benchmarks.md](doc/benchmarks.md).
 
-Geometric mean across the nine keyed operations, one number per framework, lower is better:
+Geometric mean across the nine keyed table operations (lower is better):
 
 ```mermaid
 xychart-beta
@@ -197,10 +198,10 @@ xychart-beta
     bar [7.9, 16.9, 28.7, 75.9, 91.7, 98.4, 99.5]
 ```
 
-These are the full benchmark app. A minimal Reagami app under Squint is smaller, around 5 KB gzip.
+The minimal Reagami app under Squint is smaller, around 5 KB gzip, but in the benchmark the js-framework-benchmark's standard table app is compared.
 
 As you can see Reagami on Squint can perform in the ballpark of modern CLJS React or React-free alternatives, yet is the leanest when it comes to output size.
-Performance on Squint tends to be even a tad faster than on CLJS too.
+Performance on Squint tends to be a tad faster than on CLJS too.
 
 ## Examples
 
