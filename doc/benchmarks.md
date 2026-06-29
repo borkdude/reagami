@@ -58,7 +58,11 @@ multiplied together), one summary number per framework, lower is better:
 | Replicant CLJS | 56.0 |
 
 ```mermaid
-%%{init: {"xychart": {"plotColorPalette": "#ff7f0e, #4c78a8"}}}%%
+---
+config:
+  xyChart:
+    plotColorPalette: "#ff7f0e, #4c78a8"
+---
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
     x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
@@ -82,7 +86,11 @@ The same data-table app, compiled with production settings, gzipped:
 | Reagent | 99.5 |
 
 ```mermaid
-%%{init: {"xychart": {"plotColorPalette": "#ff7f0e, #4c78a8"}}}%%
+---
+config:
+  xyChart:
+    plotColorPalette: "#ff7f0e, #4c78a8"
+---
 xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]

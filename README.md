@@ -181,7 +181,11 @@ A more detailed explanation of the nethodology and how you can run it yourself a
 Geometric mean across the nine keyed table operations (lower is better):
 
 ```mermaid
-%%{init: {"xychart": {"plotColorPalette": "#ff7f0e, #4c78a8"}}}%%
+---
+config:
+  xyChart:
+    plotColorPalette: "#ff7f0e, #4c78a8"
+---
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
     x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
@@ -193,7 +197,11 @@ xychart-beta
 The same data-table app was compiled with production settings. Below we compare the output size, gzipped.
 
 ```mermaid
-%%{init: {"xychart": {"plotColorPalette": "#ff7f0e, #4c78a8"}}}%%
+---
+config:
+  xyChart:
+    plotColorPalette: "#ff7f0e, #4c78a8"
+---
 xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
