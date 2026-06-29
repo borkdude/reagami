@@ -31,6 +31,6 @@
     "prepublishOnly": "pnpm build"
   },
   "dependencies": {
-    "squint-cljs": "^0.11.188"
+    "squint-cljs": "^0.14.197"
   }
 }

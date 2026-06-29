@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       squint-cljs:
-        specifier: ^0.11.188
-        version: 0.11.188
+        specifier: ^0.14.197
+        version: 0.14.197
     devDependencies:
       concurrently:
         specifier: ^9.2.1
@@ -432,8 +432,8 @@ packages:
     resolution: {integrity: sha512-UjgapumWlbMhkBgzT7Ykc5YXUT46F0iKu8SGXq0bcwP5dz/h0Plj6enJqjz1Zbq2l5WaqYnrVbwWOWMyF3F47g==}
     engines: {node: '>=0.10.0'}
 
-  squint-cljs@0.11.188:
-    resolution: {integrity: sha512-BAAtibqBN9LrqrO0pUAm7v48slBm8fGcPvmWwxNkkSPEzy+kxbGOxfTI+KCcWXV9FG6xOFPslVBfsWK35H+7Ag==}
+  squint-cljs@0.14.197:
+    resolution: {integrity: sha512-9Z2u0QzL7IlTsIpPJXDMTqUSaS+nKdxGYq6JJRjbAIRpgxW6BtxIQ+lr/SfDfTsMYQ3Hht9YyNPec6haCmBGjw==}
     hasBin: true
 
   string-width@4.2.3:
@@ -488,6 +488,7 @@ packages:
   whatwg-encoding@3.1.1:
     resolution: {integrity: sha512-6qN4hJdMwfYBtE3YBTTHhoeuUrDBPZmbQaxWAqSALV/MeEnR5z1xd8UKud2RAkFoPkmB+hli1TZSnyi84xz1vQ==}
     engines: {node: '>=18'}
+    deprecated: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
   whatwg-mimetype@4.0.0:
     resolution: {integrity: sha512-QaKxh0eNIi2mE9p2vEdzfagOKHCcj1pJ56EEHGQOVxp8r9/iszLUUV7v89x9O1p/T+NlTM5W7jW6+cz4Fq1YVg==}
@@ -886,7 +887,7 @@ snapshots:
 
   source-map@0.6.1: {}
 
-  squint-cljs@0.11.188:
+  squint-cljs@0.14.197:
     dependencies:
       chokidar: 4.0.3
 
