@@ -4,7 +4,7 @@
   #_{:clj-kondo/ignore [:unused-excluded-var]}
   (:refer-clojure :exclude [doseq for set hash-map array-map sorted-map sorted-set
                             sorted-map-by sorted-set-by zipmap frequencies group-by
-                            ex-info pr-str prn println vec]))
+                            ex-info pr-str prn println vec map filter]))
 
 (def svg-ns "http://www.w3.org/2000/svg")
 

@@ -175,7 +175,7 @@ Result: `a d b c (u) n (m)`, with `z` removed. Only `d` was moved, `n` and `(m)`
 
 ## Benchmarks
 
-The numbers below come from [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) using the keyed variant. All frameworks ran on the same machine (Macbook Pro M5) with headless Chrome and CPU throttling, 10 iterations each, reported as the median in milliseconds. Reagent 2.0.1, Helix 0.2.2 and UIX 1.4.9 all run on React 18.
+The numbers below come from [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) using the keyed variant. All frameworks ran on the same machine (Macbook Pro M5) with headless Chrome and CPU throttling, 10 iterations each, reported as the median in milliseconds. Reagent 2.0.1, Helix 0.2.2 and UIX 1.4.9 all run on React 19.2.
 
 To reproduce these results, you can use the forked js-framework-benchmark repo at [borkdude/js-framework-benchmark](https://github.com/borkdude/js-framework-benchmark).
 
@@ -194,35 +194,35 @@ Each operation runs several times. The median is the middle value of those timin
 
 | benchmark (median ms) | Reagami Squint | Reagami CLJS | Replicant CLJS | Replicant Squint | Reagent | Helix | UIX |
 |---|---|---|---|---|---|---|---|
-| create 1k | 27.3 | 30.6 | 58.5 | 53.8 | 40.5 | **26.6** | 26.9 |
-| replace 1k | **29.8** | 33.5 | 68.2 | 64.5 | 43.5 | 32.0 | 31.0 |
-| update every 10th | 49.8 | 54.0 | 49.8 | 47.0 | 31.5 | 25.6 | **22.3** |
-| select | 33.9 | 43.8 | 31.6 | 26.3 | 8.4 | 14.3 | **6.7** |
-| swap | 46.2 | 57.0 | 54.8 | **45.8** | 108.8 | 100.2 | 91.7 |
-| remove | 27.6 | 32.5 | 27.1 | 23.1 | 23.1 | 17.4 | **13.1** |
-| create 10k | **294.0** | 294.9 | 453.5 | 450.3 | 532.8 | 409.0 | 389.1 |
-| append 1k | 38.8 | 42.0 | 73.3 | 63.9 | 40.9 | 31.6 | **30.4** |
-| clear | **9.1** | **9.1** | 17.5 | 21.2 | 27.1 | 16.6 | 17.9 |
+| create 1k | 27.3 | 30.6 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
+| replace 1k | **29.8** | 33.5 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
+| update every 10th | 49.8 | 54.0 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
+| select | 33.9 | 43.8 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
+| swap | 46.2 | 57.0 | 54.8 | **45.8** | 98.8 | 102.0 | 95.3 |
+| remove | 27.6 | 32.5 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
+| create 10k | **294.0** | 294.9 | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
+| append 1k | 38.8 | 42.0 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
+| clear | **9.1** | **9.1** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
 
 The first chart shows the geometric mean across the nine operations: the ninth root of the nine medians multiplied together. It is one summary number per framework, less affected by a single slow operation than a plain average.
 
 ```mermaid
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
-    x-axis ["UIX", "Helix", "Reagami Squint", "Reagami CLJS", "Reagent", "Replicant Squint", "Replicant CLJS"]
+    x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
     y-axis "ms" 0 --> 60
-    bar [31.6, 36.5, 38.4, 43.0, 44.5, 52.0, 56.0]
+    bar [32.3, 36.0, 38.4, 42.6, 43.0, 52.0, 56.0]
 ```
 
 ```mermaid
 xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
-    y-axis "KB" 0 --> 90
-    bar [7.8, 16.9, 28.7, 75.9, 76.7, 83.4, 84.4]
+    y-axis "KB" 0 --> 100
+    bar [7.8, 16.9, 28.7, 75.9, 91.7, 98.4, 99.5]
 ```
 
-Reagami under Squint is both the smallest bundle and the fastest at creating, replacing, appending and clearing rows, and at creating 10k rows. Reagent wins partial update and select through React's targeted re-render via `r/track`, but is slowest on swap. Squint beats CLJS on size and on most operations. Replicant and Reagami end up close on keyed swap and remove.
+By geometric mean UIX is fastest, with Helix close behind, both helped by React 19's targeted re-renders on update, select and remove. Those React frameworks (UIX, Helix, Reagent) win the row-level operations but are slow on swap (95 to 102 ms) and ship the largest bundles, around 92 to 100 KB gzip. Reagami under Squint is by far the smallest bundle at 7.8 KB, more than ten times smaller, and is fastest at replace, create 10k and clear while staying competitive on the geomean. Squint beats CLJS on both size and most operations, for Reagami and Replicant alike.
 
 ## Examples
 
