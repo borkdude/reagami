@@ -60,8 +60,9 @@ multiplied together), one summary number per framework, lower is better:
 ```mermaid
 ---
 config:
-  xyChart:
-    plotColorPalette: "#ff7f0e, #4c78a8"
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#ff7f0e, #4c78a8"
 ---
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
@@ -88,8 +89,9 @@ The same data-table app, compiled with production settings, gzipped:
 ```mermaid
 ---
 config:
-  xyChart:
-    plotColorPalette: "#ff7f0e, #4c78a8"
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#ff7f0e, #4c78a8"
 ---
 xychart-beta
     title "Bundle size (gzip KB, lower is better)"

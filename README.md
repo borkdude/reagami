@@ -183,8 +183,9 @@ Geometric mean across the nine keyed table operations (lower is better):
 ```mermaid
 ---
 config:
-  xyChart:
-    plotColorPalette: "#ff7f0e, #4c78a8"
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#ff7f0e, #4c78a8"
 ---
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
@@ -199,8 +200,9 @@ The same data-table app was compiled with production settings. Below we compare 
 ```mermaid
 ---
 config:
-  xyChart:
-    plotColorPalette: "#ff7f0e, #4c78a8"
+  themeVariables:
+    xyChart:
+      plotColorPalette: "#ff7f0e, #4c78a8"
 ---
 xychart-beta
     title "Bundle size (gzip KB, lower is better)"
