@@ -61,8 +61,8 @@ multiplied together), one summary number per framework, lower is better:
 ---
 config:
   xyChart:
-    width: 850
-    height: 480
+    width: 760
+    height: 470
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"
@@ -93,8 +93,8 @@ The same data-table app, compiled with production settings, gzipped:
 ---
 config:
   xyChart:
-    width: 850
-    height: 480
+    width: 760
+    height: 470
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"
