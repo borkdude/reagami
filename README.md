@@ -110,66 +110,75 @@ You can add a `:key` property to your elements to identify nodes. This will resu
 
 ## Patch algorithm
 
-Reagami first checks whether any child has a `:key`. If one does it runs the keyed patch algorithm, otherwise the unkeyed one.
+The patch algorithm works as follows. When re-rendering elements on the screen, Reagami compares them with the previous corresponding elements.
 
-For a single node, `patch-node` decides reuse of an existing node or to create one from scratch. Two text nodes reuse the old node and update its text. Two elements with the same tag reuse the old node, sync its attributes and recurse into its children. Anything else builds a fresh node.
+### `patch-node`
+
+For a single node, `patch-node` decides reuse of an existing node or to create one from scratch. Two text nodes reuse the old node and update its text. Two elements with the same tag reuse the old node, sync its attributes and recurse into its children. In other situations a new node is created and the old one is discarded.
+When a node is reused, the children must also be reonciled. Reagami first checks whether any child has a `:key`. If at least one keyed child is present, the keyed algorithm is used, else the unkeyed (positional) algorithm.
 
 ### Unkeyed
 
-The unkeyed algorithm (no `:key` used on any child) matches children by position.
+The unkeyed algorithm matches children by position.
 
-- The shared prefix is patched index-wise using `patch-node`. Example: old has `n` children, new has `n-2` children: the shared prefix is the first `n-2` children or vice versa. So index `0 .. (n- 2 - 1)` are patched using `patch-node`. At each index `patch-node` reuses and updates the old node when the tags match (or both are text), but when the tags differ it returns a fresh node that replaces the old one.
-- Then fix the tail which can mean:
-  - More new children than old: extra nodes are appended.
-  - More old children than new: remove the extra old nodes. One special case of this is that there are 0 new children in total: here we clean the parent node as an optimization, with `parent.textContent = ""`.
+1. First a shared prefix is determined. E.g. the old list of children is `[a b c]` and the new list of children is `[a b]`: the shared prefix is `[a b]`. If the old list of children was `[a b]` and the new list of children is `[a b c]`, the shared prefix is also `[a b]`.
+2. The shared prefix is patched index-wise using `patch-node`. At each index `patch-node` is applied to the correponding elements. See above for how `patch-node` works.
+3. After that, there can be two cases to handle:
+  a. There are more new children than old: extra new nodes are created + appended.
+  b. There are More old children than new: extra old nodes are removed. One special case of this is that there are 0 new children in total, so all old children must be removed. Reagami then uses `parent.textContent = ""` as an optimization.
 
-Example: old `[a b c]`, new `[d e]`. Positions 0 and 1 overlap, so `a` is patched toward `d` and `b` toward `e`: same tag means the node is reused and updated, a different tag means the new node replaces the old. Position 2 is old only, so `c` is removed.
+Example: old `[a b c]`, new `[d e]`. Positions 0 and 1 overlap, so `a` is patched toward `d` and `b` toward `e` using `patch-node`. A same tag means the node is reused and updated, a different tag means the new node replaces the old. Position 2 (`c`) is removed.
 
 The unkeyed algorithm doesn't move any nodes, so expensive collapses can happen, e.g. when a new node must be inserted at or near the front. In a situation where extra performance is needed, add `:key`s so the keyed algorithm will be used, which can reliably move nodes around.
 
 ### Keyed
 
-When any child has a `:key`, the whole list is reconciled by key. Keyed and unkeyed children can be mixed: the unkeyed ones take part in this same pass, matched positionally. This single example hits every case. `x:n` is node `x` with key `n`, a bare letter like `c` is an unkeyed node.
+The keyed algorithm is inspired by [Vue3](https://vuejs.org/) and uses the [Longest Increasing Subsequence](https://en.wikipedia.org/wiki/Longest_increasing_subsequence) algorithm.
+
+When any child has a `:key`, the whole list is reconciled by key. Keyed and unkeyed children can be mixed, although it's recommended to use keys on all the elements. The unkeyed elements are matched positionally. The algorithm is best shown with an example. Below, a plain letter is a keyed node whose key is that letter, and a parenthesised letter like `(u)` is an unkeyed node.
+
+Let's say we have the following situation:
 
 ```
-old:  a:1  b:2  c    d:3  e:4
-new:  b:2  a:1  f:5  d:3  c    g
+old:  a  b  c  d  z (u)
+new:  a  d  b  c (u) n (m)
 ```
 
-1. Match each new child to an old node and note that old node's position (1-based, `0` marks a brand new node):
+1. Match each new child to an old node and note that old node's position. Positions are `1`-based, since `0` marks a new node. Each matched old node is reused and patched toward its new vnode with `patch-node` (attributes and children updated, recursively). A new child with no match is built with `create-node`.
 
 ```
-b:2  ->  old b    pos 2    matched by key
-a:1  ->  old a    pos 1    matched by key
-f:5  ->  create   pos 0    key 5 has no old node
-d:3  ->  old d    pos 4    matched by key
-c    ->  old c    pos 3    first unused unkeyed old, taken in order
-g    ->  create   pos 0    no unkeyed old left
+a    ->  old a    pos 1    by key
+d    ->  old d    pos 4    by key
+b    ->  old b    pos 2    by key
+c    ->  old c    pos 3    by key
+(u)  ->  old (u)  pos 6    next unused unkeyed old, taken in order
+n    ->  create   pos 0    no old node with key n
+(m)  ->  create   pos 0    no unkeyed old left
 
-positions = [2 1 0 4 3 0]
+old positions (in new order) = [1 4 2 3 6 0 0]
 ```
 
-2. Remove old nodes nobody matched. `e:4` was not matched, so it is removed.
+2. Remove old nodes that weren't matched. `z` was not matched, so it is removed.
 
-3. Find the longest increasing subsequence of the positions, skipping the `0` holes: the largest set of nodes already in the right relative order. From `2 1 _ 4 3 _` that is `a` (1) and `c` (3). Those two will not move.
+3. Find the longest increasing subsequence of the old positions, skipping the `0` holes. This is the largest set of nodes already in the right _relative_ order. Relative here means: there can be other positions in between. In `1 4 2 3 6 _ _` the longest increasing subsequence is `1 2 3 6`: that is `a`, `b`, `c` and `(u)`. The `4` (node `d`) is left out. These four will not move according to their old arrangement.
 
-4. Place nodes right to left into the parent, moving only the ones outside that subsequence. The DOM can only insert a node *before* a reference node (`insertBefore`, there is no `insertAfter`), so each node is anchored on its right neighbour. Going right to left means that neighbour is already in its final place. The rightmost node has no right neighbour, so its anchor is `null`, which `insertBefore` treats as "put it last":
+4. Place nodes right to left into the parent, moving only the ones outside that subsequence. The DOM can only insert a node *before* a reference node (`insertBefore`, there is no `insertAfter`), so each node is anchored on its right neighbour. Therefore we iterate from right to left to ensure the right neighbour is already in place. The rightmost node has no right neighbour, so its reference is `null`. `parent.insertBefore(node, null)` is identical to `appendChild`: with no node to go before, it goes at the end.
 
 ```
-g    new             ->  insertBefore null  (last child)
+(m)  new             ->  append (insertBefore null)
+n    new             ->  insertBefore (m)
+(u)  in subsequence  ->  leave in place
 c    in subsequence  ->  leave in place
-d    reused, moved   ->  insertBefore c
-f    new             ->  insertBefore d
+b    in subsequence  ->  leave in place
+d    reused, moved   ->  insertBefore b
 a    in subsequence  ->  leave in place
-b    reused, moved   ->  insertBefore a
-
 ```
 
-Result: `b a f d c g`, with `e` removed. Only `b` and `d` moved, `f` and `g` were created, `a` and `c` never moved. That subsequence step (from Vue 3) is what keeps moves minimal: a plain swap moves two nodes instead of cascading the whole list.
+Result: `a d b c (u) n (m)`, with `z` removed. Only `d` was moved, `n` and `(m)` were created, and the rest never moved.
 
 ## Benchmarks
 
-The numbers below come from [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark), keyed variant. All frameworks ran on the same machine with headless Chrome and CPU throttling, 10 iterations each, reported as the median in milliseconds. Reagent runs on React 18.
+The numbers below come from [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark), keyed variant. All frameworks ran on the same machine with headless Chrome and CPU throttling, 10 iterations each, reported as the median in milliseconds. Reagent 2.0.1 runs on React 18.
 
 Reproduce: [borkdude/js-framework-benchmark](https://github.com/borkdude/js-framework-benchmark)
 
