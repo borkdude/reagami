@@ -175,36 +175,9 @@ Result: `a d b c (u) n (m)`, with `z` removed. Only `d` was moved, `n` and `(m)`
 
 ## Benchmarks
 
-The numbers below come from [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) using the keyed variant. All frameworks ran on the same machine (Macbook Pro M5) with headless Chrome and CPU throttling, 10 iterations each, reported as the median in milliseconds. Reagent 2.0.1, Helix 0.2.2 and UIX 1.4.9 all run on React 19.2.
+Reagami compared against other CLJS UI libraries with [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark), keyed variant. Reagent, Helix and UIX run on React 19.2. Full per-operation tables, methodology and how to run it yourself are in [doc/benchmarks.md](doc/benchmarks.md).
 
-To reproduce these results, you can use the forked js-framework-benchmark repo at [borkdude/js-framework-benchmark](https://github.com/borkdude/js-framework-benchmark).
-
-The benchmark renders one large data table. Each row is an item with a numeric id and a label of random words. Each operation below is triggered by a button click and timed:
-
-- create 1k / create 10k: build a table of 1,000 (or 10,000) rows from scratch.
-- replace 1k: replace all 1,000 rows with newly generated ones.
-- update every 10th: change the label of every 10th row in a 1,000-row table.
-- select: highlight a single row.
-- swap: exchange two rows far apart in a 1,000-row table (row 2 and row 999).
-- remove: delete a single row.
-- append 1k: add 1,000 rows to an existing 1,000.
-- clear: remove all rows.
-
-Each operation runs several times. The median is the middle value of those timings, in milliseconds, so a single slow run does not skew it. The best result per row is in bold.
-
-| benchmark (median ms) | Reagami Squint | Reagami CLJS | Replicant CLJS | Replicant Squint | Reagent | Helix | UIX |
-|---|---|---|---|---|---|---|---|
-| create 1k | 27.3 | 30.6 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
-| replace 1k | **29.8** | 33.5 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
-| update every 10th | 49.8 | 54.0 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
-| select | 33.9 | 43.8 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
-| swap | 46.2 | 57.0 | 54.8 | **45.8** | 98.8 | 102.0 | 95.3 |
-| remove | 27.6 | 32.5 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
-| create 10k | **294.0** | 294.9 | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
-| append 1k | 38.8 | 42.0 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
-| clear | **9.1** | **9.1** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
-
-The first chart shows the geometric mean across the nine operations: the ninth root of the nine medians multiplied together. It is one summary number per framework, less affected by a single slow operation than a plain average.
+Geometric mean across the nine keyed operations, one number per framework, lower is better:
 
 ```mermaid
 xychart-beta
