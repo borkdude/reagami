@@ -184,8 +184,8 @@ Geometric mean across the nine keyed table operations (lower is better):
 ---
 config:
   xyChart:
-    width: 760
-    height: 470
+    width: 850
+    height: 480
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"
@@ -204,8 +204,8 @@ The same data-table app was compiled with production settings. Below we compare 
 ---
 config:
   xyChart:
-    width: 760
-    height: 470
+    width: 850
+    height: 480
   themeVariables:
     xyChart:
       plotColorPalette: "#ff7f0e, #4c78a8"
