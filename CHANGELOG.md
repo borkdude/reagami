@@ -2,10 +2,11 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
-## Unreleased
+## v0.1.36 (2026-06-29)
 
 - Fix [#21](https://github.com/borkdude/reagami/issues/21): support keyed children via `:key` for stable node identification. Keys enable more efficient diffing and better node reuse.
-- Make CLJS `:lite-mode` compatible and test CLJS `:lite-mode` in CI
+- Add [benchmarks](https://github.com/borkdude/reagami#benchmarks)
+- Make CLJS `:lite-mode` once again compatible and test CLJS `:lite-mode` in CI
 
 ## v0.0.35 (2025-11-06)
 
