@@ -1,7 +1,7 @@
 (ns reactive
-  "Prototype reagent-like layer on top of reagami. Components wrap their
-  body in a nested render root. A ratom derefed during a body render
-  subscribes that component, swap!/reset! re-renders only subscribers."
+  "Prototype reagent-like layer on top of reagami. Components render into a
+  fragment anchor, adding no wrapper element. A ratom derefed during a body
+  render subscribes that component, swap!/reset! re-renders only subscribers."
   (:require [reagami.core :as reagami]))
 
 (def ^:dynamic *ctx* nil)
@@ -23,8 +23,10 @@
       (run! rerender! (js/Array.from ctxs))
       new-value))
   IWatchable
-  (-add-watch [this k f] (.set watches k f))
-  (-remove-watch [this k] (.delete watches k)))
+  (-add-watch [_this k f] (.set watches k f))
+  (-remove-watch [_this k] (.delete watches k))
+  (-notify-watches [this oldval newval]
+    (.forEach watches (fn [f k] (f k this oldval newval)))))
 
 (defn ratom [init]
   (->RAtom init (js/Map.) (js/Set.)))
@@ -37,7 +39,10 @@
   (when-not (.-disposed ctx)
     (unsubscribe! ctx)
     (binding [*ctx* ctx]
-      (reagami/render (.-node ctx) (apply (.-f ctx) (.-args ctx))))))
+      (let [hiccup (apply (.-f ctx) (.-args ctx))]
+        (if (.-frag ctx)
+          (reagami/render-fragment (.-node ctx) hiccup)
+          (reagami/render (.-node ctx) hiccup))))))
 
 (def ^:private instances (js/Map.))
 
@@ -45,51 +50,49 @@
   (set! (.-disposed ctx) true)
   (unsubscribe! ctx))
 
-(defn- dispose! [node]
+(defn- inside-fragment? [^js anchor ^js n]
+  (boolean
+   (some (fn [^js o]
+           (or (identical? o n)
+               (.contains o n)
+               (and (reagami/fragment-nodes o) (inside-fragment? o n))))
+         (reagami/fragment-nodes anchor))))
+
+(defn- dispose! [^js node]
   (when-let [ctx (.get instances node)]
     (dispose-ctx! ctx)
     (.delete instances node))
   ;; nested component roots never get their own unmount pass, walk them
-  (.forEach instances (fn [ctx n]
-                        (when (.contains node n)
-                          (dispose-ctx! ctx)
-                          (.delete instances n)))))
+  (.forEach instances
+            (fn [ctx ^js n]
+              (when (if (reagami/fragment-nodes node)
+                      (inside-fragment? node n)
+                      (.contains node n))
+                (dispose-ctx! ctx)
+                (.delete instances n)))))
 
-(defn- make-ctx [node f args]
-  #js {:node node :f f :args args :atoms (js/Set.) :disposed false})
+(defn- make-ctx [node f args frag?]
+  #js {:node node :f f :args args :atoms (js/Set.) :disposed false :frag frag?})
 
-(def ^:private next-id (volatile! 0))
-(def ^:private pending-args (js/Map.))
-
-(defn component
-  ([f] (component :div f))
-  ([tag f]
-   (fn [& args]
-     (let [id (str (vswap! next-id inc))]
-       (.set pending-args id args)
-       [tag {:data-reactive id
-             :on-render
-             (fn [node lifecycle _]
-               (let [id (.getAttribute node "data-reactive")
-                     args (when id (.get pending-args id))]
-                 (case lifecycle
-                   :mount
-                   (do (.delete pending-args id)
-                       (let [ctx (make-ctx node f args)]
-                         (.set instances node ctx)
-                         (rerender! ctx)))
-                   :update
-                   (when args
-                     (.delete pending-args id)
-                     (let [ctx (.get instances node)]
-                       (when (and ctx (not= args (.-args ctx)))
-                         (set! (.-args ctx) args)
-                         (rerender! ctx))))
-                   :unmount (dispose! node))))}]))))
+(defn component [f]
+  (fn [& args]
+    [:<> {:on-render
+          (fn [node lifecycle _]
+            (case lifecycle
+              :mount
+              (let [ctx (make-ctx node f args true)]
+                (.set instances node ctx)
+                (rerender! ctx))
+              :update
+              (when-let [ctx (.get instances node)]
+                (when (not= args (.-args ctx))
+                  (set! (.-args ctx) args)
+                  (rerender! ctx)))
+              :unmount (dispose! node)))}]))
 
 (defn render [node f & args]
   (dispose! node)
-  (let [ctx (make-ctx node f args)]
+  (let [ctx (make-ctx node f args false)]
     (.set instances node ctx)
     (rerender! ctx)
     ctx))

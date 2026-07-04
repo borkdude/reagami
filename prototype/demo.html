@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Reagami reactive prototype</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #f4f4f2; margin: 0; }
+  main { max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; }
+  .card { background: #fff; border: 1px solid #ddd; border-radius: 8px;
+          padding: 1rem; margin: 1rem 0; }
+  .card h3 { margin: 0 0 .6rem; font-size: 1rem; }
+  .badge { background: #e8f0fe; color: #1a56db; border-radius: 999px;
+           padding: .1rem .6rem; font-size: .75rem; font-weight: normal;
+           margin-left: .5rem; }
+  input[type=text], input:not([type]) { padding: .4rem; border: 1px solid #ccc;
+           border-radius: 4px; margin-right: .5rem; width: 60%; }
+  button { padding: .35rem .8rem; border: 1px solid #ccc; border-radius: 4px;
+           background: #fafafa; cursor: pointer; }
+  button.active { background: #1a56db; color: #fff; border-color: #1a56db; }
+  .filters button { margin-right: .4rem; }
+  ul { list-style: none; padding: 0; margin: .8rem 0 0; }
+  li { display: flex; justify-content: space-between; align-items: center;
+       padding: .35rem 0; border-bottom: 1px solid #eee; }
+  li label { display: flex; gap: .5rem; align-items: center; }
+  button.del { border: none; background: none; color: #b00; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "squint-cljs/core.js": "../node_modules/squint-cljs/src/squint/core.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="../lib/demo.mjs"></script>
+</body>
+</html>

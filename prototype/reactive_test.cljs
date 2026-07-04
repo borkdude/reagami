@@ -32,17 +32,53 @@
         counter-view (r/component
                       (fn []
                         (swap! runs inc)
-                        [:div "Count: " @counter]))]
+                        [:div#counter "Count: " @counter]))]
     (r/render el (fn [] [:div [counter-view] [:span "static"]]))
     (is (str/includes? (.-innerHTML el) "Count: 0"))
     (is (= 1 @runs))
     (swap! counter inc)
     (is (str/includes? (.-innerHTML el) "Count: 1"))
     (is (= 2 @runs))
-    (testing "container node reused, not remounted"
-      (let [node (js/document.querySelector "[data-reactive]")]
+    (testing "component node reused, not remounted"
+      (let [node (js/document.querySelector "#counter")]
         (swap! counter inc)
-        (is (identical? node (js/document.querySelector "[data-reactive]")))))))
+        (is (identical? node (js/document.querySelector "#counter")))))))
+
+(deftest no-wrapper-element-test
+  (let [el (fresh-el)
+        items (r/ratom ["a" "b"])
+        item-list (r/component
+                   (fn []
+                     (for [x @items]
+                       [:li x])))]
+    (r/render el (fn [] [:ul [item-list]]))
+    (testing "component lis are direct children of ul"
+      (let [ul (.querySelector el "ul")]
+        (is (= 2 (.-length (.-children ul))))
+        (is (every? #(= "LI" (.-tagName %)) (vec (js/Array.from (.-children ul)))))
+        (is (some? (.querySelector el "ul > li")))))
+    (testing "fragment re-render with more children"
+      (swap! items conj "c")
+      (let [ul (.querySelector el "ul")]
+        (is (= 3 (.-length (.-children ul))))
+        (is (str/includes? (.-innerHTML ul) "c"))))
+    (testing "fragment re-render with fewer children"
+      (reset! items ["z"])
+      (let [ul (.querySelector el "ul")]
+        (is (= 1 (.-length (.-children ul))))
+        (is (str/includes? (.-innerHTML ul) "z"))))))
+
+(deftest table-structure-test
+  (let [el (fresh-el)
+        rows (r/ratom [["x" 1] ["y" 2]])
+        row-view (r/component
+                  (fn []
+                    (for [[nm v] @rows]
+                      [:tr [:td nm] [:td (str v)]])))]
+    (r/render el (fn [] [:table [:tbody [row-view]]]))
+    (let [tbody (.querySelector el "tbody")]
+      (is (= 2 (.-length (.-children tbody))))
+      (is (every? #(= "TR" (.-tagName %)) (vec (js/Array.from (.-children tbody))))))))
 
 (deftest sibling-isolation-test
   (let [el (fresh-el)
@@ -59,7 +95,13 @@
     (is (= [2 1] [@a-runs @b-runs]))
     (reset! b "b1")
     (is (str/includes? (.-innerHTML el) "B: b1"))
-    (is (= [2 2] [@a-runs @b-runs]))))
+    (is (= [2 2] [@a-runs @b-runs]))
+    (testing "sibling order survives component re-render"
+      (is (str/includes? (.-innerHTML el) "A: a1"))
+      (let [ps (js/Array.from (.querySelectorAll el "p"))]
+        (is (= 2 (.-length ps)))
+        (is (str/includes? (.-textContent (aget ps 0)) "A:"))
+        (is (str/includes? (.-textContent (aget ps 1)) "B:"))))))
 
 (deftest props-test
   (let [el (fresh-el)
@@ -107,6 +149,24 @@
     (is (str/includes? (.-innerHTML el) "Leaf: 1"))
     (is (= 2 @leaf-runs))
     (reset! show false)
+    (swap! leaf-state inc)
+    (is (= 2 @leaf-runs))))
+
+(deftest nested-toplevel-fragment-test
+  (let [el (fresh-el)
+        show (r/ratom true)
+        leaf-state (r/ratom 0)
+        leaf-runs (atom 0)
+        leaf (r/component (fn [] (swap! leaf-runs inc) [:em "Leaf: " @leaf-state]))
+        ;; leaf fragment is a top-level child of the branch fragment
+        branch (r/component (fn [] [leaf]))]
+    (r/render el (fn [] [:div (when @show [branch])]))
+    (is (str/includes? (.-innerHTML el) "Leaf: 0"))
+    (swap! leaf-state inc)
+    (is (str/includes? (.-innerHTML el) "Leaf: 1"))
+    (is (= 2 @leaf-runs))
+    (reset! show false)
+    (is (not (str/includes? (.-innerHTML el) "Leaf")))
     (swap! leaf-state inc)
     (is (= 2 @leaf-runs))))
 
