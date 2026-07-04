@@ -80,6 +80,12 @@
 (def ^:private key-key #?(:squint ::key
                           :cljs "reagami.core/key"))
 
+(def ^:private frag-nodes-key #?(:squint ::frag-nodes
+                                 :cljs "reagami.core/frag-nodes"))
+
+(def ^:private owner-key #?(:squint ::owner
+                            :cljs "reagami.core/owner"))
+
 (do
   #?@(:squint []
       :cljs [(defn ->attrs [m]
@@ -119,10 +125,25 @@
           children-idx (if (identical? -1 attr-idx)
                          children-idx (inc children-idx))
           in-svg? (or in-svg? (identical? "svg" tag))
-          node (if (fn? tag)
+          node (cond
+                 (fn? tag)
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
                          res (apply tag (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
+                 (identical? "<>" tag)
+                 (let [node #js {:tag "#fragment"}]
+                   (when (> (alength hiccup) children-idx)
+                     (throw (js/Error. "Fragment children not supported, use render-fragment")))
+                   (when-not (identical? -1 attr-idx)
+                     (let [attrs (aget hiccup 1)
+                           #?@(:squint []
+                               :cljs [attrs (->attrs attrs)])]
+                       (when-let [ref (aget attrs "on-render")]
+                         (aset node on-render-key ref))
+                       (when-let [k (aget attrs "key")]
+                         (aset node key-key k))))
+                   node)
+                 :else
                  (let [new-children #js []
                        node #js {:type :element :svg in-svg?
                                  :tag (if in-svg?
@@ -202,8 +223,17 @@
            (.set js-map k (apply f (.get js-map k) args))))
 
 (defn create-node [vnode root]
-  (let [node (if-let [text (aget vnode "text")]
-               (js/document.createTextNode text)
+  (let [node (cond
+               (some? (aget vnode "text"))
+               (js/document.createTextNode (aget vnode "text"))
+               (identical? "#fragment" (aget vnode "tag"))
+               (let [node (js/document.createComment "reagami")]
+                 (aset node frag-nodes-key #js [])
+                 (when-let [ref (aget vnode on-render-key)]
+                   (aset node on-render-key ref)
+                   (update! ref-registry root (fnil conj #{}) node))
+                 node)
+               :else
                (let [tag (aget vnode "tag")
                      node (if (aget vnode "svg")
                             (js/document.createElementNS svg-ns tag)
@@ -247,6 +277,40 @@
         (if (aget (aget new-children i) key-key) true (recur (inc i)))
         false))))
 
+(defn- remove-logical
+  ;; remove a logical child, for a fragment anchor also its owned nodes
+  [^js parent ^js node]
+  (when-let [owned (aget node frag-nodes-key)]
+    (dotimes [i (alength owned)]
+      (remove-logical parent (aget owned i))))
+  (.removeChild parent node))
+
+(defn- insert-logical
+  ;; insert a logical child before ref-node, for a fragment anchor also its owned nodes
+  [^js parent ^js node ref-node]
+  (.insertBefore parent node ref-node)
+  (when-let [owned (aget node frag-nodes-key)]
+    (dotimes [i (alength owned)]
+      (insert-logical parent (aget owned i) ref-node))))
+
+(defn- replace-logical [^js parent ^js new-node ^js old]
+  (if (aget old frag-nodes-key)
+    (do (insert-logical parent new-node old)
+        (remove-logical parent old))
+    (.replaceChild parent new-node old)))
+
+(defn- logical-children
+  ;; child nodes as seen by the diff: nodes owned by a fragment anchor are
+  ;; represented by their anchor and skipped here
+  [^js parent]
+  (let [out #js []]
+    (loop [n (.-firstChild parent)]
+      (when n
+        (when-not (aget n owner-key)
+          (.push out n))
+        (recur (.-nextSibling n))))
+    out))
+
 (defn- patch-node
   ;; patch `old` in place toward `new-vnode` when compatible, else build a fresh
   ;; node. returns the node to use, `old` when reused.
@@ -254,8 +318,26 @@
   (let [^js old-vnode (aget old vnode-key)
         txt-old (aget old-vnode "text")
         txt (aget new-vnode "text")
-        new-tag (aget new-vnode "tag")]
+        new-tag (aget new-vnode "tag")
+        frag-old? (identical? "#fragment" (aget old-vnode "tag"))
+        frag-new? (identical? "#fragment" new-tag)]
     (cond
+      (and frag-old? frag-new?)
+      (let [old-ref (aget old on-render-key)
+            new-ref (aget new-vnode on-render-key)]
+        ;; refresh the ref so later lifecycle calls see the new closure
+        (when (and new-ref (not (identical? old-ref new-ref)))
+          (if old-ref
+            (do (aset new-ref is-run-key (aget old-ref is-run-key))
+                (aset new-ref data-key (aget old-ref data-key)))
+            (update! ref-registry root (fnil conj #{}) old))
+          (aset old on-render-key new-ref))
+        (aset old vnode-key new-vnode)
+        old)
+
+      (or frag-old? frag-new?)
+      (create-node new-vnode root)
+
       (and txt-old txt)
       (do (when-not (identical? txt txt-old)
             (set! (.-textContent old) txt))
@@ -338,7 +420,7 @@
   ;; unused, and move only nodes outside the longest stable run, so e.g. a swap
   ;; moves two nodes instead of cascading.
   [^js parent new-children root]
-  (let [old-nodes (js/Array.from (.-childNodes parent))
+  (let [old-nodes (logical-children parent)
         old-by-key (js/Map.)
         old-index (js/Map.)
         unkeyed #js []
@@ -377,7 +459,7 @@
     ;; drop old nodes left unused
     (dotimes [i (alength old-nodes)]
       (let [^js n (aget old-nodes i)]
-        (when-not (.has used n) (.removeChild parent n))))
+        (when-not (.has used n) (remove-logical parent n))))
     ;; place right to left, moving only nodes outside the stable run
     (let [lis (lis-indices source)
           len (alength target)
@@ -387,27 +469,26 @@
           (let [^js node (aget target i)
                 ^js nxt (when (< (inc i) len) (aget target (inc i)))]
             (cond
-              (identical? 0 (aget source i)) (.insertBefore parent node nxt) ; new
+              (identical? 0 (aget source i)) (insert-logical parent node nxt) ; new
               (and (>= @si 0) (identical? i (aget lis @si))) (vswap! si dec) ; in stable run, keep
-              :else (.insertBefore parent node nxt)) ; reused, move
+              :else (insert-logical parent node nxt)) ; reused, move
             (recur (dec i))))))))
 
 (defn- patch [^js parent new-children root]
   (let [parent-vnode (aget parent vnode-key)
-        old-children-count (cond (and parent-vnode
-                                      ;; other render root
-                                      (not (aget parent root-key)))
-                                 (alength (aget parent-vnode "children"))
-                                 ;; current render root
-                                 (identical? root parent) (alength (.-childNodes parent))
-                                 :else -1)]
-    ;; -1: we've stumbled upon a different render root
-    (when-not (identical? -1 old-children-count)
+        patchable? (or (and parent-vnode
+                            ;; other render root
+                            (not (aget parent root-key)))
+                       ;; current render root
+                       (identical? root parent))]
+    ;; not patchable: we've stumbled upon a different render root
+    (when patchable?
       (if (has-key? new-children)
         (patch-keyed parent new-children root)
         ;; unkeyed: patch the common prefix, then add or remove the tail, reusing
         ;; nodes instead of rebuilding the whole list on a count change.
-        (let [old-children (.-childNodes parent)
+        (let [old-children (logical-children parent)
+              old-children-count (alength old-children)
               new-count (alength new-children)
               common (min old-children-count new-count)]
           (dotimes [i common]
@@ -415,7 +496,7 @@
                   ^js new-vnode (aget new-children i)
                   ^js result (patch-node old new-vnode root)]
               (when-not (identical? result old)
-                (.replaceChild parent result old))))
+                (replace-logical parent result old))))
           (cond
             (> new-count old-children-count)
             (loop [i common]
@@ -429,16 +510,10 @@
             (> old-children-count new-count)
             (loop [i (dec old-children-count)]
               (when (>= i new-count)
-                (.removeChild parent (aget old-children i))
+                (remove-logical parent (aget old-children i))
                 (recur (dec i))))))))))
 
-(defn render [root hiccup]
-  (when-not (aget root root-key)
-    ;; clear all root children so we can rely on every child having a vnode
-    (set! root -textContent "")
-    (aset root root-key true))
-  (let [new-node (create-vnode hiccup)]
-    (patch root #js [new-node] root))
+(defn- run-refs! [root]
   (run! (fn [node]
           (let [ref (aget node on-render-key)]
             (if (.-isConnected node)
@@ -452,3 +527,64 @@
                   (js-delete ref data-key)
                   (update! ref-registry root disj node)))))
         (.get ref-registry root)))
+
+(defn render [root hiccup]
+  (when-not (aget root root-key)
+    ;; clear all root children so we can rely on every child having a vnode
+    (set! root -textContent "")
+    (aset root root-key true))
+  (let [new-node (create-vnode hiccup)]
+    (patch root #js [new-node] root))
+  (run-refs! root))
+
+(defn fragment-nodes
+  "Top-level DOM nodes owned by fragment anchor `anchor`."
+  [^js anchor]
+  (aget anchor frag-nodes-key))
+
+(defn- last-dom-node
+  ;; last physical node of a logical node, descending trailing fragment ranges
+  [^js n]
+  (let [owned (aget n frag-nodes-key)]
+    (if (and owned (pos? (alength owned)))
+      (last-dom-node (aget owned (dec (alength owned))))
+      n)))
+
+(defn render-fragment
+  "Render hiccup as the contents of fragment anchor `anchor`, a comment node
+  created for a `[:<> ...]` element. The rendered nodes become siblings of the
+  anchor in its parent. `hiccup` may be a seq of multiple top-level forms."
+  [^js anchor hiccup]
+  (let [parent (.-parentNode anchor)
+        owned (aget anchor frag-nodes-key)
+        new-children (let [arr #js []]
+                       (if (hiccup-seq? hiccup)
+                         (run! (fn [x] (.push arr (create-vnode x))) hiccup)
+                         (.push arr (create-vnode hiccup)))
+                       arr)
+        old-count (alength owned)
+        new-count (alength new-children)
+        common (min old-count new-count)]
+    (dotimes [i common]
+      (let [^js old (aget owned i)
+            ^js result (patch-node old (aget new-children i) anchor)]
+        (when-not (identical? result old)
+          (replace-logical parent result old)
+          (aset result owner-key anchor)
+          (aset owned i result))))
+    (when (> new-count old-count)
+      (let [end (.-nextSibling (last-dom-node anchor))]
+        (loop [i old-count]
+          (when (< i new-count)
+            (let [^js n (create-node (aget new-children i) anchor)]
+              (insert-logical parent n end)
+              (aset n owner-key anchor)
+              (.push owned n))
+            (recur (inc i))))))
+    (when (> old-count new-count)
+      (loop [i (dec old-count)]
+        (when (>= i new-count)
+          (remove-logical parent (aget owned i))
+          (recur (dec i))))
+      (.splice owned new-count))
+    (run-refs! anchor)))
