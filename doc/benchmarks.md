@@ -10,7 +10,7 @@ this page has the full numbers, the methodology and how to run it yourself.
 All frameworks ran on the same machine (Macbook M4 Max) with headless Chrome and
 CPU throttling, 10 iterations each, reported as the median in milliseconds.
 
-Framework versions: Reagami 0.1.37, Replicant bb72d7b, Reagent 2.0.1, Helix 0.2.2,
+Framework versions: Reagami 0.1.38, Replicant bb72d7b, Reagent 2.0.1, Helix 0.2.2,
 UIX 1.4.9. Reagent, Helix and UIX run on React 19.2. "Squint" and "CLJS" denote the
 compile target.
 
@@ -34,15 +34,15 @@ so a single slow run does not skew it. The best result per row is in bold.
 
 | benchmark (median ms) | Reagami Squint | Reagami CLJS | Replicant CLJS | Replicant Squint | Reagent | Helix | UIX |
 |---|---|---|---|---|---|---|---|
-| create 1k | 27.3 | 30.6 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
-| replace 1k | **29.8** | 33.5 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
-| update every 10th | 49.8 | 54.0 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
-| select | 33.9 | 43.8 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
-| swap | 46.2 | 57.0 | 54.8 | **45.8** | 98.8 | 102.0 | 95.3 |
-| remove | 27.6 | 32.5 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
-| create 10k | **294.0** | 294.9 | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
-| append 1k | 38.8 | 42.0 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
-| clear | **9.1** | **9.1** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
+| create 1k | 27.1 | 27.9 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
+| replace 1k | **28.6** | 30.9 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
+| update every 10th | 40.5 | 46.3 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
+| select | 27.8 | 35.3 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
+| swap | **37.1** | 45.0 | 54.8 | 45.8 | 98.8 | 102.0 | 95.3 |
+| remove | 21.9 | 27.8 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
+| create 10k | 286.6 | **277.8** | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
+| append 1k | 34.5 | 37.5 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
+| clear | 9.8 | **9.3** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
 
 Geometric mean across the nine operations (the ninth root of the nine medians
 multiplied together), one summary number per framework, lower is better:
@@ -50,10 +50,10 @@ multiplied together), one summary number per framework, lower is better:
 | framework | geomean (ms) |
 |---|---|
 | UIX | 32.3 |
+| Reagami Squint | 34.5 |
 | Helix | 36.0 |
-| Reagami Squint | 38.4 |
+| Reagami CLJS | 38.1 |
 | Reagent | 42.6 |
-| Reagami CLJS | 43.0 |
 | Replicant Squint | 52.0 |
 | Replicant CLJS | 56.0 |
 
@@ -69,10 +69,10 @@ config:
 ---
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
-    x-axis ["UIX", "Helix", "Reagami Squint", "Reagent", "Reagami CLJS", "Replicant Squint", "Replicant CLJS"]
+    x-axis ["UIX", "Reagami Squint", "Helix", "Reagami CLJS", "Reagent", "Replicant Squint", "Replicant CLJS"]
     y-axis "ms" 0 --> 60
-    bar [-5, -5, 38.4, -5, 43.0, -5, -5]
-    bar [32.3, 36.0, -5, 42.6, -5, 52.0, 56.0]
+    bar [-5, 34.5, -5, 38.1, -5, -5, -5]
+    bar [32.3, -5, 36.0, -5, 42.6, 52.0, 56.0]
 ```
 
 ## Size
@@ -81,9 +81,9 @@ The same data-table app, compiled with production settings, gzipped:
 
 | framework | gzip (KB) |
 |---|---|
-| Reagami Squint | 7.9 |
+| Reagami Squint | 7.5 |
 | Replicant Squint | 16.9 |
-| Reagami CLJS | 28.7 |
+| Reagami CLJS | 28.8 |
 | Replicant CLJS | 75.9 |
 | UIX | 91.7 |
 | Helix | 98.4 |
@@ -103,7 +103,7 @@ xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [7.9, 0, 28.7, 0, 0, 0, 0]
+    bar [7.5, 0, 28.8, 0, 0, 0, 0]
     bar [0, 16.9, 0, 75.9, 91.7, 98.4, 99.5]
 ```
 
