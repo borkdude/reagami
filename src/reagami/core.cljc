@@ -428,7 +428,7 @@
         ;; nodes instead of rebuilding the whole list on a count change.
         (let [old-children (.-childNodes parent)
               new-count (alength new-children)
-              common (min old-children-count new-count)]
+              common (js/Math.min old-children-count new-count)]
           (dotimes [i common]
             (let [^js old (aget old-children i)
                   ^js new-vnode (aget new-children i)
