@@ -43,7 +43,7 @@ and then require it with `(:require [reagami.core :as reagami])`.
 
 Reagami supports:
 
-- Building small reactive apps with the only dependency being Squint or CLJS. Smallest app with Squint after minification is around 5kb gzip.
+- Building small reactive apps with the only dependency being Squint or CLJS. Smallest app with Squint after minification is around 5.5 KB gzip.
 - Rendering [hiccup](https://github.com/weavejester/hiccup) into a container DOM node. The only public function is `render`.
 - Event handlers via `:on-click`, `:on-input`, etc.
 - Default attributes: `:default-value`, etc. for uncontrolled components
@@ -214,11 +214,11 @@ xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [7.5, -5, 28.8, -5, -5, -5, -5]
+    bar [9.0, -5, 28.8, -5, -5, -5, -5]
     bar [-5, 16.9, -5, 75.9, 91.7, 98.4, 99.5]
 ```
 
-The minimal Reagami app under Squint is smaller, around 5 KB gzip, but in the benchmark the js-framework-benchmark's standard table app is compared.
+The minimal Reagami app under Squint is smaller, around 5.5 KB gzip, but in the benchmark the js-framework-benchmark's standard table app is compared.
 
 As you can see Reagami on Squint can perform in the ballpark of modern CLJS React or React-free alternatives, yet is the leanest when it comes to output size.
 Performance on Squint tends to be a tad faster than on CLJS too.

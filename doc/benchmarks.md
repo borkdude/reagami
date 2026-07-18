@@ -77,11 +77,13 @@ xychart-beta
 
 ## Size
 
-The same data-table app, compiled with production settings, gzipped:
+The same data-table app, compiled with production settings, gzipped. The Squint
+figure is on squint-cljs 0.14.206; of the 9.0 KB, around 1.5 KB is protocol
+dispatch machinery that a plain-data app never exercises.
 
 | framework | gzip (KB) |
 |---|---|
-| Reagami Squint | 7.5 |
+| Reagami Squint | 9.0 |
 | Replicant Squint | 16.9 |
 | Reagami CLJS | 28.8 |
 | Replicant CLJS | 75.9 |
@@ -103,12 +105,13 @@ xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [7.5, 0, 28.8, 0, 0, 0, 0]
+    bar [9.0, 0, 28.8, 0, 0, 0, 0]
     bar [0, 16.9, 0, 75.9, 91.7, 98.4, 99.5]
 ```
 
 These are the full benchmark app. A minimal Reagami app under Squint is smaller,
-around 5 KB gzip.
+around 5.5 KB gzip (a static hello world), rising to around 6 KB once it uses an
+atom.
 
 ## Running it yourself
 
