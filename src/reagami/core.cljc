@@ -27,6 +27,24 @@
 (def properties (js/Set. ["checked" "disabled" "selected"
                           "value" "innerHTML"]))
 
+(def ^:private tag-cache (js/Map.))
+
+(def ^:private event-name-cache (js/Map.))
+
+(defn- parse-tag-cached
+  ;; tags come from a small fixed set, so cache the parse work (indexOf,
+  ;; substring, toUpperCase, class join) per tag string
+  [tag]
+  (or (.get tag-cache tag)
+      (let [[t id class] (parse-tag tag)
+            entry #js {:tag t
+                       :upper (.toUpperCase t)
+                       :id id
+                       :class (when (and class (pos? (.-length class)))
+                                (.replaceAll class "." " "))}]
+        (.set tag-cache tag entry)
+        entry)))
+
 (defn property? [^js x]
   (.has properties x))
 
@@ -46,9 +64,9 @@
              s))
 
 (defn hiccup-seq? [x]
-  (and (not (string? x))
-       (seq? x)
-       (not (vector? x))))
+  (and (not (vector? x))
+       (not (string? x))
+       (seq? x)))
 
 (defn- move-to-back [o v]
   (when (js-in v o)
@@ -112,8 +130,8 @@
               :cljs [tag (if (keyword? tag)
                            (name tag)
                            tag)])
-          [tag id class] (if (string? tag) (parse-tag tag) [tag])
-          classes (when class (.split class "."))
+          parsed (when (string? tag) (parse-tag-cached tag))
+          tag (if parsed (aget parsed "tag") tag)
           first-child (aget hiccup children-idx)
           attr-idx (if (map? first-child) 1 -1)
           children-idx (if (identical? -1 attr-idx)
@@ -121,13 +139,13 @@
           in-svg? (or in-svg? (identical? "svg" tag))
           node (if (fn? tag)
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
-                         res (apply tag (.slice hiccup 1))]
+                         res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
                  (let [new-children #js []
-                       node #js {:type :element :svg in-svg?
+                       node #js {:svg in-svg?
                                  :tag (if in-svg?
                                         tag
-                                        (.toUpperCase tag))
+                                        (aget parsed "upper"))
                                  :children new-children}
                        modified-props #js {}
                        modified-attrs #js {}]
@@ -155,8 +173,10 @@
                              (identical? "key" k) (aset node key-key v)
                              (identical? "on-render" k) (aset node on-render-key v)
                              (.startsWith k "on")
-                             (let [event (-> k
-                                             (.replaceAll "-" ""))]
+                             (let [event (or (.get event-name-cache k)
+                                             (let [e (.replaceAll k "-" "")]
+                                               (.set event-name-cache k e)
+                                               e))]
                                (aset modified-props event v))
                              (.startsWith k "default")
                              (let [default-attr (-> (subs k 7)
@@ -177,13 +197,12 @@
                                :else (when v
                                        ;; not adding means it will be removed on new render
                                        (aset modified-attrs k v))))))))
-                   (when (and (not (nil? classes))
-                              (pos? (alength classes)))
+                   (when-let [tag-class (aget parsed "class")]
                      (aset modified-attrs "class"
-                           (str (when-let [c (aget modified-attrs "class")]
-                                  (str c " "))
-                                (.join classes " "))))
-                   (when id
+                           (if-let [c (aget modified-attrs "class")]
+                             (str c " " tag-class)
+                             tag-class)))
+                   (when-let [id (aget parsed "id")]
                      (aset modified-attrs "id" id))
                    node))]
       node)
@@ -409,7 +428,7 @@
         ;; nodes instead of rebuilding the whole list on a count change.
         (let [old-children (.-childNodes parent)
               new-count (alength new-children)
-              common (min old-children-count new-count)]
+              common (js/Math.min old-children-count new-count)]
           (dotimes [i common]
             (let [^js old (aget old-children i)
                   ^js new-vnode (aget new-children i)
