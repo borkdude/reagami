@@ -10,9 +10,22 @@ this page has the full numbers, the methodology and how to run it yourself.
 All frameworks ran on the same machine (Macbook M4 Max) with headless Chrome and
 CPU throttling, 10 iterations each, reported as the median in milliseconds.
 
-Framework versions: Reagami 0.1.38, Replicant bb72d7b, Reagent 2.0.1, Helix 0.2.2,
-UIX 1.4.9. Reagent, Helix and UIX run on React 19.2. "Squint" and "CLJS" denote the
-compile target.
+Framework versions: Reagami b756045, Reagent 2.0.1, Helix 0.2.2, UIX 1.4.9, and
+Replicant a22f871 for the CLJS entry / 4bfd556 for the Squint entry, which builds
+Replicant from a local checkout. Reagent, Helix and UIX run on React 19.2.
+"Squint" and "CLJS" denote the compile target.
+
+One reproducibility caveat: the Squint entry resolves Reagami from npm, where the
+published package still trails this source. The numbers here are for Reagami at
+b756045, so reproducing them needs that build rather than a plain `npm ci`.
+
+Every entry is built the same way for its target, which matters: an entry built
+with different settings is not comparable. The CLJS entries all build with
+`shadow-cljs release`; the Squint entries all build with `squint compile` plus
+`esbuild --bundle --minify`. An earlier version of this page reported Replicant
+CLJS at 75.9 KB, which was a figwheel build with `:pretty-print true` left on in
+its advanced prod config - a toolchain artifact, not Replicant's cost. That entry
+now builds with shadow like the rest, which is where 41.2 comes from.
 
 The benchmark renders one large data table. Each row is an item with a numeric id
 and a label of random words. Each operation is triggered by a button click and
@@ -83,10 +96,10 @@ dispatch machinery that a plain-data app never exercises.
 
 | framework | gzip (KB) |
 |---|---|
-| Reagami Squint | 9.0 |
+| Reagami Squint | 9.2 |
 | Replicant Squint | 16.9 |
-| Reagami CLJS | 28.8 |
-| Replicant CLJS | 75.9 |
+| Reagami CLJS | 28.7 |
+| Replicant CLJS | 41.2 |
 | UIX | 91.7 |
 | Helix | 98.4 |
 | Reagent | 99.5 |
@@ -105,8 +118,8 @@ xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [9.0, 0, 28.8, 0, 0, 0, 0]
-    bar [0, 16.9, 0, 75.9, 91.7, 98.4, 99.5]
+    bar [9.2, 0, 28.7, 0, 0, 0, 0]
+    bar [0, 16.9, 0, 41.2, 91.7, 98.4, 99.5]
 ```
 
 These are the full benchmark app. A minimal Reagami app under Squint is smaller,
