@@ -214,8 +214,8 @@ xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [9.0, -5, 28.8, -5, -5, -5, -5]
-    bar [-5, 16.9, -5, 75.9, 91.7, 98.4, 99.5]
+    bar [9.2, -5, 28.7, -5, -5, -5, -5]
+    bar [-5, 16.9, -5, 41.2, 91.7, 98.4, 99.5]
 ```
 
 The minimal Reagami app under Squint is smaller, around 5.5 KB gzip, but in the benchmark the js-framework-benchmark's standard table app is compared.
