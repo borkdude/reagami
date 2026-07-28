@@ -16,7 +16,19 @@
 ;; produced on demand by app/row when the client scrolls to them.
 (def initial-state
   (let [to (+ (quot app/viewport app/row-height) app/overscan)]
-    {:total total :from 0 :edits {} :rows (mapv app/row (range 0 to))}))
+    {:total total :from 0 :rows (mapv app/row (range 0 to))}))
+
+;; edits belong to the data, not to a tab, so they outlive any session. stands in
+;; for a database. every session reads them, so a refresh still shows them.
+(defonce db (atom {}))
+
+(defn- apply-action
+  "Runs an action against session state, with the shared edits laid in and
+  written back. Sessions never carry :edits themselves."
+  [state action]
+  (let [next (app/handle (assoc state :edits @db) action)]
+    (reset! db (:edits next))
+    (dissoc next :edits)))
 
 ;; one entry per browser tab: {sid {:state ... :channel ...}}. the page render
 ;; creates it, the SSE stream attaches to it, closing the stream drops it. a
@@ -64,7 +76,8 @@
 ;; are already escaped, so they go in raw.
 (defn page [dev?]
   (let [sid (str (random-uuid))
-        state initial-state]
+        to (+ (quot app/viewport app/row-height) app/overscan)
+        state (apply-action initial-state {:type "window" :from 0 :to to})]
     (swap! sessions assoc sid {:state state})
     (str "<!doctype html>"
          (h/html {:mode :html}
@@ -117,7 +130,7 @@
 (defn- action [req]
   (slow!)
   (let [{:keys [sid action]} (json/parse-string (slurp (:body req)) true)
-        session (get (swap! sessions update-in [sid :state] app/handle action) sid)]
+        session (get (swap! sessions update-in [sid :state] apply-action action) sid)]
     (when-let [ch (:channel session)]
       (http/send! ch (sse (:state session)) false))
     {:status 204}))

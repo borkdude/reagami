@@ -27,8 +27,9 @@ curl -s -XPOST localhost:8080/action -d "{\"sid\":\"$sid\",\"action\":{\"type\":
 
 Click a cell to edit it. Enter or blur commits: the client applies `app/handle`
 locally so the change shows at once, sends the action, and the server's push
-replaces it. Edits are kept server side in `:edits` and laid over the generated
-rows, so they never travel back as a growing map.
+replaces it. Edits are laid over the generated rows and kept in `server/db`, which stands in
+for a database: they belong to the data rather than to a tab, so they survive a
+refresh and every session sees them. They never travel back as a growing map.
 
 The server sleeps 50 to 150 ms before answering, so the spinners are visible.
 `LATENCY=0 bb dev` turns that off, `LATENCY=800` makes it obvious.
