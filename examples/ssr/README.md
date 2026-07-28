@@ -7,6 +7,11 @@ The server renders it with `reagami.ssr/render` and embeds the state as JSON. Th
 browser calls `reagami.core/render` on the same hiccup and reuses the server's
 DOM nodes instead of rebuilding them.
 
+The scroll canvas is capped at 15M px, because browsers refuse to lay out an
+element much taller than that and Firefox gives up earlier than Chrome. Past the
+cap the scroll position is scaled through it, so dragging still reaches the last
+row. Below it the scale is 1 and nothing is scaled at all.
+
 Only the visible window is ever in the client. `app/row` builds a row from its
 index, so the million rows never exist anywhere at once. Scrolling posts the
 range you are looking at, the server sends those rows, and spinners sit above and

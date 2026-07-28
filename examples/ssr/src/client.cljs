@@ -63,14 +63,20 @@
                  :headers #js {"Content-Type" "application/json"}
                  :body (js/JSON.stringify #js {:sid sid :action action})}))
 
-(defn- visible
-  "The rows actually on screen. Placeholders are drawn for these only, so the
-  padding fetched around them never shows as a skeleton."
+(defn- viewport
+  "Which rows are on screen, and where to draw the first of them. Below the
+  canvas cap the scale is 1 and this is just scrollTop divided by row height."
   [el]
-  (let [top (.-scrollTop el)
-        total (:total @app/!state)]
-    [(max 0 (js/Math.floor (/ top app/row-height)))
-     (min total (js/Math.ceil (/ (+ top (.-clientHeight el)) app/row-height)))]))
+  (let [total (:total @app/!state)
+        top (.-scrollTop el)
+        virtual (* top (app/scale total))
+        first-row (js/Math.floor (/ virtual app/row-height))
+        rows-shown (js/Math.ceil (/ (.-clientHeight el) app/row-height))]
+    {:want [(max 0 first-row) (min total (+ first-row rows-shown))]
+     ;; the canvas y the first visible row is drawn at, keeping the part of it
+     ;; that is scrolled past off the top edge
+     :base (- top (mod virtual app/row-height))
+     :anchor first-row}))
 
 (defn- with-margin [[a b]]
   (let [total (:total @app/!state)]
@@ -88,11 +94,11 @@
         (and (< have-to (:total state)) (> (+ b m) have-to)))))
 
 (defn on-scroll [e]
-  (let [vis (visible (.-target e))
-        fetch (with-margin vis)]
+  (let [{:keys [want base anchor]} (viewport (.-target e))
+        fetch (with-margin want)]
     ;; what is on screen drives the placeholders, a wider range drives the fetch
-    (swap! app/!view assoc :want vis)
-    (when (and (needs-fetch? vis) (not= @!asked fetch))
+    (swap! app/!view assoc :want want :base base :anchor anchor)
+    (when (and (needs-fetch? want) (not= @!asked fetch))
       (reset! !asked fetch)
       (app/dispatch! {:type "window" :from (nth fetch 0) :to (nth fetch 1)}))))
 
@@ -141,7 +147,8 @@
         (js/queueMicrotask
          (fn []
            (when-let [el (js/document.getElementById "scroller")]
-             (set! (.-scrollTop el) (* id app/row-height)))))))))
+             (set! (.-scrollTop el)
+                   (/ (* id app/row-height) (app/scale (:total @app/!state)))))))))))
 
 (defn- path-for [state]
   (if (= "row" (:page state))

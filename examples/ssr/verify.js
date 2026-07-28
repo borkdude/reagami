@@ -76,17 +76,35 @@ const lat = posts.at(-1)?.body.action
 check(`releasing sends one latency action (${lat?.ms} ms)`,
       posts.length === beforeSlider + 1 && lat?.type === 'latency' && lat.ms === 25)
 
-// jsdom does no layout, so give the scroller a viewport and scroll it by hand
+// jsdom does no layout, so give the scroller a viewport and scroll it by hand.
+// the canvas is capped, so scrollTop is scaled rather than row * 24
+const MAX_CANVAS = 15000000
+const scale = (state.total * 24) / Math.min(state.total * 24, MAX_CANVAS)
+const topFor = (row) => (row * 24) / scale
+const rowAt = (px) => Math.floor((px * scale) / 24)
 const scroller = document.querySelector('#scroller')
 Object.defineProperty(scroller, 'clientHeight', { value: 480, configurable: true })
-scroller.scrollTop = 24000 // row 1000 at 24px each
+scroller.scrollTop = topFor(1000)
+scroller.dispatchEvent(new dom.window.Event('scroll'))
+
+check(`the canvas is capped below what browsers allow (${document.querySelector('#canvas').style.height})`,
+      parseInt(document.querySelector('#canvas').style.height, 10) === Math.min(state.total * 24, MAX_CANVAS))
+// the bottom of the scrollbar must still reach the last row
+scroller.scrollTop = Math.min(state.total * 24, MAX_CANVAS) - 480
+scroller.dispatchEvent(new dom.window.Event('scroll'))
+const atEnd = posts.at(-1).body.action
+check(`dragging to the bottom reaches the last rows (${atEnd.from}..${atEnd.to} of ${state.total})`,
+      atEnd.to >= state.total - 1)
+scroller.scrollTop = topFor(1000)
 scroller.dispatchEvent(new dom.window.Event('scroll'))
 
 const asked = posts.at(-1)?.body.action
 // the fetch is deliberately wider than the viewport, so a small scroll stays
 // inside what the client already holds
-const seenFrom = 1000
-const seenTo = 1020
+const seenFrom = rowAt(scroller.scrollTop)
+const seenTo = seenFrom + 20
+const base = scroller.scrollTop - ((scroller.scrollTop * scale) % 24)
+const topOf = (row) => base + (row - seenFrom) * 24
 check(`scrolling asked for more than the viewport shows (${asked?.from}..${asked?.to})`,
       asked?.type === 'window' && asked.from < seenFrom && asked.to > seenTo)
 
@@ -97,13 +115,13 @@ const tops = placeholders.map((e) => parseInt(e.style.top, 10)).sort((a, b) => a
 check(`every visible row is a placeholder, and no more (${placeholders.length} of ${seenTo - seenFrom})`,
       placeholders.length === seenTo - seenFrom)
 check(`placeholders cover the viewport (${tops[0]}px..${tops.at(-1)}px)`,
-      tops[0] === seenFrom * 24 && tops.at(-1) === (seenTo - 1) * 24)
+      tops[0] === topOf(seenFrom) && tops.at(-1) === topOf(seenTo - 1))
 check('a spinner is showing while they load', spinner() !== null)
 check('no loaded rows are left stranded on screen', rows() === 0 || rowsOffScreen(tops))
 
 function rowsOffScreen () {
   return [...document.querySelectorAll('.row')]
-    .every((e) => parseInt(e.style.top, 10) < seenFrom * 24)
+    .every((e) => parseInt(e.style.top, 10) < topOf(seenFrom))
 }
 
 const from = asked.from
@@ -117,14 +135,14 @@ check(`parse time is reported once a push has been parsed (${stats().split('|')[
 
 check('placeholders cleared once the window arrived', ghosts() === 0)
 check('spinner is gone too', spinner() === null)
-check('rows are positioned at their true offset',
-      document.querySelector('.row').style.top === `${from * 24}px`)
+check(`rows are positioned relative to the viewport (${document.querySelector('.row').style.top})`,
+      document.querySelector('.row').style.top === `${topOf(from)}px`)
 
 // a slow server reorders responses: a window asked for earlier can land later
 const stale = { total: state.total, from: 500, rows: [{ id: 500, name: 'stale', qty: 1, status: 'new' }] }
 stream.onmessage({ data: JSON.stringify(stale) })
 check('a window we no longer want is ignored',
-      document.querySelector('.row').style.top === `${from * 24}px` &&
+      document.querySelector('.row').style.top === `${topOf(from)}px` &&
       !document.body.textContent.includes('stale'))
 
 // the flicker case: small scrolls inside the fetched margin must not show a
@@ -132,7 +150,7 @@ check('a window we no longer want is ignored',
 stream.onmessage({ data: JSON.stringify({ total: state.total, from, rows: next.rows }) })
 let blinked = 0
 for (const px of [24, 48, 96, 168]) {
-  scroller.scrollTop = from * 24 + px
+  scroller.scrollTop = topFor(from) + px
   scroller.dispatchEvent(new dom.window.Event('scroll'))
   blinked += ghosts()
 }
@@ -194,7 +212,7 @@ const i3 = document.querySelector('.row input.cell-name')
 i3.value = 'a different row'
 i3.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
 const priorCell = [...document.querySelectorAll('.row')]
-  .find((r) => parseInt(r.style.top, 10) === withPrior.rows[3].id * 24)
+  .find((r) => r.querySelector('.cell-name').textContent === 'EDITED EARLIER')
   .querySelector('.cell-name')
 check(`editing one row keeps another row's saved value (${priorCell.textContent})`,
       priorCell.textContent === 'EDITED EARLIER')
@@ -250,7 +268,7 @@ check(`the URL followed again (${dom.window.location.pathname})`,
 
 await new Promise((r) => setTimeout(r, 0))
 const back2 = document.querySelector('#scroller')
-check(`the table came back at the row we opened (scrollTop ${back2.scrollTop}, row ${detail.row.id})`,
-      back2.scrollTop === detail.row.id * 24)
+check(`the table came back at the row we opened (scrollTop ${Math.round(back2.scrollTop)}, row ${detail.row.id})`,
+      Math.round(back2.scrollTop) === Math.round(topFor(detail.row.id)))
 
 process.exit(failed === 0 ? 0 : 1)

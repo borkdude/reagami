@@ -4,6 +4,19 @@
 (def viewport 480)
 (def overscan 30)
 
+;; browsers cap element height. chrome and safari allow about 33.5M px, firefox
+;; materially less, so the canvas is capped and the scroll position is scaled
+;; through it. below the cap the scale is 1 and this all reduces to scrollTop.
+(def max-canvas 15000000)
+
+(defn canvas-height [total]
+  (min (* total row-height) max-canvas))
+
+(defn scale
+  "Virtual pixels per canvas pixel. 1 until the table outgrows the cap."
+  [total]
+  (/ (* total row-height) (canvas-height total)))
+
 ;; browser state. the server renders from the state it is handed and never
 ;; touches this, so its handlers are inert there.
 (defonce !state (atom nil))
@@ -129,7 +142,13 @@
         from (:from state)
         rows (:rows state)
         loaded-to (+ from (count rows))
-        gaps (missing (:want @!view) from loaded-to)]
+        view @!view
+        gaps (missing (:want view) from loaded-to)
+        ;; where the first visible row sits on the canvas, and which row that is.
+        ;; the server has no viewport, so both are 0 and rows land at index * h
+        base (or (:base view) 0)
+        anchor (or (:anchor view) 0)
+        top-of (fn [i] (px (+ base (* (- i anchor) row-height))))]
     [:div.app
      [:h1 "reagami ssr"]
      [:p (str (count rows) " of " total " rows are in the client. Scroll and the "
@@ -151,13 +170,13 @@
       ;; sticky, so it stays in view however far down the canvas you are
       (when (seq gaps)
         [:div.overlay [:div.spinner]])
-      [:div#canvas {:style {:height (px (* total row-height)) :position "relative"}}
+      [:div#canvas {:style {:height (px (canvas-height total)) :position "relative"}}
        (for [i (range (count rows))]
          (let [r (nth rows i)]
            [:div.row {:key (:id r)
                       :class (:status r)
                       :style {:position "absolute"
-                              :top (px (* (+ from i) row-height))
+                              :top (top-of (+ from i))
                               :height (px row-height)}}
             [:a.open {:href (str "/row/" (:id r))
                       :on-click (fn [e]
@@ -168,9 +187,9 @@
               [cell {:row r :col c}])]))
        (for [i gaps]
          [:div.ghost {:key (str "gap" i)
-                        :style {:position "absolute"
-                                :top (px (* i row-height))
-                                :height (px row-height)}}
+                      :style {:position "absolute"
+                              :top (top-of i)
+                              :height (px row-height)}}
           [:span.cell.cell-name (str "row " i)]
           [:span.shimmer]])]]]))
 
