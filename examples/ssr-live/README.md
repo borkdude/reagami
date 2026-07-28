@@ -41,15 +41,6 @@ State lives on the server, one entry per tab. An action goes up over
 down that tab's `GET /state/<sid>` event stream. `app/handle` is portable, so
 pointing `app/!dispatch` at it runs the same reducer in the browser instead.
 
-Without a browser:
-
-```
-sid=$(curl -s localhost:8080/ | grep -o 'data-sid="[^"]*"' | cut -d'"' -f2)
-curl -sN localhost:8080/state/$sid &
-curl -s -XPOST localhost:8080/action \
-  -d "{\"sid\":\"$sid\",\"action\":{\"type\":\"edit\",\"id\":2,\"field\":\"name\",\"value\":\"hello\"}}"
-```
-
 ## The parts
 
 **Windowing.** `app/row` builds a row from its index, so a million rows never
