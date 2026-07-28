@@ -25,7 +25,6 @@ nREPL on 1667.
 |---|---|
 | `bb dev` | vite, brotli proxy and the server |
 | `bb verify` | hydrates the server HTML in jsdom, fails if reagami built a node |
-| `bb measure` | payload size and nodes built per action shape |
 | `bb serve` | production build, no vite |
 
 `ROWS` sets the table size, default 1000000. `LATENCY` sets the server's

@@ -35,11 +35,6 @@
   proxy {:doc "Brotli proxy in front of the server, on 8081"
          :task (shell "node" "proxy.js")}
 
-  measure {:doc "Report payload size and nodes built per action shape"
-           :depends [build]
-           :requires ([server])
-           :task (shell {:in (server/page false)} "node" "measure.js")}
-
   serve {:doc "Serve the production build"
          :depends [build]
          :requires ([server])
