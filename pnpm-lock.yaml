@@ -36,9 +36,6 @@ importers:
 
   examples/ssr-live:
     devDependencies:
-      jsdom:
-        specifier: ^27.1.0
-        version: 27.1.0
       squint-cljs:
         specifier: ^0.14.206
         version: 0.14.206

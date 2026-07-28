@@ -4,7 +4,6 @@
   "type": "module",
   "devDependencies": {
     "squint-cljs": "^0.14.206",
-    "vite": "^7.1.5",
-    "jsdom": "^27.1.0"
+    "vite": "^7.1.5"
   }
 }
