@@ -12,6 +12,12 @@ index, so the million rows never exist anywhere at once. Scrolling posts the
 range you are looking at, the server sends those rows, and spinners sit above and
 below until they arrive. Row count comes from `ROWS`, default 1000000.
 
+Two pages. `/` is the table, `/row/42` is one row on its own, and both are
+server-rendered, hydrated and driven by the same stream. Which page you are on is
+just `:page` in the state, so opening a row is an action like any other and the
+URL follows the state rather than driving it. A direct hit on `/row/42` renders
+on the server from the same components.
+
 State lives on the server, one entry per tab. Clicking posts an action to
 `POST /action`, the server applies `app/handle`, and the new state comes back
 down that tab's `GET /state/<sid>` event stream. `handle` is portable, so

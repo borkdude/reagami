@@ -120,10 +120,31 @@
 (defn watch-scroll! []
   (.addEventListener root "scroll" on-scroll true))
 
+(defn- path-for [state]
+  (if (= "row" (:page state))
+    (str "/row/" (:id (:row state)))
+    "/"))
+
+;; the URL follows the state rather than driving it, so app.cljc needs no
+;; browser history API and a direct hit still renders on the server
+(defn- sync-url! [_ _ old new]
+  (let [to (path-for new)]
+    (when (not= (path-for old) to)
+      (.pushState js/history nil "" to))))
+
+(defn- open-from-url! []
+  (let [p (.. js/window -location -pathname)]
+    (if (.startsWith p "/row/")
+      (app/dispatch! {:type "open" :id (parse-long (subs p 5))})
+      (app/dispatch! {:type "close"}))))
+
 (reset! app/!dispatch dispatch-to-server)
 (reset! app/!state (js/JSON.parse (.-textContent (js/document.getElementById "state"))))
 (add-watch app/!state ::render (fn [_ _ _ _] (render!)))
 (add-watch app/!view ::render (fn [_ _ _ _] (render!)))
+
+(add-watch app/!state ::url sync-url!)
+(.addEventListener js/window "popstate" (fn [_] (open-from-url!)))
 
 (render!)
 (watch-scroll!)

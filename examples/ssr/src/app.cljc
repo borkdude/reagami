@@ -47,6 +47,12 @@
     "window" (let [from (max 0 (:from action))
                    to (min (:total state) (:to action))]
                (assoc state :from from :rows (window-rows state from to)))
+    ;; the page is state like everything else, so a direct hit renders it on the
+    ;; server and opening it in the browser is just another push
+    "open" (assoc state :page "row" :row (merge (row (:id action))
+                                                (get (:edits state) (:id action))))
+    "close" (dissoc (assoc state :page "table") :row)
+
     ;; patch the rows in hand rather than rebuilding them from row. the client
     ;; runs this optimistically and only knows the edits made since it loaded,
     ;; so regenerating would drop every earlier one back to its generated value
@@ -54,11 +60,12 @@
     "edit" (let [id (:id action)
                  k (keyword (:field action))
                  v (:value action)]
-             (-> state
-                 (assoc-in [:edits id k] v)
-                 (update :rows (fn [rows]
-                                 (mapv (fn [r] (if (= id (:id r)) (assoc r k v) r))
-                                       rows)))))
+             (cond-> state
+               true (assoc-in [:edits id k] v)
+               true (update :rows (fn [rows]
+                                    (mapv (fn [r] (if (= id (:id r)) (assoc r k v) r))
+                                          rows)))
+               (= id (:id (:row state))) (assoc-in [:row k] v)))
     state))
 
 (defn dispatch! [action]
@@ -117,7 +124,7 @@
 ;; runs on babashka for the server render and on squint in the browser. state is
 ;; a Clojure map on the server and a parsed JSON object in the browser, so read
 ;; it with keywords only.
-(defn app [state]
+(defn- table [state]
   (let [total (:total state)
         from (:from state)
         rows (:rows state)
@@ -152,6 +159,11 @@
                       :style {:position "absolute"
                               :top (px (* (+ from i) row-height))
                               :height (px row-height)}}
+            [:a.open {:href (str "/row/" (:id r))
+                      :on-click (fn [e]
+                                  (.preventDefault e)
+                                  (dispatch! {:type "open" :id (:id r)}))}
+             "open"]
             (for [c columns]
               [cell {:row r :col c}])]))
        (for [i gaps]
@@ -161,3 +173,24 @@
                                 :height (px row-height)}}
           [:span.cell.cell-name (str "row " i)]
           [:span.shimmer]])]]]))
+
+(defn- detail [state]
+  (let [r (:row state)]
+    [:div.app
+     [:h1 "reagami ssr"]
+     [:p [:a#back {:href "/"
+                   :on-click (fn [e]
+                               (.preventDefault e)
+                               (dispatch! {:type "close"}))}
+          "back to the table"]]
+     [:h2#detail-name (:name r)]
+     [:div#detail
+      (for [c columns]
+        [:div.field {:key c}
+         [:span.label c]
+         [cell {:row r :col c}]])]]))
+
+(defn app [state]
+  (if (= "row" (:page state))
+    [detail state]
+    [table state]))

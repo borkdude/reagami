@@ -8,12 +8,14 @@ const html = await new Promise((resolve) => {
   process.stdin.on('end', () => resolve(s))
 })
 
-const dom = new JSDOM(html)
+// a real URL, or pushState is illegal from an about:blank origin
+const dom = new JSDOM(html, { url: 'http://localhost:8080/' })
 globalThis.window = dom.window
 globalThis.document = dom.window.document
 globalThis.Node = dom.window.Node
 globalThis.Element = dom.window.Element
 globalThis.MouseEvent = dom.window.MouseEvent
+globalThis.history = dom.window.history
 
 // jsdom has neither, so these stand in for POST /action and the /state stream.
 // the README's curl commands exercise both against the real server.
@@ -207,5 +209,43 @@ check('the server push overwrites the optimistic value',
 // NOTE: the re-entrancy this guards against cannot be reproduced here. it needs
 // blur to fire when a focused node is removed, which browsers do and jsdom does
 // not. see doc/dev/adr/0003-render-re-entrancy.md
+
+// the detail page: opening it is an action, and the URL follows the state
+const openLink = document.querySelector('.row a.open')
+check('every row links to its own page', openLink?.getAttribute('href')?.startsWith('/row/'))
+openLink.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
+const opened = posts.at(-1)?.body.action
+check(`clicking it sends an open action (id ${opened?.id})`, opened?.type === 'open')
+check('nothing changed until the server pushed', document.querySelector('#detail') === null)
+
+const detail = JSON.parse(JSON.stringify(win))
+detail.page = 'row'
+detail.row = { ...win.rows[0], name: 'detail row' }
+stream.onmessage({ data: JSON.stringify(detail) })
+check('the push swapped the whole page', document.querySelector('#detail') !== null)
+check('the table is gone', document.querySelector('#scroller') === null)
+check(`the URL followed the state (${dom.window.location.pathname})`,
+      dom.window.location.pathname === `/row/${detail.row.id}`)
+check(`every column is shown (${document.querySelectorAll('#detail .field').length})`,
+      document.querySelectorAll('#detail .field').length === 9)
+
+// editing works on this page too, through the same cell component
+const dCell = document.querySelector('#detail .cell-owner')
+dCell.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+const dInput = document.querySelector('#detail input.cell-owner')
+dInput.value = 'changed here'
+dInput.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+check(`editing on the detail page works (${document.querySelector('#detail .cell-owner').textContent})`,
+      document.querySelector('#detail .cell-owner').textContent === 'changed here')
+check('and it posted an edit', posts.at(-1)?.body.action.type === 'edit')
+
+// going back
+document.querySelector('#back').dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }))
+check('back sends a close action', posts.at(-1)?.body.action.type === 'close')
+const back = JSON.parse(JSON.stringify(win))
+stream.onmessage({ data: JSON.stringify(back) })
+check('the table came back', document.querySelector('#scroller') !== null)
+check(`the URL followed again (${dom.window.location.pathname})`,
+      dom.window.location.pathname === '/')
 
 process.exit(failed === 0 ? 0 : 1)

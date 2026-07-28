@@ -74,7 +74,11 @@
        "@keyframes spin{to{transform:rotate(360deg)}}"
        "@media(prefers-reduced-motion:reduce){.shimmer,.spinner{animation:none}}"
        ".row.done{color:#888}.row.new{font-weight:600}"
-       "#scroller{border:1px solid #ccc}"))
+       "#scroller{border:1px solid #ccc}"
+       "a.open{flex:0 0 auto;width:3rem;font-size:11px}"
+       "#detail{display:grid;grid-template-columns:8rem 1fr;gap:.35rem 1rem;max-width:32rem}"
+       "#detail .label{color:#888;font-size:12px}"
+       ".field{display:contents}"))
 
 (defn- state-json
   ;; </script> inside the data would end the tag early, and <\/ is the same
@@ -86,10 +90,14 @@
 ;; rendered separately and spliced in as a string. :innerHTML is the escape
 ;; hatch for content that must not be escaped, since script and style are raw
 ;; text to the HTML parser and entities inside them would not be decoded.
-(defn page [dev?]
-  (let [sid (str (random-uuid))
+(defn page
+  ([dev?] (page dev? nil))
+  ([dev? open-id]
+   (let [sid (str (random-uuid))
         to (+ (quot app/viewport app/row-height) app/overscan)
-        state (apply-action initial-state {:type "window" :from 0 :to to})]
+        state (apply-action initial-state {:type "window" :from 0 :to to})
+        ;; a direct hit on /row/42 is rendered by the server, same components
+        state (if open-id (apply-action state {:type "open" :id open-id}) state)]
     (swap! sessions assoc sid {:state state})
     (str "<!doctype html>"
          (ssr/render
@@ -104,7 +112,7 @@
             [:div#debug]
             [:script {:type "application/json" :id "state"
                       :innerHTML (state-json state)}]
-            (client-tags dev?)]]))))
+            (client-tags dev?)]])))))
 
 (defn- asset [path]
   (let [f (io/file "dist" (subs path 1))]
@@ -139,12 +147,14 @@
       (http/send! ch (sse (:state session)) false))
     {:status 204}))
 
+(defn- html [body]
+  {:status 200 :headers {"Content-Type" "text/html"} :body body})
+
 (defn handler [dev? req]
   (let [path (:uri req)]
     (cond
-      (= "/" path) {:status 200
-                    :headers {"Content-Type" "text/html"}
-                    :body (page dev?)}
+      (= "/" path) (html (page dev?))
+      (str/starts-with? path "/row/") (html (page dev? (parse-long (subs path 5))))
       (str/starts-with? path "/state/") (state-stream req (subs path 7))
       (= "/action" path) (action req)
       (= "/favicon.ico" path) {:status 204}
