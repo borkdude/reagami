@@ -5,8 +5,6 @@
    [cheshire.core :as json]
    [clojure.java.io :as io]
    [clojure.string :as str]
-   [hiccup.util :as hu]
-   [hiccup2.core :as h]
    [org.httpkit.server :as http]
    [reagami.ssr :as ssr]))
 
@@ -84,27 +82,29 @@
   [state]
   (str/replace (json/generate-string state) "</" "<\\/"))
 
-;; hiccup renders the page, reagami renders the island it hydrates. both outputs
-;; are already escaped, so they go in raw.
+;; the whole page goes through reagami.ssr, so the island is nested rather than
+;; rendered separately and spliced in as a string. :innerHTML is the escape
+;; hatch for content that must not be escaped, since script and style are raw
+;; text to the HTML parser and entities inside them would not be decoded.
 (defn page [dev?]
   (let [sid (str (random-uuid))
         to (+ (quot app/viewport app/row-height) app/overscan)
         state (apply-action initial-state {:type "window" :from 0 :to to})]
     (swap! sessions assoc sid {:state state})
     (str "<!doctype html>"
-         (h/html {:mode :html}
-           [:html {:lang "en"}
-            [:head
-             [:meta {:charset "utf-8"}]
-             [:title "reagami ssr"]
-             [:style (hu/raw-string style)]]
-            [:body {:data-sid sid}
-             [:div#app (hu/raw-string (ssr/render [app/app state]))]
-             ;; the debug panel is client only, so the server leaves its root empty
-             [:div#debug]
-             [:script {:type "application/json" :id "state"}
-              (hu/raw-string (state-json state))]
-             (client-tags dev?)]]))))
+         (ssr/render
+          [:html {:lang "en"}
+           [:head
+            [:meta {:charset "utf-8"}]
+            [:title "reagami ssr"]
+            [:style {:innerHTML style}]]
+           [:body {:data-sid sid}
+            [:div#app [app/app state]]
+            ;; the debug panel is client only, so the server leaves its root empty
+            [:div#debug]
+            [:script {:type "application/json" :id "state"
+                      :innerHTML (state-json state)}]
+            (client-tags dev?)]]))))
 
 (defn- asset [path]
   (let [f (io/file "dist" (subs path 1))]

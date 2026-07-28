@@ -41,6 +41,12 @@ push size two ways: the JSON the client parsed, and what it cost on the wire. Th
 browser cannot see the second, so the proxy reports it back as a `wire` event
 just after each push. On 8080 there is no proxy and the panel says uncompressed.
 
+`reagami.ssr` renders the whole page, not just the island, so the app component
+nests inside `[:html ...]` rather than being rendered separately and spliced in.
+`:innerHTML` is the escape hatch for the two places that must not be escaped:
+script and style are raw text to the HTML parser, so entities inside them are
+never decoded.
+
 ## Brotli
 
 babashka cannot brotli, so `proxy.js` does it in front. `bb dev` starts it on
