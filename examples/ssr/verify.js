@@ -154,11 +154,31 @@ observer.disconnect()
 check(`the pre-edit value is never drawn on the way (${overwritten.length} text nodes rewritten)`,
       !overwritten.includes(win.rows[0].name))
 
+// a row edited in an earlier session arrives already changed. editing a
+// different row must not regenerate it back to its original value.
+const withPrior = JSON.parse(JSON.stringify(win))
+withPrior.rows[3].name = 'EDITED EARLIER'
+stream.onmessage({ data: JSON.stringify(withPrior) })
+const other = document.querySelectorAll('.row')[1].querySelector('.cell-name')
+other.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+const i3 = document.querySelector('.row input.cell-name')
+i3.value = 'a different row'
+i3.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+const priorCell = [...document.querySelectorAll('.row')]
+  .find((r) => parseInt(r.style.top, 10) === withPrior.rows[3].id * 24)
+  .querySelector('.cell-name')
+check(`editing one row keeps another row's saved value (${priorCell.textContent})`,
+      priorCell.textContent === 'EDITED EARLIER')
+
 // the server's version is authoritative and replaces the optimistic one
 const confirmed = JSON.parse(JSON.stringify(win))
 confirmed.rows[0].name = 'edited by hand (from server)'
 stream.onmessage({ data: JSON.stringify(confirmed) })
 check('the server push overwrites the optimistic value',
       document.querySelector('.row .cell-name').textContent === 'edited by hand (from server)')
+
+// NOTE: the re-entrancy this guards against cannot be reproduced here. it needs
+// blur to fire when a focused node is removed, which browsers do and jsdom does
+// not. see doc/dev/adr/0003-render-re-entrancy.md
 
 process.exit(failed === 0 ? 0 : 1)

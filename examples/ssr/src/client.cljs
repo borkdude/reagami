@@ -11,7 +11,7 @@
 (defonce !bytes (atom 0))
 (defonce !asked (atom nil))
 
-(defn render! []
+(defn- render-now! []
   (let [t0 (js/performance.now)
         result (r/render root [app/app @app/!state])
         ms (js/Math.round (- (js/performance.now) t0))]
@@ -22,6 +22,25 @@
                             :bytes @!bytes
                             :created (:created result)
                             :ms ms}])))
+
+(defonce !rendering (atom false))
+(defonce !again (atom false))
+
+(defn render!
+  "Renders, unless a render is already running. reagami walks a snapshot of the
+  children while patching, so a render started from inside one, by a handler
+  that a DOM change happens to fire, corrupts that walk. Anything asked for
+  during a render runs after it instead."
+  []
+  (if @!rendering
+    (reset! !again true)
+    (do (reset! !rendering true)
+        (try
+          (render-now!)
+          (finally (reset! !rendering false)))
+        (when @!again
+          (reset! !again false)
+          (render!)))))
 
 (defn dispatch-to-server [action]
   (js/fetch "/action"

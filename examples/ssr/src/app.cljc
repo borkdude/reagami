@@ -47,11 +47,18 @@
     "window" (let [from (max 0 (:from action))
                    to (min (:total state) (:to action))]
                (assoc state :from from :rows (window-rows state from to)))
-    "edit" (let [from (:from state)
-                 to (+ from (count (:rows state)))
-                 state (assoc-in state [:edits (:id action) (keyword (:field action))]
-                                 (:value action))]
-             (assoc state :rows (window-rows state from to)))
+    ;; patch the rows in hand rather than rebuilding them from row. the client
+    ;; runs this optimistically and only knows the edits made since it loaded,
+    ;; so regenerating would drop every earlier one back to its generated value
+    ;; until the server's push landed.
+    "edit" (let [id (:id action)
+                 k (keyword (:field action))
+                 v (:value action)]
+             (-> state
+                 (assoc-in [:edits id k] v)
+                 (update :rows (fn [rows]
+                                 (mapv (fn [r] (if (= id (:id r)) (assoc r k v) r))
+                                       rows)))))
     state))
 
 (defn dispatch! [action]
