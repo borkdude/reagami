@@ -183,3 +183,7 @@
 (render!)
 (watch-scroll!)
 (listen!)
+
+;; the squint vite plugin hot-swaps changed modules and calls this, so an edit
+;; to a view repaints from the atoms rather than reloading the page
+(defn ^:dev/after-load re-render [] (render!))

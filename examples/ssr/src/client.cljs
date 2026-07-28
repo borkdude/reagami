@@ -16,3 +16,6 @@
 (add-watch app/!state ::render (fn [_ _ _ _] (render!)))
 
 (render!)
+
+;; an edit to app.cljc hot-swaps and repaints, keeping the atom's state
+(defn ^:dev/after-load re-render [] (render!))

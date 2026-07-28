@@ -1,91 +1,10 @@
 # reagami ssr-live
 
-Everything an app might need on top of server rendering: a live stream, server
-state per tab, virtual scrolling over a million rows, editing with optimistic
-updates, two pages, brotli, and instrumentation for all of it.
+Server rendering with everything an app tends to need around it: a live stream,
+server state per tab, virtual scrolling over a million rows, editing, two pages
+and compression.
 
-Start with [ssr](../ssr) if you want the plain version.
-
-A virtual-scrolled table of a million rows. `src/app.cljc` runs on both sides.
-The server renders it with `reagami.ssr/render` and embeds the state as JSON. The
-browser calls `reagami.core/render` on the same hiccup and reuses the server's
-DOM nodes instead of rebuilding them.
-
-The scroll canvas is capped at 15M px, because browsers refuse to lay out an
-element much taller than that and Firefox gives up earlier than Chrome. Past the
-cap the scroll position is scaled through it, so dragging still reaches the last
-row. Below it the scale is 1 and nothing is scaled at all.
-
-Only the visible window is ever in the client. `app/row` builds a row from its
-index, so the million rows never exist anywhere at once. Scrolling posts the
-range you are looking at, the server sends those rows, and spinners sit above and
-below until they arrive. Row count comes from `ROWS`, default 1000000.
-
-Two pages. `/` is the table, `/row/42` is one row on its own, and both are
-server-rendered, hydrated and driven by the same stream. Which page you are on is
-just `:page` in the state, so opening a row is an action like any other and the
-URL follows the state rather than driving it. A direct hit on `/row/42` renders
-on the server from the same components. Going back puts that row at the top of
-the table rather than snapping to the start.
-
-State lives on the server, one entry per tab. Clicking posts an action to
-`POST /action`, the server applies `app/handle`, and the new state comes back
-down that tab's `GET /state/<sid>` event stream. `handle` is portable, so
-pointing `app/!dispatch` at it runs the same reducer locally instead.
-
-Drive it without a browser:
-
-```
-sid=$(curl -s localhost:8080/ | grep -o 'data-sid="[^"]*"' | cut -d'"' -f2)
-curl -sN localhost:8080/state/$sid &
-curl -s -XPOST localhost:8080/action -d "{\"sid\":\"$sid\",\"action\":{\"type\":\"add\"}}"
-```
-
-Click a cell to edit it. Enter or blur commits: the client applies `app/handle`
-locally so the change shows at once, sends the action, and the server's push
-replaces it. Edits are laid over the generated rows and kept in `server/db`, which stands in
-for a database: they belong to the data rather than to a tab, so they survive a
-refresh and every session sees them. They never travel back as a growing map.
-
-The server sleeps before answering, so the spinners are visible. The slider sets
-that delay from 0 to 100 ms, and it is server state like anything else: it rides
-along on every push and the round trip changes it. It starts at 20 ms, which is
-about a real network. `LATENCY` picks a different starting value.
-
-`src/debug.cljs` renders two lines into its own root. The first is the page load
-as the browser recorded it: what the document cost on the wire against its
-decoded size, when the response finished, when it painted, and when hydration
-made it interactive. Painting comes before hydration, which is the point of
-rendering on the server. It shows the
-push size two ways: the JSON the client parsed, and what it cost on the wire. The
-browser cannot see the second, so the proxy reports it back as a `wire` event
-just after each push. On 8080 there is no proxy and the panel says uncompressed.
-
-`reagami.ssr` renders the whole page, not just the island, so the app component
-nests inside `[:html ...]` rather than being rendered separately and spliced in.
-`:innerHTML` is the escape hatch for the two places that must not be escaped:
-script and style are raw text to the HTML parser, so entities inside them are
-never decoded.
-
-## Brotli
-
-babashka cannot brotli, so `proxy.js` does it in front. `bb dev` starts it on
-8081. One encoder per event stream and a flush per event, which lets each push
-reference the ones before it. Open 8081 rather than 8080 and it prints what every
-push costs on the wire:
-
-```
-event   1  raw   52151  br    4065
-event   2  raw   52151  br      18
-event   3  raw   52151  br      14
-```
-
-A window of 30 nine-column rows is about 4.4 KB of JSON and 400 to 660 bytes on
-the wire, because consecutive windows overlap and brotli references what it
-already sent.
-
-Windowing is what keeps this bounded. Without it the whole table would go over
-the wire on every change, which for a million rows is gigabytes.
+Start with [ssr](../ssr) for the plain version.
 
 ## Run
 
@@ -93,24 +12,88 @@ the wire on every change, which for a million rows is gigabytes.
 bb dev
 ```
 
-Open http://localhost:8080. Vite serves the client on 5173, so open the babashka
-server rather than vite. nREPL listens on 1667.
+Open http://localhost:8080, or 8081 to go through brotli. Vite runs on 5173 and
+is not meant to be opened.
+
+Vite runs the `squint-cljs/vite` plugin: it compiles the cljs, hot-swaps changed
+modules without reloading the page, and starts an nREPL on 1339 that evaluates in
+the live page. `^:dev/after-load` in `client.cljs` repaints after a swap, so an
+edit keeps scroll position and the loaded window. The babashka server has its own
+nREPL on 1667.
+
+| task | |
+|---|---|
+| `bb dev` | vite, brotli proxy and the server |
+| `bb verify` | hydrates the server HTML in jsdom, fails if reagami built a node |
+| `bb measure` | payload size and nodes built per action shape |
+| `bb serve` | production build, no vite |
+
+`ROWS` sets the table size, default 1000000. `LATENCY` sets the server's
+starting delay, default 20 ms.
+
+## How it fits together
+
+`src/app.cljc` runs on both sides. The server renders it with
+`reagami.ssr/render`, the browser calls `reagami.core/render` on the same hiccup,
+and reuses the nodes the server sent rather than building its own.
+
+State lives on the server, one entry per tab. An action goes up over
+`POST /action`, the server applies `app/handle`, and the new state comes back
+down that tab's `GET /state/<sid>` event stream. `app/handle` is portable, so
+pointing `app/!dispatch` at it runs the same reducer in the browser instead.
+
+Without a browser:
 
 ```
-bb verify
+sid=$(curl -s localhost:8080/ | grep -o 'data-sid="[^"]*"' | cut -d'"' -f2)
+curl -sN localhost:8080/state/$sid &
+curl -s -XPOST localhost:8080/action \
+  -d "{\"sid\":\"$sid\",\"action\":{\"type\":\"edit\",\"id\":2,\"field\":\"name\",\"value\":\"hello\"}}"
 ```
 
-Hydrates the server HTML in jsdom and fails if reagami built any node.
+## The parts
+
+**Windowing.** `app/row` builds a row from its index, so a million rows never
+exist anywhere at once. Scrolling posts the range on screen, the server sends
+those rows, and placeholders fill the viewport until they arrive.
+
+**The scroll canvas** is capped at 15M px, because browsers refuse to lay out an
+element much taller and Firefox gives up before Chrome does. Past the cap the
+scroll position is scaled through it so dragging still reaches the last row.
+Below it the scale is 1.
+
+**Two pages.** `/` is the table, `/row/42` is one row. Which page you are on is
+`:page` in the state, so opening a row is an action like any other and the URL
+follows the state rather than driving it. A direct hit on `/row/42` is rendered
+by the server from the same components.
+
+**Editing.** Click a cell. Enter or blur commits: the client runs `app/handle`
+locally so the change shows at once, sends the action, and the server's push
+replaces it. Edits live in `server/db`, standing in for a database, so they
+belong to the data rather than to a tab and survive a refresh.
+
+**The delay.** The server sleeps before answering so the placeholders are
+visible. The slider sets it, and it is server state like anything else.
+
+**The panel** under the table is `src/debug.cljs`, rendered into its own root. It
+reports the page load as the browser recorded it, and each push twice: the JSON
+the client parsed, and what it cost on the wire.
+
+## Brotli
+
+babashka cannot brotli, so `proxy.js` does it in front and `bb dev` starts it on
+8081. One encoder per event stream with a flush per event, so each push can
+reference the ones before it:
 
 ```
-bb measure
+event   1  raw    4247  br     664
+event   2  raw    4394  br     405
+event   3  raw    4395  br     461
 ```
 
-Reports payload size and nodes built per action shape. `ROWS=1000 bb measure`
-for the interesting case.
+The browser cannot see those numbers, so the proxy reports them back as a `wire`
+event just after each push, which is what the panel shows. On 8080 there is no
+proxy and it says uncompressed.
 
-```
-bb serve
-```
-
-Production build, no vite.
+Windowing is what keeps this bounded. Unwindowed, a 1000 row state was 52 KB per
+push, and a million rows would be gigabytes.

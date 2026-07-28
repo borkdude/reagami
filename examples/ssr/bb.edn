@@ -1,11 +1,13 @@
 {:paths ["src" "../../src"]
  :tasks
- {build {:doc "Compile with squint and bundle the client"
-         :task (do (shell "../../node_modules/.bin/squint" "compile")
-                   (shell "../../node_modules/.bin/esbuild" "out/client.mjs"
-                          "--bundle" "--format=esm" "--outfile=dist/client.js"))}
+ {:requires ([babashka.process :as p])
 
-  serve {:doc "Serve on 8080"
-         :depends [build]
-         :requires ([server])
-         :task (server/-main)}}}
+  install {:doc "Install node deps"
+           :task (shell "pnpm install")}
+
+  dev {:doc "Vite (compiles cljs, browser repl) and the ssr server"
+       :depends [install]
+       :requires ([server])
+       :task (do (p/process ["npx" "vite"] {:inherit true :shutdown p/destroy-tree})
+                 (server/-main)
+                 (deref (promise)))}}}

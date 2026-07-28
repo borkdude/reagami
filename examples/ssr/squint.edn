@@ -1,3 +1,4 @@
 {:paths ["src" "../../src"]
  :output-dir "out"
- :extension ".mjs"}
+ :extension "mjs"
+ :main client}

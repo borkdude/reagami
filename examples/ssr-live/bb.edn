@@ -9,16 +9,16 @@
            :depends [install]
            :task (shell "npx squint compile")}
 
+
   build {:doc "Bundle the client into dist/"
          :depends [compile]
          :task (shell "npx vite build")}
 
-  dev {:doc "squint watch, vite dev server and the ssr server with nrepl"
+  dev {:doc "vite (compiles cljs, browser repl), brotli proxy and the ssr server"
        :depends [compile]
        :requires ([server])
-       :task (do (p/process ["npx" "squint" "watch"]
-                            {:inherit true :shutdown p/destroy-tree})
-                 (p/process ["npx" "vite"]
+       ;; no squint watch: the vite plugin compiles cljs in process
+       :task (do (p/process ["npx" "vite"]
                             {:inherit true :shutdown p/destroy-tree})
                  (p/process ["node" "proxy.js"]
                             {:inherit true :shutdown p/destroy-tree})

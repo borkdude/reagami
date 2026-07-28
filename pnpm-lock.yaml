@@ -25,6 +25,15 @@ importers:
         specifier: ^3.2.1
         version: 3.2.1
 
+  examples/ssr:
+    devDependencies:
+      squint-cljs:
+        specifier: ^0.14.206
+        version: 0.14.206
+      vite:
+        specifier: ^7.1.5
+        version: 7.3.6
+
   examples/ssr-live:
     devDependencies:
       jsdom:

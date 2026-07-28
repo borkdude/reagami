@@ -45,10 +45,17 @@
 ;; page fetched but never streamed leaks its entry, so a real app wants a TTL.
 (defonce sessions (atom {}))
 
-(defn- client-tags [dev?]
+(def ^:private vite "http://localhost:5173")
+
+(defn- client-tags
+  ;; vite's own index.html gets these injected by the squint plugin. this page
+  ;; comes from here instead, so it emits them: the plugin's REPL listener, and
+  ;; the compiled entry namespace.
+  [dev?]
   (if dev?
-    (list [:script {:type "module" :src "http://localhost:5173/@vite/client"}]
-          [:script {:type "module" :src "http://localhost:5173/out/client.mjs"}])
+    (list [:script {:type "module" :src (str vite "/@vite/client")}]
+          [:script {:type "module" :src (str vite "/@id/__x00__virtual:squint-repl-client")}]
+          [:script {:type "module" :src (str vite "/out/client.mjs")}])
     [:script {:type "module" :src "/client.js"}]))
 
 (def ^:private style
