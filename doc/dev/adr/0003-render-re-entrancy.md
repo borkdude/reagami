@@ -62,29 +62,107 @@ render again without it. `HTMLElement` and `customElements` have to be copied
 onto `globalThis` from the jsdom window first, as `install-jsdom` does for
 `Node` and `Element`.
 
-## Decision
+## Prior art
 
-Not fixed here. Applications guard it themselves, as
-`examples/ssr-live/src/client.cljs` does: refuse to start a render while one is
-running, and run the deferred one afterwards.
+How other libraries handle a render arriving while one is running.
+
+| | scheduling | on re-entrancy |
+|---|---|---|
+| Replicant | synchronous by default | save the latest hiccup, re-render on `requestAnimationFrame`, dev assert |
+| Vue 3 | every job on a microtask | job runs in the same flush, dev recursion limit of 100 |
+| Preact | every render on a microtask | queued, drained in depth order |
+| React | own scheduler on `MessageChannel` | warns, does not queue |
+
+Vue, Preact and React own state, so a render is never something you call and
+scheduling everything is natural. Replicant is the only one with reagami's
+shape, where `render` is a function the application calls. It patches
+immediately when nothing is in flight, and only the re-entrant call is deferred.
+
+Replicant, `src/replicant/dom.cljs`:
 
 ```clojure
-(if @!rendering
-  (reset! !again true)
-  (do (reset! !rendering true) ...))
+(if rendering?
+  (do (asserts/assert-no-nested-renders)
+      (vswap! state assoc-in [el :queued] hiccup))
+  (do ...reconcile...
+      (when-let [pending (:queued (get @state el))]
+        (js/requestAnimationFrame #(render el pending))
+        (vswap! state update el dissoc :queued))))
 ```
 
-The fix belongs in `render` and is the same shape. It was left out of the server
-rendering work to keep that change to one subject.
+Its assert says why rAF: "This call will be throttled... Nested renders can
+cause performance issues, or, in the worst case - unresponsive UIs." Yielding to
+the browser between passes means a render that keeps triggering renders runs at
+frame rate instead of hanging the tab.
 
-## Open question for the fix
+## Alternatives
 
-A deferred render cannot return its counts, because it has not run yet. Either
-it returns nil, or it returns the counts of the render that was already in
-flight. Nil looks right: the caller is inside an event handler during a render
-and is not reading the result.
+There is one slot, not a queue. Only the latest hiccup is worth keeping.
+
+**A. Save and re-render immediately.** Synchronous flush right after the outer
+render finishes.
+
+- no stale frame, because no paint can happen inside one task
+- the saved hiccup cannot age, so a newer render cannot be overwritten by it
+- works in a background tab
+- needs a counter to bound a render that keeps triggering renders, since a
+  synchronous loop never yields
+
+**B. Save and re-render on `requestAnimationFrame`.** What Replicant does.
+
+- loop safety for free, the frame boundary yields to the browser
+- paints the outer render's stale output for about 16 ms every time
+- the saved hiccup is a frame old when it runs, so an ordinary render landing in
+  between is overwritten by it
+- does not fire in a background tab, so the pending render waits for the tab to
+  be looked at
+
+**C. Throw.** What React does. A nested render is a bug, so report it.
+
+- the only option where the return value stays counts in every case
+- two lines
+- an application relying on a nested render has to defer by hand
+- applications that currently limp along start crashing
+
+**D. Defer every render to a microtask and always return a promise.**
+
+- re-entrancy becomes impossible, microtasks do not nest
+- coalesces several renders in one task into one patch
+- `render` no longer updates the DOM before returning, so every call site that
+  renders and then reads the DOM has to await, including this repo's tests
+
+Measured before considering D worthwhile: a one second fling produces 59 window
+requests, essentially one per frame, and only 11 of 59 pushes land in a frame
+that receives another. Coalescing helps calls in the same task, and stream
+pushes arrive in separate tasks, so it does not help the case this repo has.
+
+## Recommendation
+
+A, with a bound. It is Replicant's shape with a different flush point, chosen
+for freshness and background tabs, and it costs a counter to get back the loop
+safety that the frame boundary gives Replicant for free.
+
+Both reagami and Replicant render the whole app on every state change, so this
+is a different trade on the same problem rather than a different problem.
+
+## The return value
+
+A deferred render cannot return its counts, because it has not run. Options are
+nil, a sentinel such as `{:deferred true}`, or throwing, which does not defer at
+all. A sentinel costs the same as nil and says what happened, so the caller can
+tell "folded into the render in flight" from "nothing happened".
+
+reagami has no dev and production split, so a Replicant style warning would ship
+to users. The sentinel carries the same signal for no bytes of message.
+
+## Status
+
+Deferred. Recorded so the decision does not have to be rediscovered.
 
 ## References
 
 - Snapshot: `patch-keyed` in `src/reagami/core.cljc`
 - Application guard: `render!` in `examples/ssr-live/src/client.cljs`
+- Replicant: `src/replicant/dom.cljs`, `src/replicant/asserts.cljc`
+- Vue: `packages/runtime-core/src/scheduler.ts`
+- Preact: `src/component.js`
