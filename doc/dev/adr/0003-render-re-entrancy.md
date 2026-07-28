@@ -1,8 +1,8 @@
-# 0003: Render re-entrancy is the caller's problem, for now
+# 0003: Render re-entrancy is unguarded
 
 Date: 2026-07-28
 
-Status: Open
+Status: Open. Deferred, not blocked.
 
 ## Context
 
@@ -12,32 +12,61 @@ Status: Open
 (let [old-nodes (js/Array.from (.-childNodes parent))
 ```
 
-and works from that array for the rest of the pass. If anything mutates the DOM
-while that pass is running, the snapshot goes stale and the pass operates on
-nodes that are no longer where it thinks they are. In a browser:
+and works from that array for the rest of the pass. Anything that mutates the
+DOM while the pass is running makes the snapshot stale.
+
+A render cannot call itself directly, but the DOM can do it for you. Several
+mutations fire handlers synchronously:
+
+- removing a focused element fires `blur`
+- `.focus()` on an element inside a scroll container fires `scroll`
+- removing a custom element runs its `disconnectedCallback`
+
+A handler that changes state then starts a second render inside the first.
+
+The ssr-live example hit this by committing an edit on Enter: the commit
+re-rendered, the re-render removed the focused input, and the resulting `blur`
+committed again.
+
+## Failure modes
+
+Two, depending on where the stale snapshot lands.
+
+A crash, in a browser:
 
 ```
 Uncaught NotFoundError: Failed to execute 'removeChild' on 'Node':
 The node to be removed is no longer a child of this node.
 Perhaps it was moved in a 'blur' event handler?
     at patch_keyed (core.mjs:613:3)
-    at patch (core.mjs:651:8)
-    at patch_node (core.mjs:433:1)
 ```
 
-A render cannot call itself directly, but the DOM can do it for you. Removing a
-focused element fires `blur` synchronously, and a `blur` handler that changes
-state starts a second render inside the first. The ssr example hit this by
-committing an edit on Enter: the commit re-rendered, the re-render removed the
-focused input, and the resulting `blur` committed again.
+Or, worse, no error at all. Rendering from a `disconnectedCallback` while patch
+is mid-pass:
 
-Focus does it too. `.focus()` on an element inside a scroll container scrolls it
-into view, which fires `scroll`, which a handler may turn into another render.
+```
+before: <div><re-entrant-el></re-entrant-el><span>b</span><span>c</span></div>
+outer render asks for:  b2 / c2
+nested render asks for: B! / C!
+result: <div><span>B!</span><span>C!</span></div>     no throw
+```
+
+The outer render's work is discarded and nothing reports it.
+
+## Reproduction
+
+jsdom does not fire `blur` when a focused element is removed, and does no
+layout, so `.focus()` never scrolls. Custom elements do work: define one whose
+`disconnectedCallback` renders the same root, render it into a keyed list, then
+render again without it. `HTMLElement` and `customElements` have to be copied
+onto `globalThis` from the jsdom window first, as `install-jsdom` does for
+`Node` and `Element`.
 
 ## Decision
 
-Guard in the application for now. `examples/ssr/src/client.cljs` refuses to start
-a render while one is running and runs the deferred one afterwards:
+Not fixed here. Applications guard it themselves, as
+`examples/ssr-live/src/client.cljs` does: refuse to start a render while one is
+running, and run the deferred one afterwards.
 
 ```clojure
 (if @!rendering
@@ -45,25 +74,17 @@ a render while one is running and runs the deferred one afterwards:
   (do (reset! !rendering true) ...))
 ```
 
-reagami itself does nothing about this yet.
+The fix belongs in `render` and is the same shape. It was left out of the server
+rendering work to keep that change to one subject.
 
-## Why not fix it in core yet
+## Open question for the fix
 
-The mechanism cannot be reproduced in the test harness. jsdom does not fire
-`blur` when a focused element is removed, and does no layout, so `.focus()` never
-scrolls:
-
-```
-$ node -e "... inp.focus(); inp.remove(); ..."
-blur fired on removal of the focused input: false
-```
-
-A fix in `render` would be a few lines, the same shape as the guard above. What
-is missing is a test that fails without it. That needs a real browser, or a
-mechanism jsdom does implement synchronously, such as a custom element's
-`disconnectedCallback`.
+A deferred render cannot return its counts, because it has not run yet. Either
+it returns nil, or it returns the counts of the render that was already in
+flight. Nil looks right: the caller is inside an event handler during a render
+and is not reading the result.
 
 ## References
 
 - Snapshot: `patch-keyed` in `src/reagami/core.cljc`
-- Application guard: `render!` in `examples/ssr/src/client.cljs`
+- Application guard: `render!` in `examples/ssr-live/src/client.cljs`
