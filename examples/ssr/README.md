@@ -45,8 +45,8 @@ refresh and every session sees them. They never travel back as a growing map.
 
 The server sleeps before answering, so the spinners are visible. The slider sets
 that delay from 0 to 100 ms, and it is server state like anything else: it rides
-along on every push and the round trip changes it. `LATENCY` picks the value it
-starts at.
+along on every push and the round trip changes it. It starts at 20 ms, which is
+about a real network. `LATENCY` picks a different starting value.
 
 `src/debug.cljs` renders two lines into its own root. The first is the page load
 as the browser recorded it: what the document cost on the wire against its

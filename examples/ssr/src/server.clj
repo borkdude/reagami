@@ -18,7 +18,7 @@
 
 ;; the slider sets this. LATENCY only picks the starting value. blocks an
 ;; http-kit worker, which is fine for one browser and wrong for anything real.
-(defonce !latency (atom (or (some-> (System/getenv "LATENCY") parse-long) 100)))
+(defonce !latency (atom (or (some-> (System/getenv "LATENCY") parse-long) 20)))
 
 (defn- slow! []
   (let [ms @!latency]
