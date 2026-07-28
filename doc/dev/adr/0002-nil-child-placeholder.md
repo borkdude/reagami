@@ -1,4 +1,4 @@
-# 0002: A nil child keeps its slot
+# 0002: A nil child is a comment node
 
 Date: 2026-07-28
 
@@ -6,13 +6,15 @@ Status: Accepted
 
 ## Context
 
-`create-vnode*` turns a nil child into a text vnode with an empty string, so
-`(when cond [:span])` produces a real, empty text node in the DOM when `cond` is
-false. It looks like waste, and it is the one thing server rendering cannot
-reproduce: `reagami.ssr` emits nothing for a nil child, because HTML has no way
-to write an empty text node.
+`create-vnode*` gave a nil child a text vnode with an empty string, so
+`(when cond [:span])` produced an empty text node when `cond` was false. The node
+looks like waste, but it holds the child's slot.
 
-That gap breaks hydration. In the ssr example, a virtual scroller rendered
+It was also the one thing server rendering could not reproduce. `reagami.ssr`
+emitted nothing for a nil child, because HTML cannot write an empty text node,
+so the client built one more child than the server sent.
+
+That broke hydration. In the ssr example, a virtual scroller rendered
 
 ```clojure
 [:div#canvas
@@ -21,64 +23,58 @@ That gap breaks hydration. In the ssr example, a virtual scroller rendered
  (when loading? [spinner ...])]
 ```
 
-The server sent 30 row divs. The client built 32 children, an empty text node
-either side of them, so every row was matched against the wrong node. Hydration
-reported 9 nodes built instead of 0, and the server's DOM was discarded.
+The server sent 30 row divs, the client built 32 children, and every row was
+matched against the wrong node. Hydration reported 9 nodes built instead of 0 and
+discarded the server's DOM. Nothing errored: the only symptom was the `:created`
+count `render` returns.
 
 ## Experiment
 
-Removed the placeholder: skip nil children in the children loop of
-`create-vnode*` rather than giving them a vnode. Hydration then lined up, but
-the runtime cost moved somewhere worse.
-
-With the placeholder, toggling a conditional swaps one node:
+First attempt: drop the placeholder and skip nil children entirely. Hydration
+lined up, and the cost moved somewhere worse.
 
 ```clojure
 [:div (when x [:span]) [:p "keep"]]
 ```
 
-- `x` false, children are `[#text "", p]`
-- `x` true, children are `[span, p]`
-- `patch-node` replaces the text node with the span, index 1 is untouched
+With a placeholder, `x` false gives `[marker, p]` and `x` true gives `[span, p]`.
+`patch-node` swaps index 0, index 1 is untouched, and `p` survives the toggle.
 
-Measured: `p survived the toggle: true`.
-
-Without it, the child count changes from 1 to 2. Unkeyed reconciliation patches
+Without one, the child count changes from 1 to 2. Unkeyed reconciliation patches
 the common prefix by index, so `p` is matched against the span vnode, replaced,
-and a fresh `p` appended. One swap becomes a cascade, and every sibling after
-the conditional shifts.
+and a fresh `p` appended. One swap becomes a cascade, and every sibling after the
+conditional shifts.
 
 ## Decision
 
-Keep the placeholder. Conditionals appear in far more renders than hydration
-happens, and a cascade on every toggle costs more than a one-off misalignment on
-the first render.
+Keep the placeholder, and make it a comment node instead of an empty text node.
+A comment holds the slot exactly as well and it serializes, so
+`reagami.ssr` writes `<!---->` and the two sides agree. `adopt` already builds
+vnodes from `nodeName`, so a server comment matches the marker with no extra
+handling.
 
-Applications that hydrate a list containing conditionals build the children as
-one sequence, so the nils never become siblings:
+Applications write conditionals directly. The `concat` workaround the example
+carried is gone, and it still hydrates with zero nodes built.
 
-```clojure
-(concat (when loading? [[spinner ...]])
-        (for [r rows] [:div.row ...])
-        (when loading? [[spinner ...]]))
-```
+React does the same thing for the same reason.
 
-`concat` drops the nils, the child count matches the server's, and hydration
-adopts.
+## Cost
+
+- `:lite-mode` gzip 18386 to 18462, 76 bytes, against a 22000 budget
+- Benchmark against the previous commit over five trials: 1.00 to 1.04, no regression
+- Seven bytes of server HTML per conditional, which brotli reduces to nearly nothing
+- Comment nodes are visible in devtools where empty text nodes were. `children`
+  and `querySelector` skip both alike.
 
 ## Notes
 
-The placeholder could be made to survive server rendering by emitting a comment
-node for it, which is what React does with `<!-- -->`. That needs `create-node`,
-`patch-node` and `reagami.ssr` to agree on a marker node type. Not done, because
-the workaround above costs applications one `concat`.
-
-Unrelated but adjacent: `false` is not nil. `(and x [:span])` renders the text
-`false` when `x` is false, in both `reagami.core` and `reagami.ssr`. They agree,
-so hydration is unaffected.
+`false` is not nil. `(and x [:span])` renders the text `false` when `x` is false,
+in both `reagami.core` and `reagami.ssr`. They agree, so hydration is unaffected,
+but it is not the same as `(when x [:span])`.
 
 ## References
 
-- Children loop: `create-vnode*` in `src/reagami/core.cljc`
-- Nil child handling: `->html` in `src/reagami/ssr.cljc`
-- Workaround in use: `app` in `examples/ssr/src/app.cljc`
+- Marker: `comment-tag` in `src/reagami/core.cljc`, used by `create-vnode*`,
+  `create-node` and `patch-node`
+- Server side: `->html` in `src/reagami/ssr.cljc`
+- Tests: `hydrate-conditional-children-test` in `test/ssr_test.cljc`

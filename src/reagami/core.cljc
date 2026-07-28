@@ -113,11 +113,19 @@
                        m)
                  obj))]))
 
+(def ^:private comment-tag "#comment")
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
-    (or (nil? hiccup)
-        (string? hiccup)
+    ;; a nil child renders nothing but still holds its slot, so a conditional
+    ;; toggling between nil and an element swaps one node instead of shifting
+    ;; every sibling after it. a comment is the marker for that, because unlike
+    ;; an empty text node it survives server rendering.
+    (nil? hiccup)
+    #js {:tag comment-tag}
+
+    (or (string? hiccup)
         (number? hiccup)
         (boolean? hiccup))
     #js {:tag "#text"
@@ -226,8 +234,10 @@
   (aset stats "created" (inc (aget stats "created")))
   (let [node (if-let [text (aget vnode "text")]
                (js/document.createTextNode text)
-               (let [tag (aget vnode "tag")
-                     node (if (aget vnode "svg")
+               (let [tag (aget vnode "tag")]
+                 (if (identical? comment-tag tag)
+                 (js/document.createComment "")
+                 (let [node (if (aget vnode "svg")
                             (js/document.createElementNS svg-ns tag)
                             (js/document.createElement tag))
                      props (aget vnode props-key)
@@ -252,7 +262,7 @@
                  (when-let [ref (aget vnode on-render-key)]
                    (aset node on-render-key ref)
                    (update! ref-registry root (fnil conj #{}) node))
-                 node))]
+                 node))))]
     (aset node vnode-key vnode)
     node))
 
@@ -312,6 +322,12 @@
       (do (when-not (identical? txt txt-old)
             (set! (.-textContent old) txt))
           (aset old vnode-key new-vnode)
+          old)
+
+      ;; two markers: nothing to patch, and it has no attrs or props to read
+      (and (identical? comment-tag new-tag)
+           (identical? comment-tag (aget old-vnode "tag")))
+      (do (aset old vnode-key new-vnode)
           old)
 
       (identical? new-tag (aget old-vnode "tag"))

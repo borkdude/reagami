@@ -49,8 +49,10 @@
     :html "<p>a &amp; b &lt; c &gt; d</p>"}
    {:hiccup [:div {:title "he said \"hi\" & left"}]
     :html "<div title=\"he said &quot;hi&quot; &amp; left\"></div>"}
+   ;; a nil child is a comment marker on both sides, so it keeps its slot and
+   ;; hydration finds the same number of children the server wrote
    {:hiccup [:div nil "x" nil]
-    :html "<div>x</div>"}
+    :html "<div><!---->x<!----></div>"}
    {:hiccup [:div 1 " " false]
     :html "<div>1 false</div>"}
    {:hiccup [:ul (list [:li "a"] [:li "b"])]

@@ -65,6 +65,26 @@
       (is (= "<div><p>a</p></div>" (.-innerHTML el)))
       (is (pos? (:created result))))))
 
+(deftest hydrate-conditional-children-test
+  (testing "a nil child holds its slot on both sides, so siblings still line up"
+    (let [hiccup [:ul (when false [:li "hidden"]) [:li#keep "keep"] (when false [:li])]
+          el (js/document.createElement "div")]
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [li (.querySelector el "#keep")
+            result (reagami/render el hiccup)]
+        (is (= 0 (:created result)))
+        (is (identical? li (.querySelector el "#keep"))))))
+  (testing "toggling a conditional swaps one node and leaves its siblings alone"
+    (let [el (js/document.createElement "div")
+          ui (fn [show?] [:ul (when show? [:li "top"]) [:li#keep "keep"]])]
+      (reagami/render el [ui false])
+      (let [li (.querySelector el "#keep")]
+        (reagami/render el [ui true])
+        (is (identical? li (.querySelector el "#keep")))
+        (is (= "<ul><li>top</li><li id=\"keep\">keep</li></ul>" (.-innerHTML el)))
+        (reagami/render el [ui false])
+        (is (identical? li (.querySelector el "#keep")))))))
+
 (deftest hydrate-non-element-nodes-test
   (testing "comments and stray whitespace in the container do not break adoption"
     (run! (fn [markup]

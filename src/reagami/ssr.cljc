@@ -158,7 +158,9 @@
 
 (defn- ->html [x b]
   (cond
-    (nil? x) nil
+    ;; reagami.core gives a nil child a comment node so it keeps its slot. emit
+    ;; the same marker, or hydration finds one fewer child than it built.
+    (nil? x) (app! b "<!---->")
     (string? x) (app! b (escape-text x))
     (vector? x) (let [tag (nth x 0)]
                   (if (fn? tag)
