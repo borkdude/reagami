@@ -1,4 +1,4 @@
-{:paths ["src" "../../src"]
+{:paths ["src" "resources" "../../src"]
  :tasks
  {:requires ([babashka.process :as p])
 

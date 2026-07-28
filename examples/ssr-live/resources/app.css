@@ -1,0 +1,80 @@
+.row, .ghost {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  font: 13px ui-monospace, Menlo, monospace;
+}
+
+.row.done { color: #888 }
+.row.new { font-weight: 600 }
+
+.cell { flex: 0 0 auto; overflow: hidden; white-space: nowrap }
+span.cell { cursor: text; border-bottom: 1px dotted transparent }
+span.cell:hover { border-bottom-color: #bbb }
+input.cell {
+  font: inherit;
+  border: 1px solid #666;
+  padding: 0;
+  margin: 0;
+  background: #fff;
+  color: inherit;
+}
+
+.cell-name { width: 7rem }
+.cell-owner { width: 5rem }
+.cell-region { width: 4rem }
+.cell-qty { width: 2rem }
+.cell-price { width: 4rem }
+.cell-score { width: 3rem }
+.cell-tag { width: 4rem }
+.cell-updated { width: 6rem }
+.cell-status { width: 4rem }
+
+a.open { flex: 0 0 auto; width: 3rem; font-size: 11px }
+
+#scroller { border: 1px solid #ccc }
+
+/* rows the client does not hold yet */
+.ghost { color: #bbb }
+.shimmer {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #eee, #f8f8f8, #eee);
+  background-size: 200% 100%;
+  animation: sh 1.1s linear infinite;
+}
+@keyframes sh {
+  0% { background-position: 200% 0 }
+  100% { background-position: -200% 0 }
+}
+
+/* pinned so it stays in view however far down the canvas you are */
+.overlay { position: sticky; top: 0; height: 0; z-index: 2 }
+.spinner {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #ddd;
+  border-top-color: #555;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg) } }
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer, .spinner { animation: none }
+}
+
+#detail {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: .35rem 1rem;
+  max-width: 32rem;
+}
+#detail .label { color: #888; font-size: 12px }
+.field { display: contents }
