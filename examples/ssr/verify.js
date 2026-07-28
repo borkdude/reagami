@@ -57,23 +57,27 @@ scroller.scrollTop = 24000 // row 1000 at 24px each
 scroller.dispatchEvent(new dom.window.Event('scroll'))
 
 const asked = posts.at(-1)?.body.action
-check(`scrolling asked for the window around row 1000 (${asked?.from}..${asked?.to})`,
-      asked?.type === 'window' && asked.from > 950 && asked.to < 1050)
+// the fetch is deliberately wider than the viewport, so a small scroll stays
+// inside what the client already holds
+const seenFrom = 1000
+const seenTo = 1020
+check(`scrolling asked for more than the viewport shows (${asked?.from}..${asked?.to})`,
+      asked?.type === 'window' && asked.from < seenFrom && asked.to > seenTo)
 
 // scrolled past everything the client holds, so the whole viewport must be
-// placeholders rather than blank canvas
+// placeholders rather than blank canvas, and only the viewport
 const placeholders = [...document.querySelectorAll(".ghost")]
 const tops = placeholders.map((e) => parseInt(e.style.top, 10)).sort((a, b) => a - b)
-check(`every visible row is a placeholder, not blank (${placeholders.length} of ${asked.to - asked.from})`,
-      placeholders.length === asked.to - asked.from)
+check(`every visible row is a placeholder, and no more (${placeholders.length} of ${seenTo - seenFrom})`,
+      placeholders.length === seenTo - seenFrom)
 check(`placeholders cover the viewport (${tops[0]}px..${tops.at(-1)}px)`,
-      tops[0] === asked.from * 24 && tops.at(-1) === (asked.to - 1) * 24)
+      tops[0] === seenFrom * 24 && tops.at(-1) === (seenTo - 1) * 24)
 check('a spinner is showing while they load', spinner() !== null)
 check('no loaded rows are left stranded on screen', rows() === 0 || rowsOffScreen(tops))
 
 function rowsOffScreen () {
   return [...document.querySelectorAll('.row')]
-    .every((e) => parseInt(e.style.top, 10) < asked.from * 24)
+    .every((e) => parseInt(e.style.top, 10) < seenFrom * 24)
 }
 
 const from = asked.from
@@ -94,30 +98,64 @@ check('a window we no longer want is ignored',
       document.querySelector('.row').style.top === `${from * 24}px` &&
       !document.body.textContent.includes('stale'))
 
-// editing: click a cell, type, commit, and the change round-trips as an action
+// the flicker case: small scrolls inside the fetched margin must not show a
+// single placeholder, or the table blinks on every wheel notch
 stream.onmessage({ data: JSON.stringify({ total: state.total, from, rows: next.rows }) })
+let blinked = 0
+for (const px of [24, 48, 96, 168]) {
+  scroller.scrollTop = from * 24 + px
+  scroller.dispatchEvent(new dom.window.Event('scroll'))
+  blinked += ghosts()
+}
+check(`small scrolls inside the loaded window never blink (${blinked} placeholders)`, blinked === 0)
+
+// editing: click a cell, type, commit, and the change round-trips as an action.
+// answer whatever window was asked for last, so the push is not treated as stale
+const cur = posts.at(-1).body.action
+const win = { total: state.total, from: cur.from, rows: [] }
+for (let i = cur.from; i < cur.to; i++) win.rows.push({ id: i, name: `row ${i}`, qty: 1, status: 'new' })
+stream.onmessage({ data: JSON.stringify(win) })
 const nameCell = document.querySelector('.row .cell-name')
 check('a cell starts as text, not an input', nameCell.tagName === 'SPAN')
 
 nameCell.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
 const input = document.querySelector('.row input.cell-name')
 check('clicking a cell turns it into an input', input !== null)
-check('the input starts at the current value', input?.getAttribute('value') === next.rows[0].name)
+check('the input starts at the current value', input?.getAttribute('value') === win.rows[0].name)
 
+// enter commits, the re-render removes the input, and removing a focused input
+// fires blur. that must not commit a second time in the middle of the render.
+// the observer catches any frame that draws the pre-edit value on the way.
+// oldValue is captured at mutation time, unlike re-reading the DOM in the
+// callback, which only ever shows the final state
+const overwritten = []
+const observer = new dom.window.MutationObserver((records) => {
+  for (const r of records) if (r.type === 'characterData') overwritten.push(r.oldValue)
+})
+observer.observe(document.querySelector('#canvas'),
+                 { subtree: true, childList: true, characterData: true, characterDataOldValue: true })
+
+const before = posts.length
 input.value = 'edited by hand'
+input.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
 input.dispatchEvent(new dom.window.Event('blur', { bubbles: true }))
 await new Promise((r) => setTimeout(r, 0))
+check(`enter then blur commits once, not twice (${posts.length - before} action)`,
+      posts.length - before === 1)
 const edit = posts.at(-1)?.body.action
 check(`committing posted an edit action (${edit?.field} = ${edit?.value})`,
-      edit?.type === 'edit' && edit.id === next.rows[0].id &&
+      edit?.type === 'edit' && edit.id === win.rows[0].id &&
       edit.field === 'name' && edit.value === 'edited by hand')
 check('the cell is text again while the server answers',
       document.querySelector('.row .cell-name').tagName === 'SPAN')
 check('the edit shows immediately, before the server pushes anything',
       document.querySelector('.row .cell-name').textContent === 'edited by hand')
+observer.disconnect()
+check(`the pre-edit value is never drawn on the way (${overwritten.length} text nodes rewritten)`,
+      !overwritten.includes(win.rows[0].name))
 
 // the server's version is authoritative and replaces the optimistic one
-const confirmed = JSON.parse(JSON.stringify(next))
+const confirmed = JSON.parse(JSON.stringify(win))
 confirmed.rows[0].name = 'edited by hand (from server)'
 stream.onmessage({ data: JSON.stringify(confirmed) })
 check('the server push overwrites the optimistic value',

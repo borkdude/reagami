@@ -2,7 +2,7 @@
 
 (def row-height 24)
 (def viewport 480)
-(def overscan 10)
+(def overscan 30)
 
 ;; browser state. the server renders from the state it is handed and never
 ;; touches this, so its handlers are inert there.
@@ -61,12 +61,18 @@
 (defn- px [n] (str n "px"))
 
 (defn- commit! [id c e]
-  (let [action {:type "edit" :id id :field c :value (.. e -target -value)}]
-    (swap! !view assoc :editing nil)
-    ;; optimistic: run the same reducer locally so the cell updates now, then
-    ;; send it. the server's push is authoritative and overwrites this.
-    (swap! !state handle action)
-    (dispatch! action)))
+  ;; enter commits and re-renders, which removes the focused input, which fires
+  ;; blur, which would commit again in the middle of the first render. only the
+  ;; cell still marked as editing may commit.
+  (when (= [id c] (:editing @!view))
+    (let [action {:type "edit" :id id :field c :value (.. e -target -value)}]
+      ;; optimistic: run the same reducer locally so the cell updates now, then
+      ;; send it. the server's push is authoritative and overwrites this.
+      ;; state first: clearing :editing renders the cell as text, and doing that
+      ;; before the new value lands draws the old one for a frame.
+      (swap! !state handle action)
+      (swap! !view assoc :editing nil)
+      (dispatch! action))))
 
 (defn- cell [m]
   (let [r (:row m)

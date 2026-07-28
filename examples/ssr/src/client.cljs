@@ -29,32 +29,38 @@
                  :headers #js {"Content-Type" "application/json"}
                  :body (js/JSON.stringify #js {:sid sid :action action})}))
 
-(defn- want
-  "The row range the viewport is over, padded so small scrolls do not refetch."
+(defn- visible
+  "The rows actually on screen. Placeholders are drawn for these only, so the
+  padding fetched around them never shows as a skeleton."
   [el]
   (let [top (.-scrollTop el)
-        total (:total @app/!state)
-        first-row (js/Math.floor (/ top app/row-height))
-        last-row (js/Math.ceil (/ (+ top (.-clientHeight el)) app/row-height))]
-    [(max 0 (- first-row app/overscan))
-     (min total (+ last-row app/overscan))]))
+        total (:total @app/!state)]
+    [(max 0 (js/Math.floor (/ top app/row-height)))
+     (min total (js/Math.ceil (/ (+ top (.-clientHeight el)) app/row-height)))]))
 
-(defn- covered?
-  "True when the client already holds every row in [from to)."
-  [[from to]]
+(defn- with-margin [[a b]]
+  (let [total (:total @app/!state)]
+    [(max 0 (- a app/overscan)) (min total (+ b app/overscan))]))
+
+(defn- needs-fetch?
+  "True once the viewport comes within half the margin of an edge of what the
+  client holds, so the next window is asked for before a gap can show."
+  [[a b]]
   (let [state @app/!state
         have-from (:from state)
-        have-to (+ have-from (count (:rows state)))]
-    (and (>= from have-from) (<= to have-to))))
+        have-to (+ have-from (count (:rows state)))
+        m (quot app/overscan 2)]
+    (or (and (pos? have-from) (< (- a m) have-from))
+        (and (< have-to (:total state)) (> (+ b m) have-to)))))
 
 (defn on-scroll [e]
-  (let [[from to] (want (.-target e))]
-    ;; record what is on screen first: any of it the client does not hold draws
-    ;; a placeholder, so scrolling past the loaded window is never blank
-    (swap! app/!view assoc :want [from to])
-    (when-not (or (covered? [from to]) (= @!asked [from to]))
-      (reset! !asked [from to])
-      (app/dispatch! {:type "window" :from from :to to}))))
+  (let [vis (visible (.-target e))
+        fetch (with-margin vis)]
+    ;; what is on screen drives the placeholders, a wider range drives the fetch
+    (swap! app/!view assoc :want vis)
+    (when (and (needs-fetch? vis) (not= @!asked fetch))
+      (reset! !asked fetch)
+      (app/dispatch! {:type "window" :from (nth fetch 0) :to (nth fetch 1)}))))
 
 (defn listen! []
   (let [events (js/EventSource. (str "/state/" sid))]
