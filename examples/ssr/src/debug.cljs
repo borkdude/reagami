@@ -12,5 +12,6 @@
             (str ", " (:br wire) " B on the wire ("
                  (js/Math.round (/ (:raw wire) (max 1 (:br wire)))) "x smaller)")
             ", uncompressed")
+          " | parse " (if (:parse info) (str (:parse info) " us") "-")
           " | created " (:created info)
           " | render " (:ms info) " ms")]))

@@ -110,6 +110,9 @@ for (let i = from; i < asked.to; i++) next.rows.push({ id: i, name: `row ${i}`, 
 stream.onmessage({ data: JSON.stringify(next) })
 
 check('the pushed window replaced the old rows', rows() === next.rows.length)
+check(`parse time is reported once a push has been parsed (${stats().split('|')[2].trim()})`,
+      /parse \d+ us/.test(stats()))
+
 check('placeholders cleared once the window arrived', ghosts() === 0)
 check('spinner is gone too', spinner() === null)
 check('rows are positioned at their true offset',

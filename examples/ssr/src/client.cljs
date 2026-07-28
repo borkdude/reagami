@@ -12,12 +12,14 @@
 ;; what the last push cost on the wire, reported by the brotli proxy. absent
 ;; when the page is served straight from babashka on 8080.
 (defonce !wire (atom nil))
+(defonce !parse (atom nil))
 (defonce !asked (atom nil))
 
 (defonce !last (atom {}))
 
 (defn- render-debug! []
-  (r/render debug-root [debug/stats (assoc @!last :wire @!wire :bytes @!bytes)]))
+  (r/render debug-root
+            [debug/stats (assoc @!last :wire @!wire :bytes @!bytes :parse @!parse)]))
 
 (defn- render-now! []
   (let [t0 (js/performance.now)
@@ -97,14 +99,19 @@
                          (render-debug!)))
     (set! (.-onmessage events)
           (fn [e]
-            (reset! !bytes (.-length (.-data e)))
-            ;; jitter reorders responses, so a window requested earlier can land
-            ;; after a later one. drop anything that is not what we asked for
-            ;; last, and keep the spinner up until that one arrives.
-            (let [state (js/JSON.parse (.-data e))
+            (let [data (.-data e)
+                  t0 (js/performance.now)
+                  state (js/JSON.parse data)
+                  ;; microseconds: a window is a few thousand characters, which
+                  ;; parses far below what a millisecond can show
+                  us (js/Math.round (* 1000 (- (js/performance.now) t0)))
                   asked @!asked]
+              (reset! !bytes (.-length data))
+              (reset! !parse us)
+              ;; jitter reorders responses, so a window requested earlier can
+              ;; land after a later one. drop anything that is not what we asked
+              ;; for last, and keep the placeholders up until that one arrives.
               (when (or (nil? asked) (= (:from state) (nth asked 0)))
-                (swap! app/!view assoc :loading false)
                 (reset! app/!state state)))))
     events))
 
