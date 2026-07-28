@@ -30,17 +30,23 @@
     [:script {:type "module" :src "/client.js"}]))
 
 (def ^:private style
-  (str ".row,.spinner{display:flex;gap:1rem;align-items:center;width:100%;"
+  (str ".row,.ghost{display:flex;gap:1rem;align-items:center;width:100%;"
        "box-sizing:border-box;font:13px ui-monospace,Menlo,monospace}"
        ".cell{flex:0 0 auto;overflow:hidden;white-space:nowrap}"
        ".cell-name{width:7rem}.cell-owner{width:5rem}.cell-region{width:4rem}"
        ".cell-qty{width:2rem}.cell-price{width:4rem}.cell-score{width:3rem}"
        ".cell-tag{width:4rem}.cell-updated{width:6rem}.cell-status{width:4rem}"
-       ".spinner{color:#bbb}"
+       ".ghost{color:#bbb}"
        ".shimmer{flex:1;height:8px;border-radius:4px;"
        "background:linear-gradient(90deg,#eee,#f8f8f8,#eee);"
        "background-size:200% 100%;animation:sh 1.1s linear infinite}"
        "@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}"
+       ".overlay{position:sticky;top:0;height:0;z-index:2}"
+       ".spinner{position:absolute;top:10px;right:14px;width:18px;height:18px;"
+       "border:2px solid #ddd;border-top-color:#555;border-radius:50%;"
+       "animation:spin .7s linear infinite}"
+       "@keyframes spin{to{transform:rotate(360deg)}}"
+       "@media(prefers-reduced-motion:reduce){.shimmer,.spinner{animation:none}}"
        ".row.done{color:#888}.row.new{font-weight:600}"
        "#scroller{border:1px solid #ccc}"))
 

@@ -73,6 +73,9 @@
      [:p (str (count rows) " of " total " rows are in the client. Scroll and the "
               "server sends the window you are looking at.")]
      [:div#scroller {:style {:height (px viewport) :overflow-y "auto"}}
+      ;; sticky, so it stays in view however far down the canvas you are
+      (when (seq gaps)
+        [:div.overlay [:div.spinner]])
       [:div#canvas {:style {:height (px (* total row-height)) :position "relative"}}
        (for [i (range (count rows))]
          (let [r (nth rows i)]
@@ -84,7 +87,7 @@
             (for [c columns]
               [:span {:key c :class (str "cell cell-" c)} (get r (keyword c))])]))
        (for [i gaps]
-         [:div.spinner {:key (str "gap" i)
+         [:div.ghost {:key (str "gap" i)
                         :style {:position "absolute"
                                 :top (px (* i row-height))
                                 :height (px row-height)}}

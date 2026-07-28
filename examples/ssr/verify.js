@@ -32,7 +32,8 @@ const state = JSON.parse(document.querySelector('#state').textContent)
 const serverRow = document.querySelector('.row')
 const rows = () => document.querySelectorAll('.row').length
 const stats = () => document.querySelector('#stats').textContent
-const spinners = () => document.querySelectorAll('.spinner').length
+const ghosts = () => document.querySelectorAll('.ghost').length
+const spinner = () => document.querySelector('.spinner')
 
 await import('./dist/client.js')
 
@@ -61,12 +62,13 @@ check(`scrolling asked for the window around row 1000 (${asked?.from}..${asked?.
 
 // scrolled past everything the client holds, so the whole viewport must be
 // placeholders rather than blank canvas
-const placeholders = [...document.querySelectorAll('.spinner')]
+const placeholders = [...document.querySelectorAll(".ghost")]
 const tops = placeholders.map((e) => parseInt(e.style.top, 10)).sort((a, b) => a - b)
 check(`every visible row is a placeholder, not blank (${placeholders.length} of ${asked.to - asked.from})`,
       placeholders.length === asked.to - asked.from)
 check(`placeholders cover the viewport (${tops[0]}px..${tops.at(-1)}px)`,
       tops[0] === asked.from * 24 && tops.at(-1) === (asked.to - 1) * 24)
+check('a spinner is showing while they load', spinner() !== null)
 check('no loaded rows are left stranded on screen', rows() === 0 || rowsOffScreen(tops))
 
 function rowsOffScreen () {
@@ -80,7 +82,8 @@ for (let i = from; i < asked.to; i++) next.rows.push({ id: i, name: `row ${i}`, 
 stream.onmessage({ data: JSON.stringify(next) })
 
 check('the pushed window replaced the old rows', rows() === next.rows.length)
-check('spinners cleared once the window arrived', spinners() === 0)
+check('placeholders cleared once the window arrived', ghosts() === 0)
+check('spinner is gone too', spinner() === null)
 check('rows are positioned at their true offset',
       document.querySelector('.row').style.top === `${from * 24}px`)
 
