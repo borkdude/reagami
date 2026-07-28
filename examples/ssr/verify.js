@@ -50,6 +50,21 @@ check(`only the window is in the client, not ${state.total} rows`,
       rows() === state.rows.length && rows() < 100)
 check('subscribed to its own state stream', stream?.url === `/state/${sid}`)
 
+// the latency slider is server state: it round-trips like any other action
+const slider = document.querySelector('#latency')
+check(`the slider starts at the server's delay (${slider?.getAttribute('value')} ms)`,
+      slider !== null && slider.getAttribute('value') === String(state.latency))
+const beforeSlider = posts.length
+slider.value = '25'
+slider.dispatchEvent(new dom.window.Event('input', { bubbles: true }))
+check(`dragging moves the label at once (${document.querySelector('#latency-value').textContent.trim()})`,
+      document.querySelector('#latency-value').textContent.trim() === '25 ms')
+check('dragging alone sends nothing', posts.length === beforeSlider)
+slider.dispatchEvent(new dom.window.Event('change', { bubbles: true }))
+const lat = posts.at(-1)?.body.action
+check(`releasing sends one latency action (${lat?.ms} ms)`,
+      posts.length === beforeSlider + 1 && lat?.type === 'latency' && lat.ms === 25)
+
 // jsdom does no layout, so give the scroller a viewport and scroll it by hand
 const scroller = document.querySelector('#scroller')
 Object.defineProperty(scroller, 'clientHeight', { value: 480, configurable: true })

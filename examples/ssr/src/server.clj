@@ -18,17 +18,29 @@
   (let [to (+ (quot app/viewport app/row-height) app/overscan)]
     {:total total :from 0 :rows (mapv app/row (range 0 to))}))
 
+;; the slider sets this. LATENCY only picks the starting value. blocks an
+;; http-kit worker, which is fine for one browser and wrong for anything real.
+(defonce !latency (atom (or (some-> (System/getenv "LATENCY") parse-long) 100)))
+
+(defn- slow! []
+  (let [ms @!latency]
+    (when (pos? ms)
+      (Thread/sleep (+ (quot ms 2) (rand-int ms))))))
+
 ;; edits belong to the data, not to a tab, so they outlive any session. stands in
 ;; for a database. every session reads them, so a refresh still shows them.
 (defonce db (atom {}))
 
 (defn- apply-action
   "Runs an action against session state, with the shared edits laid in and
-  written back. Sessions never carry :edits themselves."
+  written back. Sessions never carry :edits themselves. :latency is server state
+  the client can see and set, so it rides along on every push."
   [state action]
+  (when (= "latency" (:type action))
+    (reset! !latency (min 100 (max 0 (:ms action)))))
   (let [next (app/handle (assoc state :edits @db) action)]
     (reset! db (:edits next))
-    (dissoc next :edits)))
+    (assoc (dissoc next :edits) :latency @!latency)))
 
 ;; one entry per browser tab: {sid {:state ... :channel ...}}. the page render
 ;; creates it, the SSE stream attaches to it, closing the stream drops it. a
@@ -118,14 +130,6 @@
                                 :body (sse (get-in @sessions [sid :state]))}
                             false))
      :on-close (fn [_ _] (swap! sessions dissoc sid))}))
-
-;; LATENCY=0 to turn it off. blocks an http-kit worker, which is fine for one
-;; browser and wrong for anything real.
-(def latency (or (some-> (System/getenv "LATENCY") parse-long) 100))
-
-(defn- slow! []
-  (when (pos? latency)
-    (Thread/sleep (+ (quot latency 2) (rand-int latency)))))
 
 (defn- action [req]
   (slow!)

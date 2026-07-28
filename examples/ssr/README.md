@@ -31,8 +31,10 @@ replaces it. Edits are laid over the generated rows and kept in `server/db`, whi
 for a database: they belong to the data rather than to a tab, so they survive a
 refresh and every session sees them. They never travel back as a growing map.
 
-The server sleeps 50 to 150 ms before answering, so the spinners are visible.
-`LATENCY=0 bb dev` turns that off, `LATENCY=800` makes it obvious.
+The server sleeps before answering, so the spinners are visible. The slider sets
+that delay from 0 to 100 ms, and it is server state like anything else: it rides
+along on every push and the round trip changes it. `LATENCY` picks the value it
+starts at.
 
 `src/debug.cljs` renders what `render` returned, into its own root.
 

@@ -67,6 +67,10 @@
 
 (defn- px [n] (str n "px"))
 
+;; the slider hands back a string on both platforms
+(defn- parse-ms [s]
+  (parse-long (str s)))
+
 (defn- commit! [id c e]
   ;; enter commits and re-renders, which removes the focused input, which fires
   ;; blur, which would commit again in the middle of the first render. only the
@@ -123,6 +127,19 @@
      [:h1 "reagami ssr"]
      [:p (str (count rows) " of " total " rows are in the client. Scroll and the "
               "server sends the window you are looking at.")]
+     [:p.latency
+      "server delay "
+      ;; default-value, so dragging is not fought by the pushes it causes.
+      ;; on-input moves the label at once, on-change sends one action per drag.
+      [:input#latency {:type "range" :min 0 :max 100
+                       :default-value (str (:latency state))
+                       :on-input (fn [e]
+                                   (swap! !state assoc :latency
+                                          (parse-ms (.. e -target -value))))
+                       :on-change (fn [e]
+                                    (dispatch! {:type "latency"
+                                                :ms (parse-ms (.. e -target -value))}))}]
+      [:span#latency-value (str " " (:latency state) " ms")]]
      [:div#scroller {:style {:height (px viewport) :overflow-y "auto"}}
       ;; sticky, so it stays in view however far down the canvas you are
       (when (seq gaps)
