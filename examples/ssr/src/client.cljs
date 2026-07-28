@@ -120,6 +120,23 @@
 (defn watch-scroll! []
   (.addEventListener root "scroll" on-scroll true))
 
+;; the row a page was opened from, so the table can put it back under the
+;; cursor when you return rather than snapping to the top
+(defonce !opened (atom nil))
+
+(defn- track-page! [_ _ old new]
+  (let [was (= "row" (:page old))
+        now (= "row" (:page new))]
+    (cond
+      (and (not was) now) (reset! !opened (:id (:row new)))
+      (and was (not now))
+      (when-let [id @!opened]
+        ;; after the table has rendered, which the other watch is doing now
+        (js/queueMicrotask
+         (fn []
+           (when-let [el (js/document.getElementById "scroller")]
+             (set! (.-scrollTop el) (* id app/row-height)))))))))
+
 (defn- path-for [state]
   (if (= "row" (:page state))
     (str "/row/" (:id (:row state)))
@@ -144,6 +161,10 @@
 (add-watch app/!view ::render (fn [_ _ _ _] (render!)))
 
 (add-watch app/!state ::url sync-url!)
+(add-watch app/!state ::page track-page!)
+;; a direct hit on /row/42 has no transition to observe, so seed it
+(when (= "row" (:page @app/!state))
+  (reset! !opened (:id (:row @app/!state))))
 (.addEventListener js/window "popstate" (fn [_] (open-from-url!)))
 
 (render!)

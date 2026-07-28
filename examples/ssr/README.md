@@ -16,7 +16,8 @@ Two pages. `/` is the table, `/row/42` is one row on its own, and both are
 server-rendered, hydrated and driven by the same stream. Which page you are on is
 just `:page` in the state, so opening a row is an action like any other and the
 URL follows the state rather than driving it. A direct hit on `/row/42` renders
-on the server from the same components.
+on the server from the same components. Going back puts that row at the top of
+the table rather than snapping to the start.
 
 State lives on the server, one entry per tab. Clicking posts an action to
 `POST /action`, the server applies `app/handle`, and the new state comes back

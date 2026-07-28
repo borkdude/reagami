@@ -248,4 +248,9 @@ check('the table came back', document.querySelector('#scroller') !== null)
 check(`the URL followed again (${dom.window.location.pathname})`,
       dom.window.location.pathname === '/')
 
+await new Promise((r) => setTimeout(r, 0))
+const back2 = document.querySelector('#scroller')
+check(`the table came back at the row we opened (scrollTop ${back2.scrollTop}, row ${detail.row.id})`,
+      back2.scrollTop === detail.row.id * 24)
+
 process.exit(failed === 0 ? 0 : 1)
