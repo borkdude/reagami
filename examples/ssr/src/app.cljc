@@ -8,9 +8,10 @@
 ;; touches this, so its handlers are inert there.
 (defonce !state (atom nil))
 
-;; client-only view state. the default has to be a real value, because the
-;; server render reads it too.
-(defonce !view (atom {:loading false}))
+;; client-only view state. :want is the row range the viewport is over, set by
+;; the scroll handler. the default has to be a real value, because the server
+;; render reads it too, and it has no viewport.
+(defonce !view (atom {:want nil}))
 
 ;; the client installs a transport here. point it at the server to make state
 ;; changes server-authoritative, or at handle below to keep them local.
@@ -48,9 +49,15 @@
 
 (defn- px [n] (str n "px"))
 
-(defn- spinner [top]
-  [:div.spinner {:style {:position "absolute" :top (px top) :height (px row-height)}}
-   "loading rows"])
+(defn- missing
+  "Visible row indexes the client does not hold. Scrolling faster than the
+  server answers leaves a run of these, and each one draws a placeholder rather
+  than blank canvas."
+  [want from loaded-to]
+  (if want
+    (filter (fn [i] (or (< i from) (>= i loaded-to)))
+            (range (nth want 0) (nth want 1)))
+    []))
 
 ;; runs on babashka for the server render and on squint in the browser. state is
 ;; a Clojure map on the server and a parsed JSON object in the browser, so read
@@ -60,15 +67,13 @@
         from (:from state)
         rows (:rows state)
         loaded-to (+ from (count rows))
-        loading? (:loading @!view)]
+        gaps (missing (:want @!view) from loaded-to)]
     [:div.app
      [:h1 "reagami ssr"]
      [:p (str (count rows) " of " total " rows are in the client. Scroll and the "
               "server sends the window you are looking at.")]
      [:div#scroller {:style {:height (px viewport) :overflow-y "auto"}}
       [:div#canvas {:style {:height (px (* total row-height)) :position "relative"}}
-       (when (and loading? (pos? from))
-         [spinner (* (max 0 (dec from)) row-height)])
        (for [i (range (count rows))]
          (let [r (nth rows i)]
            [:div.row {:key (:id r)
@@ -78,5 +83,10 @@
                               :height (px row-height)}}
             (for [c columns]
               [:span {:key c :class (str "cell cell-" c)} (get r (keyword c))])]))
-       (when (and loading? (< loaded-to total))
-         [spinner (* loaded-to row-height)])]]]))
+       (for [i gaps]
+         [:div.spinner {:key (str "gap" i)
+                        :style {:position "absolute"
+                                :top (px (* i row-height))
+                                :height (px row-height)}}
+          [:span.cell.cell-name (str "row " i)]
+          [:span.shimmer]])]]]))

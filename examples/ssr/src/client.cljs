@@ -49,9 +49,11 @@
 
 (defn on-scroll [e]
   (let [[from to] (want (.-target e))]
+    ;; record what is on screen first: any of it the client does not hold draws
+    ;; a placeholder, so scrolling past the loaded window is never blank
+    (swap! app/!view assoc :want [from to])
     (when-not (or (covered? [from to]) (= @!asked [from to]))
       (reset! !asked [from to])
-      (swap! app/!view assoc :loading true)
       (app/dispatch! {:type "window" :from from :to to}))))
 
 (defn listen! []

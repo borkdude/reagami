@@ -58,7 +58,21 @@ scroller.dispatchEvent(new dom.window.Event('scroll'))
 const asked = posts.at(-1)?.body.action
 check(`scrolling asked for the window around row 1000 (${asked?.from}..${asked?.to})`,
       asked?.type === 'window' && asked.from > 950 && asked.to < 1050)
-check('a spinner shows while that window loads', spinners() > 0)
+
+// scrolled past everything the client holds, so the whole viewport must be
+// placeholders rather than blank canvas
+const placeholders = [...document.querySelectorAll('.spinner')]
+const tops = placeholders.map((e) => parseInt(e.style.top, 10)).sort((a, b) => a - b)
+check(`every visible row is a placeholder, not blank (${placeholders.length} of ${asked.to - asked.from})`,
+      placeholders.length === asked.to - asked.from)
+check(`placeholders cover the viewport (${tops[0]}px..${tops.at(-1)}px)`,
+      tops[0] === asked.from * 24 && tops.at(-1) === (asked.to - 1) * 24)
+check('no loaded rows are left stranded on screen', rows() === 0 || rowsOffScreen(tops))
+
+function rowsOffScreen () {
+  return [...document.querySelectorAll('.row')]
+    .every((e) => parseInt(e.style.top, 10) < asked.from * 24)
+}
 
 const from = asked.from
 const next = { total: state.total, from, rows: [] }

@@ -36,7 +36,11 @@
        ".cell-name{width:7rem}.cell-owner{width:5rem}.cell-region{width:4rem}"
        ".cell-qty{width:2rem}.cell-price{width:4rem}.cell-score{width:3rem}"
        ".cell-tag{width:4rem}.cell-updated{width:6rem}.cell-status{width:4rem}"
-       ".spinner{color:#888;font-style:italic}"
+       ".spinner{color:#bbb}"
+       ".shimmer{flex:1;height:8px;border-radius:4px;"
+       "background:linear-gradient(90deg,#eee,#f8f8f8,#eee);"
+       "background-size:200% 100%;animation:sh 1.1s linear infinite}"
+       "@keyframes sh{0%{background-position:200% 0}100%{background-position:-200% 0}}"
        ".row.done{color:#888}.row.new{font-weight:600}"
        "#scroller{border:1px solid #ccc}"))
 
