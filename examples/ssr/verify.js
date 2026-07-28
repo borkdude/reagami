@@ -94,4 +94,33 @@ check('a window we no longer want is ignored',
       document.querySelector('.row').style.top === `${from * 24}px` &&
       !document.body.textContent.includes('stale'))
 
+// editing: click a cell, type, commit, and the change round-trips as an action
+stream.onmessage({ data: JSON.stringify({ total: state.total, from, rows: next.rows }) })
+const nameCell = document.querySelector('.row .cell-name')
+check('a cell starts as text, not an input', nameCell.tagName === 'SPAN')
+
+nameCell.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }))
+const input = document.querySelector('.row input.cell-name')
+check('clicking a cell turns it into an input', input !== null)
+check('the input starts at the current value', input?.getAttribute('value') === next.rows[0].name)
+
+input.value = 'edited by hand'
+input.dispatchEvent(new dom.window.Event('blur', { bubbles: true }))
+await new Promise((r) => setTimeout(r, 0))
+const edit = posts.at(-1)?.body.action
+check(`committing posted an edit action (${edit?.field} = ${edit?.value})`,
+      edit?.type === 'edit' && edit.id === next.rows[0].id &&
+      edit.field === 'name' && edit.value === 'edited by hand')
+check('the cell is text again while the server answers',
+      document.querySelector('.row .cell-name').tagName === 'SPAN')
+check('the edit shows immediately, before the server pushes anything',
+      document.querySelector('.row .cell-name').textContent === 'edited by hand')
+
+// the server's version is authoritative and replaces the optimistic one
+const confirmed = JSON.parse(JSON.stringify(next))
+confirmed.rows[0].name = 'edited by hand (from server)'
+stream.onmessage({ data: JSON.stringify(confirmed) })
+check('the server push overwrites the optimistic value',
+      document.querySelector('.row .cell-name').textContent === 'edited by hand (from server)')
+
 process.exit(failed === 0 ? 0 : 1)

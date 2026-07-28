@@ -11,7 +11,7 @@
 ;; client-only view state. :want is the row range the viewport is over, set by
 ;; the scroll handler. the default has to be a real value, because the server
 ;; render reads it too, and it has no viewport.
-(defonce !view (atom {:want nil}))
+(defonce !view (atom {:want nil :editing nil}))
 
 ;; the client installs a transport here. point it at the server to make state
 ;; changes server-authoritative, or at handle below to keep them local.
@@ -34,13 +34,24 @@
    :updated (str "2026-" (inc (mod i 12)) "-" (inc (mod i 28)))
    :status (nth ["new" "active" "done"] (mod i 3))})
 
+(defn- window-rows
+  "Rows for [from to), with any edits laid over the generated values."
+  [state from to]
+  (mapv (fn [i] (merge (row i) (get (:edits state) i)))
+        (range from to)))
+
 (defn handle
   "Applies an action to state. Portable, so it can run on either side."
   [state action]
   (case (:type action)
     "window" (let [from (max 0 (:from action))
                    to (min (:total state) (:to action))]
-               (assoc state :from from :rows (mapv row (range from to))))
+               (assoc state :from from :rows (window-rows state from to)))
+    "edit" (let [from (:from state)
+                 to (+ from (count (:rows state)))
+                 state (assoc-in state [:edits (:id action) (keyword (:field action))]
+                                 (:value action))]
+             (assoc state :rows (window-rows state from to)))
     state))
 
 (defn dispatch! [action]
@@ -48,6 +59,33 @@
     (f action)))
 
 (defn- px [n] (str n "px"))
+
+(defn- commit! [id c e]
+  (let [action {:type "edit" :id id :field c :value (.. e -target -value)}]
+    (swap! !view assoc :editing nil)
+    ;; optimistic: run the same reducer locally so the cell updates now, then
+    ;; send it. the server's push is authoritative and overwrites this.
+    (swap! !state handle action)
+    (dispatch! action)))
+
+(defn- cell [m]
+  (let [r (:row m)
+        c (:col m)
+        id (:id r)
+        v (get r (keyword c))]
+    (if (= [id c] (:editing @!view))
+      ;; default-value, not value: a state push mid-edit must not overwrite what
+      ;; is being typed. on-render focuses the input when it is created.
+      [:input {:key c
+               :class (str "cell cell-" c)
+               :default-value (str v)
+               :on-render (fn [node phase _] (when (= :mount phase) (.focus node)) nil)
+               :on-key-down (fn [e] (when (= "Enter" (.-key e)) (commit! id c e)))
+               :on-blur (fn [e] (commit! id c e))}]
+      [:span {:key c
+              :class (str "cell cell-" c)
+              :on-click (fn [_] (swap! !view assoc :editing [id c]))}
+       v])))
 
 (defn- missing
   "Visible row indexes the client does not hold. Scrolling faster than the
@@ -85,7 +123,7 @@
                               :top (px (* (+ from i) row-height))
                               :height (px row-height)}}
             (for [c columns]
-              [:span {:key c :class (str "cell cell-" c)} (get r (keyword c))])]))
+              [cell {:row r :col c}])]))
        (for [i gaps]
          [:div.ghost {:key (str "gap" i)
                         :style {:position "absolute"

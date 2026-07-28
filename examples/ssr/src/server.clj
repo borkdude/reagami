@@ -16,7 +16,7 @@
 ;; produced on demand by app/row when the client scrolls to them.
 (def initial-state
   (let [to (+ (quot app/viewport app/row-height) app/overscan)]
-    {:total total :from 0 :rows (mapv app/row (range 0 to))}))
+    {:total total :from 0 :edits {} :rows (mapv app/row (range 0 to))}))
 
 ;; one entry per browser tab: {sid {:state ... :channel ...}}. the page render
 ;; creates it, the SSE stream attaches to it, closing the stream drops it. a
@@ -33,6 +33,10 @@
   (str ".row,.ghost{display:flex;gap:1rem;align-items:center;width:100%;"
        "box-sizing:border-box;font:13px ui-monospace,Menlo,monospace}"
        ".cell{flex:0 0 auto;overflow:hidden;white-space:nowrap}"
+       "span.cell{cursor:text;border-bottom:1px dotted transparent}"
+       "span.cell:hover{border-bottom-color:#bbb}"
+       "input.cell{font:inherit;border:1px solid #666;padding:0;margin:0;"
+       "background:#fff;color:inherit}"
        ".cell-name{width:7rem}.cell-owner{width:5rem}.cell-region{width:4rem}"
        ".cell-qty{width:2rem}.cell-price{width:4rem}.cell-score{width:3rem}"
        ".cell-tag{width:4rem}.cell-updated{width:6rem}.cell-status{width:4rem}"
@@ -87,7 +91,9 @@
        :body (slurp f)})))
 
 (defn- sse [state]
-  (str "data: " (json/generate-string state) "\n\n"))
+  ;; :edits is the server's record of what was changed. it only grows, and the
+  ;; client already sees the result baked into :rows, so it does not go over.
+  (str "data: " (json/generate-string (dissoc state :edits)) "\n\n"))
 
 (defn- state-stream [req sid]
   (http/as-channel req
