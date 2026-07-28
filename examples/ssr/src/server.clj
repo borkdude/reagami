@@ -1,0 +1,125 @@
+(ns server
+  (:require
+   [app]
+   [babashka.nrepl.server :as nrepl]
+   [cheshire.core :as json]
+   [clojure.java.io :as io]
+   [clojure.string :as str]
+   [hiccup.util :as hu]
+   [hiccup2.core :as h]
+   [org.httpkit.server :as http]
+   [reagami.ssr :as ssr]))
+
+(def total (or (some-> (System/getenv "ROWS") parse-long) 1000000))
+
+;; only the first window is rendered and sent. the rest of the million rows are
+;; produced on demand by app/row when the client scrolls to them.
+(def initial-state
+  (let [to (+ (quot app/viewport app/row-height) app/overscan)]
+    {:total total :from 0 :rows (mapv app/row (range 0 to))}))
+
+;; one entry per browser tab: {sid {:state ... :channel ...}}. the page render
+;; creates it, the SSE stream attaches to it, closing the stream drops it. a
+;; page fetched but never streamed leaks its entry, so a real app wants a TTL.
+(defonce sessions (atom {}))
+
+(defn- client-tags [dev?]
+  (if dev?
+    (list [:script {:type "module" :src "http://localhost:5173/@vite/client"}]
+          [:script {:type "module" :src "http://localhost:5173/out/client.mjs"}])
+    [:script {:type "module" :src "/client.js"}]))
+
+(def ^:private style
+  (str ".row,.spinner{display:flex;gap:1rem;align-items:center;width:100%;"
+       "box-sizing:border-box;font:13px ui-monospace,Menlo,monospace}"
+       ".cell{flex:0 0 auto;overflow:hidden;white-space:nowrap}"
+       ".cell-name{width:7rem}.cell-owner{width:5rem}.cell-region{width:4rem}"
+       ".cell-qty{width:2rem}.cell-price{width:4rem}.cell-score{width:3rem}"
+       ".cell-tag{width:4rem}.cell-updated{width:6rem}.cell-status{width:4rem}"
+       ".spinner{color:#888;font-style:italic}"
+       ".row.done{color:#888}.row.new{font-weight:600}"
+       "#scroller{border:1px solid #ccc}"))
+
+(defn- state-json
+  ;; </script> inside the data would end the tag early, and <\/ is the same
+  ;; string once JSON is parsed
+  [state]
+  (str/replace (json/generate-string state) "</" "<\\/"))
+
+;; hiccup renders the page, reagami renders the island it hydrates. both outputs
+;; are already escaped, so they go in raw.
+(defn page [dev?]
+  (let [sid (str (random-uuid))
+        state initial-state]
+    (swap! sessions assoc sid {:state state})
+    (str "<!doctype html>"
+         (h/html {:mode :html}
+           [:html {:lang "en"}
+            [:head
+             [:meta {:charset "utf-8"}]
+             [:title "reagami ssr"]
+             [:style (hu/raw-string style)]]
+            [:body {:data-sid sid}
+             [:div#app (hu/raw-string (ssr/render [app/app state]))]
+             ;; the debug panel is client only, so the server leaves its root empty
+             [:div#debug]
+             [:script {:type "application/json" :id "state"}
+              (hu/raw-string (state-json state))]
+             (client-tags dev?)]]))))
+
+(defn- asset [path]
+  (let [f (io/file "dist" (subs path 1))]
+    (when (.isFile f)
+      {:status 200
+       :headers {"Content-Type" (if (.endsWith path ".js")
+                                  "text/javascript"
+                                  "text/plain")}
+       :body (slurp f)})))
+
+(defn- sse [state]
+  (str "data: " (json/generate-string state) "\n\n"))
+
+(defn- state-stream [req sid]
+  (http/as-channel req
+    {:on-open (fn [ch]
+                (swap! sessions assoc-in [sid :channel] ch)
+                (http/send! ch {:status 200
+                                :headers {"Content-Type" "text/event-stream"
+                                          "Cache-Control" "no-cache"}
+                                :body (sse (get-in @sessions [sid :state]))}
+                            false))
+     :on-close (fn [_ _] (swap! sessions dissoc sid))}))
+
+(defn- action [req]
+  (let [{:keys [sid action]} (json/parse-string (slurp (:body req)) true)
+        session (get (swap! sessions update-in [sid :state] app/handle action) sid)]
+    (when-let [ch (:channel session)]
+      (http/send! ch (sse (:state session)) false))
+    {:status 204}))
+
+(defn handler [dev? req]
+  (let [path (:uri req)]
+    (cond
+      (= "/" path) {:status 200
+                    :headers {"Content-Type" "text/html"}
+                    :body (page dev?)}
+      (str/starts-with? path "/state/") (state-stream req (subs path 7))
+      (= "/action" path) (action req)
+      (= "/favicon.ico" path) {:status 204}
+      (not dev?) (or (asset path) {:status 404 :body "not found"})
+      :else {:status 404 :body "not found"})))
+
+(defn start! [{:keys [dev? port nrepl-port]
+               :or {dev? true port 8080 nrepl-port 1667}}]
+  (http/run-server (partial handler dev?) {:port port})
+  (nrepl/start-server! {:port nrepl-port})
+  (println (str "ssr server  http://localhost:" port))
+  (println (str "nrepl       localhost:" nrepl-port))
+  (when dev?
+    (println "vite        http://localhost:5173 (assets only, do not open)")
+    (println (str "open        http://localhost:" port
+                  " , or http://localhost:8081 to go through brotli"))))
+
+(defn -main [& args]
+  (start! {:dev? (not= "prod" (first args))})
+  @(promise))
