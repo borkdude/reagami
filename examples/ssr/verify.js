@@ -24,7 +24,9 @@ globalThis.fetch = async (url, opts) => {
 }
 let stream = null
 globalThis.EventSource = class {
-  constructor (url) { this.url = url; stream = this }
+  constructor (url) { this.url = url; this.listeners = {}; stream = this }
+  addEventListener (type, fn) { this.listeners[type] = fn }
+  emit (type, data) { this.listeners[type]({ data: JSON.stringify(data) }) }
 }
 
 const sid = document.body.dataset.sid
@@ -49,6 +51,13 @@ check('server row object survived', serverRow === document.querySelector('.row')
 check(`only the window is in the client, not ${state.total} rows`,
       rows() === state.rows.length && rows() < 100)
 check('subscribed to its own state stream', stream?.url === `/state/${sid}`)
+
+// without the proxy there is nothing to report, so the panel says so
+check(`the panel admits it is uncompressed (${stats()})`, stats().includes('uncompressed'))
+// the proxy reports each push's real cost in band, after the push
+stream.emit('wire', { raw: 7080, br: 975 })
+check(`the panel shows what brotli saved (${stats().split('|')[1].trim()})`,
+      stats().includes('975 B on the wire') && stats().includes('7x smaller'))
 
 // the latency slider is server state: it round-trips like any other action
 const slider = document.querySelector('#latency')

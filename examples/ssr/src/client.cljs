@@ -9,19 +9,26 @@
 (def sid (.. js/document -body -dataset -sid))
 
 (defonce !bytes (atom 0))
+;; what the last push cost on the wire, reported by the brotli proxy. absent
+;; when the page is served straight from babashka on 8080.
+(defonce !wire (atom nil))
 (defonce !asked (atom nil))
+
+(defonce !last (atom {}))
+
+(defn- render-debug! []
+  (r/render debug-root [debug/stats (assoc @!last :wire @!wire :bytes @!bytes)]))
 
 (defn- render-now! []
   (let [t0 (js/performance.now)
         result (r/render root [app/app @app/!state])
         ms (js/Math.round (- (js/performance.now) t0))]
-    (r/render debug-root
-              [debug/stats {:rows (count (:rows @app/!state))
-                            :total (:total @app/!state)
-                            :from (:from @app/!state)
-                            :bytes @!bytes
-                            :created (:created result)
-                            :ms ms}])))
+    (reset! !last {:rows (count (:rows @app/!state))
+                   :total (:total @app/!state)
+                   :from (:from @app/!state)
+                   :created (:created result)
+                   :ms ms})
+    (render-debug!)))
 
 (defonce !rendering (atom false))
 (defonce !again (atom false))
@@ -83,6 +90,11 @@
 
 (defn listen! []
   (let [events (js/EventSource. (str "/state/" sid))]
+    ;; the proxy reports each push's compressed size just after the push itself
+    (.addEventListener events "wire"
+                       (fn [e]
+                         (reset! !wire (js/JSON.parse (.-data e)))
+                         (render-debug!)))
     (set! (.-onmessage events)
           (fn [e]
             (reset! !bytes (.-length (.-data e)))

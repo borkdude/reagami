@@ -48,7 +48,12 @@ http.createServer((req, res) => {
         // flush so the event reaches the browser now, keeping the window intact
         enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {
           event++
-          console.log(`event ${String(event).padStart(3)}  raw ${String(chunk.length).padStart(7)}  br ${String(comp - before).padStart(7)}  (stream ${raw} -> ${comp})`)
+          const cost = comp - before
+          console.log(`event ${String(event).padStart(3)}  raw ${String(chunk.length).padStart(7)}  br ${String(cost).padStart(7)}  (stream ${raw} -> ${comp})`)
+          // only this side knows what the push actually cost, so tell the page.
+          // its own bytes land in the next event's measurement, as they should.
+          enc.write(Buffer.from(`event: wire\ndata: {"raw":${chunk.length},"br":${cost}}\n\n`))
+          enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {})
         })
       })
       ur.on('end', () => enc.end(() => res.end()))
