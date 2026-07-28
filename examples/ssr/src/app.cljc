@@ -67,20 +67,16 @@
               "server sends the window you are looking at.")]
      [:div#scroller {:style {:height (px viewport) :overflow-y "auto"}}
       [:div#canvas {:style {:height (px (* total row-height)) :position "relative"}}
-       ;; one seq, not three children with nils between them: a nil child is an
-       ;; empty text node in the vnode and nothing in the server HTML, which
-       ;; offsets every row and defeats hydration
-       (concat
-        (when (and loading? (pos? from))
-          [[spinner (* (max 0 (dec from)) row-height)]])
-        (for [i (range (count rows))]
-          (let [r (nth rows i)]
-            [:div.row {:key (:id r)
-                       :class (:status r)
-                       :style {:position "absolute"
-                               :top (px (* (+ from i) row-height))
-                               :height (px row-height)}}
-             (for [c columns]
-               [:span {:key c :class (str "cell cell-" c)} (get r (keyword c))])]))
-        (when (and loading? (< loaded-to total))
-          [[spinner (* loaded-to row-height)]]))]]]))
+       (when (and loading? (pos? from))
+         [spinner (* (max 0 (dec from)) row-height)])
+       (for [i (range (count rows))]
+         (let [r (nth rows i)]
+           [:div.row {:key (:id r)
+                      :class (:status r)
+                      :style {:position "absolute"
+                              :top (px (* (+ from i) row-height))
+                              :height (px row-height)}}
+            (for [c columns]
+              [:span {:key c :class (str "cell cell-" c)} (get r (keyword c))])]))
+       (when (and loading? (< loaded-to total))
+         [spinner (* loaded-to row-height)])]]]))
