@@ -113,11 +113,19 @@
                        m)
                  obj))]))
 
+(def ^:private comment-tag "#comment")
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
-    (or (nil? hiccup)
-        (string? hiccup)
+    ;; a nil child renders nothing but still holds its slot, so a conditional
+    ;; toggling between nil and an element swaps one node instead of shifting
+    ;; every sibling after it. a comment is the marker for that, because unlike
+    ;; an empty text node it survives server rendering.
+    (nil? hiccup)
+    #js {:tag comment-tag}
+
+    (or (string? hiccup)
         (number? hiccup)
         (boolean? hiccup))
     #js {:tag "#text"
@@ -220,11 +228,16 @@
    :cljs (defn update! [^js js-map k f & args]
            (.set js-map k (apply f (.get js-map k) args))))
 
+(def ^:private stats #js {:created 0 :adopted 0})
+
 (defn create-node [vnode root]
+  (aset stats "created" (inc (aget stats "created")))
   (let [node (if-let [text (aget vnode "text")]
                (js/document.createTextNode text)
-               (let [tag (aget vnode "tag")
-                     node (if (aget vnode "svg")
+               (let [tag (aget vnode "tag")]
+                 (if (identical? comment-tag tag)
+                 (js/document.createComment "")
+                 (let [node (if (aget vnode "svg")
                             (js/document.createElementNS svg-ns tag)
                             (js/document.createElement tag))
                      props (aget vnode props-key)
@@ -249,7 +262,7 @@
                  (when-let [ref (aget vnode on-render-key)]
                    (aset node on-render-key ref)
                    (update! ref-registry root (fnil conj #{}) node))
-                 node))]
+                 node))))]
     (aset node vnode-key vnode)
     node))
 
@@ -258,6 +271,35 @@
 (defn- node-key [^js dom]
   (when-let [vn (aget dom vnode-key)]
     (aget vn key-key)))
+
+(defn- adopt
+  ;; a server-rendered node carries no vnode: rebuild one from the DOM so patch
+  ;; can diff against it. props stay empty because handlers, value and checked
+  ;; cannot travel in HTML, so the first patch sets every one of them.
+  [^js dom]
+  (aset stats "adopted" (inc (aget stats "adopted")))
+  (let [vnode (cond
+                (identical? 3 (.-nodeType dom))
+                #js {:tag "#text" :text (.-data dom)}
+                ;; comments and the like carry no attributes: tag alone, and no
+                ;; text, so patch always replaces them rather than reusing one
+                (not (identical? 1 (.-nodeType dom)))
+                #js {:tag (.-nodeName dom)}
+                :else
+                (let [attrs #js {}
+                      dom-attrs (.-attributes dom)
+                      ;; patch only reads the length of :children
+                      vnode #js {:tag (.-tagName dom)
+                                 :svg (identical? svg-ns (.-namespaceURI dom))
+                                 :children (js/Array. (alength (.-childNodes dom)))}]
+                  (dotimes [i (alength dom-attrs)]
+                    (let [a (aget dom-attrs i)]
+                      (aset attrs (.-name a) (.-value a))))
+                  (aset vnode attrs-key attrs)
+                  (aset vnode props-key #js {})
+                  vnode))]
+    (aset dom vnode-key vnode)
+    vnode))
 
 (defn- has-key? [new-children]
   (let [n (alength new-children)]
@@ -270,7 +312,7 @@
   ;; patch `old` in place toward `new-vnode` when compatible, else build a fresh
   ;; node. returns the node to use, `old` when reused.
   [^js old ^js new-vnode root]
-  (let [^js old-vnode (aget old vnode-key)
+  (let [^js old-vnode (or (aget old vnode-key) (adopt old))
         txt-old (aget old-vnode "text")
         txt (aget new-vnode "text")
         new-tag (aget new-vnode "tag")]
@@ -279,6 +321,12 @@
       (do (when-not (identical? txt txt-old)
             (set! (.-textContent old) txt))
           (aset old vnode-key new-vnode)
+          old)
+
+      ;; two markers: nothing to patch, and it has no attrs or props to read
+      (and (identical? comment-tag new-tag)
+           (identical? comment-tag (aget old-vnode "tag")))
+      (do (aset old vnode-key new-vnode)
           old)
 
       (identical? new-tag (aget old-vnode "tag"))
@@ -308,6 +356,13 @@
               (aset old n new-prop))))
         (when-let [nc (aget new-vnode "children")]
           (patch old nc root))
+        ;; an adopted node never went through create-node, so register its ref
+        ;; here. only when it has none: mount state lives on the ref itself, so
+        ;; replacing it on a reused node would mount again.
+        (when-let [ref (aget new-vnode on-render-key)]
+          (when-not (aget old on-render-key)
+            (aset old on-render-key ref)
+            (update! ref-registry root (fnil conj #{}) old)))
         (aset old vnode-key new-vnode)
         old)
 
@@ -358,6 +413,10 @@
   ;; moves two nodes instead of cascading.
   [^js parent new-children root]
   (let [old-nodes (js/Array.from (.-childNodes parent))
+        ;; server children carry no vnode, so there are no keys to match on.
+        ;; pair them by position and let keys take over from the next render.
+        hydrating? (and (pos? (alength old-nodes))
+                        (not (aget (aget old-nodes 0) vnode-key)))
         old-by-key (js/Map.)
         old-index (js/Map.)
         unkeyed #js []
@@ -385,7 +444,7 @@
     (dotimes [i cnt]
       (let [^js v (aget new-children i)
             k (aget v key-key)
-            ^js ex (if k
+            ^js ex (if (and k (not hydrating?))
                      (let [^js e (.get old-by-key k)]
                        (when (and e (not (.has used e))) e))
                      (next-unkeyed))
@@ -451,11 +510,13 @@
                 (.removeChild parent (aget old-children i))
                 (recur (dec i))))))))))
 
-(defn render [root hiccup]
-  (when-not (aget root root-key)
-    ;; clear all root children so we can rely on every child having a vnode
-    (set! root -textContent "")
-    (aset root root-key true))
+(defn render
+  "Renders hiccup into root. Adopts server-rendered children already in root.
+  Returns a map of :created and :adopted node counts."
+  [root hiccup]
+  (aset root root-key true)
+  (aset stats "created" 0)
+  (aset stats "adopted" 0)
   (let [new-node (create-vnode hiccup)]
     (patch root #js [new-node] root))
   (run! (fn [node]
@@ -470,4 +531,6 @@
               (do (ref node :unmount (aget ref data-key))
                   (js-delete ref data-key)
                   (update! ref-registry root disj node)))))
-        (.get ref-registry root)))
+        (.get ref-registry root))
+  {:created (aget stats "created")
+   :adopted (aget stats "adopted")})

@@ -8,3 +8,4 @@ dist
 
 /target/
 README.html
+.pnpm-store

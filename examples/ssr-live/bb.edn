@@ -1,0 +1,47 @@
+{:paths ["src" "../../src"]
+ :tasks
+ {:requires ([babashka.process :as p])
+
+  install {:doc "Install node deps"
+           :task (shell "pnpm install")}
+
+  compile {:doc "Compile cljs to out/ with squint"
+           :depends [install]
+           :task (shell "npx squint compile")}
+
+  build {:doc "Bundle the client into dist/"
+         :depends [compile]
+         :task (shell "npx vite build")}
+
+  dev {:doc "squint watch, vite dev server and the ssr server with nrepl"
+       :depends [compile]
+       :requires ([server])
+       :task (do (p/process ["npx" "squint" "watch"]
+                            {:inherit true :shutdown p/destroy-tree})
+                 (p/process ["npx" "vite"]
+                            {:inherit true :shutdown p/destroy-tree})
+                 (p/process ["node" "proxy.js"]
+                            {:inherit true :shutdown p/destroy-tree})
+                 (server/start! {:dev? true})
+                 (deref (promise)))}
+
+  verify {:doc "Hydrate the server HTML in jsdom, fail if a node was rebuilt"
+          :depends [build]
+          :requires ([server])
+          :task (let [{:keys [exit]} (p/shell {:in (server/page false) :continue true}
+                                              "node" "verify.js")]
+                  (when-not (zero? exit) (System/exit exit)))}
+
+  proxy {:doc "Brotli proxy in front of the server, on 8081"
+         :task (shell "node" "proxy.js")}
+
+  measure {:doc "Report payload size and nodes built per action shape"
+           :depends [build]
+           :requires ([server])
+           :task (shell {:in (server/page false)} "node" "measure.js")}
+
+  serve {:doc "Serve the production build"
+         :depends [build]
+         :requires ([server])
+         :task (do (server/start! {:dev? false})
+                   (deref (promise)))}}}

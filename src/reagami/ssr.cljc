@@ -1,6 +1,8 @@
 (ns reagami.ssr
   (:require [clojure.string :as str]))
 
+#?(:clj (set! *warn-on-reflection* true))
+
 (def ^:private void-tags
   #{"area" "base" "br" "col" "embed" "hr" "img" "input"
     "link" "meta" "param" "source" "track" "wbr"})

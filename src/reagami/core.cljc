@@ -312,8 +312,7 @@
   ;; patch `old` in place toward `new-vnode` when compatible, else build a fresh
   ;; node. returns the node to use, `old` when reused.
   [^js old ^js new-vnode root]
-  (let [existing (aget old vnode-key)
-        ^js old-vnode (if existing existing (adopt old))
+  (let [^js old-vnode (or (aget old vnode-key) (adopt old))
         txt-old (aget old-vnode "text")
         txt (aget new-vnode "text")
         new-tag (aget new-vnode "tag")]
