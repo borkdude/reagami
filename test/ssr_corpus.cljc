@@ -40,8 +40,11 @@
     :dom "<input>"}
    {:hiccup [:input {:checked false}]
     :html "<input>"}
+   ;; :hydrate false because setting the innerHTML prop wipes the children patch
+   ;; is about to diff. reagami.core loses them on any re-render, not just here.
    {:hiccup [:div {:innerHTML "<b>x</b>"} [:i "y"]]
-    :html "<div><b>x</b><i>y</i></div>"}
+    :html "<div><b>x</b><i>y</i></div>"
+    :hydrate false}
    {:hiccup [:p "a & b < c > d"]
     :html "<p>a &amp; b &lt; c &gt; d</p>"}
    {:hiccup [:div {:title "he said \"hi\" & left"}]
