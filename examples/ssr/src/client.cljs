@@ -15,16 +15,22 @@
 (defonce !parse (atom nil))
 (defonce !asked (atom nil))
 
+;; when the first render finished, which is when the page became interactive
+(defonce !hydrated (atom nil))
 (defonce !last (atom {}))
 
 (defn- render-debug! []
   (r/render debug-root
-            [debug/stats (assoc @!last :wire @!wire :bytes @!bytes :parse @!parse)]))
+            [debug/stats (assoc @!last
+                                :wire @!wire :bytes @!bytes :parse @!parse
+                                :load (debug/first-load) :hydrated @!hydrated)]))
 
 (defn- render-now! []
   (let [t0 (js/performance.now)
         result (r/render root [app/app @app/!state])
         ms (js/Math.round (- (js/performance.now) t0))]
+    (when-not @!hydrated
+      (reset! !hydrated (js/Math.round (js/performance.now))))
     (reset! !last {:rows (count (:rows @app/!state))
                    :total (:total @app/!state)
                    :from (:from @app/!state)

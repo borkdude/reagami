@@ -43,7 +43,11 @@ that delay from 0 to 100 ms, and it is server state like anything else: it rides
 along on every push and the round trip changes it. `LATENCY` picks the value it
 starts at.
 
-`src/debug.cljs` renders what `render` returned, into its own root. It shows the
+`src/debug.cljs` renders two lines into its own root. The first is the page load
+as the browser recorded it: what the document cost on the wire against its
+decoded size, when the response finished, when it painted, and when hydration
+made it interactive. Painting comes before hydration, which is the point of
+rendering on the server. It shows the
 push size two ways: the JSON the client parsed, and what it cost on the wire. The
 browser cannot see the second, so the proxy reports it back as a `wire` event
 just after each push. On 8080 there is no proxy and the panel says uncompressed.
