@@ -25,6 +25,9 @@ curl -sN localhost:8080/state/$sid &
 curl -s -XPOST localhost:8080/action -d "{\"sid\":\"$sid\",\"action\":{\"type\":\"add\"}}"
 ```
 
+The server sleeps 50 to 150 ms before answering, so the spinners are visible.
+`LATENCY=0 bb dev` turns that off, `LATENCY=800` makes it obvious.
+
 `src/debug.cljs` renders what `render` returned, into its own root.
 
 ## Brotli

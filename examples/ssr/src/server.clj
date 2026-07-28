@@ -90,7 +90,16 @@
                             false))
      :on-close (fn [_ _] (swap! sessions dissoc sid))}))
 
+;; LATENCY=0 to turn it off. blocks an http-kit worker, which is fine for one
+;; browser and wrong for anything real.
+(def latency (or (some-> (System/getenv "LATENCY") parse-long) 100))
+
+(defn- slow! []
+  (when (pos? latency)
+    (Thread/sleep (+ (quot latency 2) (rand-int latency)))))
+
 (defn- action [req]
+  (slow!)
   (let [{:keys [sid action]} (json/parse-string (slurp (:body req)) true)
         session (get (swap! sessions update-in [sid :state] app/handle action) sid)]
     (when-let [ch (:channel session)]

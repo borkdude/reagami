@@ -70,4 +70,11 @@ check('spinners cleared once the window arrived', spinners() === 0)
 check('rows are positioned at their true offset',
       document.querySelector('.row').style.top === `${from * 24}px`)
 
+// a slow server reorders responses: a window asked for earlier can land later
+const stale = { total: state.total, from: 500, rows: [{ id: 500, name: 'stale', qty: 1, status: 'new' }] }
+stream.onmessage({ data: JSON.stringify(stale) })
+check('a window we no longer want is ignored',
+      document.querySelector('.row').style.top === `${from * 24}px` &&
+      !document.body.textContent.includes('stale'))
+
 process.exit(failed === 0 ? 0 : 1)

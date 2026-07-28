@@ -59,8 +59,14 @@
     (set! (.-onmessage events)
           (fn [e]
             (reset! !bytes (.-length (.-data e)))
-            (swap! app/!view assoc :loading false)
-            (reset! app/!state (js/JSON.parse (.-data e)))))
+            ;; jitter reorders responses, so a window requested earlier can land
+            ;; after a later one. drop anything that is not what we asked for
+            ;; last, and keep the spinner up until that one arrives.
+            (let [state (js/JSON.parse (.-data e))
+                  asked @!asked]
+              (when (or (nil? asked) (= (:from state) (nth asked 0)))
+                (swap! app/!view assoc :loading false)
+                (reset! app/!state state)))))
     events))
 
 ;; the scroller is replaced on every render, so listen on the way up instead of
