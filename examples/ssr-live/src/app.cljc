@@ -185,7 +185,7 @@
                                                 :ms (parse-ms (.. e -target -value))}))}]
       [:span#latency-value (str " " (:latency state) " ms")]
       [:span.cache-ctl
-       " | client cache "
+       "client cache "
        ;; a bigger margin means bigger pushes: the panel below shows what that
        ;; does to the wire, the parse and the render
        [:input#cache {:type "range" :min 30 :max 1000 :step 10

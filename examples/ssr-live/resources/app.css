@@ -90,6 +90,7 @@ a.open { flex: 0 0 auto; width: 3rem; font-size: 11px }
 #detail .label { color: #888; font-size: 12px }
 .field { display: contents }
 .toggle { margin-left: 1.5rem; user-select: none }
+.cache-ctl { margin-left: 1.5rem }
 .toggle input { margin-right: .35rem }
 .cell.pending { opacity: .45; cursor: progress }
 
