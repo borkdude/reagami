@@ -41,17 +41,17 @@
     (reset! db (:edits next))
     (assoc (dissoc next :edits) :latency @!latency)))
 
-;; one entry per browser tab: {sid {:state ... :channel ... :created ...}}
+;; one entry per browser tab: {sid {:state ... :channels #{} :created ...}}
 (defonce sessions (atom {}))
 
 ;; a page that is fetched but never opens its event stream leaves an entry
 ;; behind, and a crawler makes one per visit. streaming sessions are removed
-;; when the channel closes, so only the ones that never streamed need sweeping.
+;; when their last stream closes, so only the ones with none need sweeping.
 (def ^:private session-ttl-ms (* 5 60 1000))
 (def ^:private sweep-every-ms 60000)
 
 (defn- expired? [now session]
-  (and (nil? (:channel session))
+  (and (empty? (:channels session))
        (< (:created session 0) (- now session-ttl-ms))))
 
 (defn sweep-sessions!
@@ -94,13 +94,13 @@
   [state]
   (str/replace (json/generate-string state) "</" "<\\/"))
 
-;; the whole page goes through reagami.ssr. :innerHTML is the escape hatch for
-;; content that must not be escaped: script and style are raw text to the HTML
-;; parser, so entities inside them are never decoded.
 (defn- fresh-state []
   (let [to (+ (quot app/viewport app/row-height) app/overscan)]
     (apply-action initial-state {:type "window" :from 0 :to to})))
 
+;; the whole page goes through reagami.ssr. :innerHTML is the escape hatch for
+;; content that must not be escaped: script and style are raw text to the HTML
+;; parser, so entities inside them are never decoded.
 (defn page
   ([dev?] (page dev? nil))
   ([dev? open-id]
@@ -152,7 +152,7 @@
                                          (fn [s]
                                            (-> (or s {:state (fresh-state)
                                                       :created (System/currentTimeMillis)})
-                                               (assoc :channel ch))))
+                                               (update :channels (fnil conj #{}) ch))))
                                   (get sid))]
                   (http/send! ch {:status 200
                                   :headers {"Content-Type" "text/event-stream"
@@ -161,13 +161,20 @@
                               false)))
      ;; keep the state so a reconnect finds it. the sweeper reclaims it once the
      ;; tab stays gone.
-     :on-close (fn [_ _]
+     :on-close (fn [ch _]
                  (swap! sessions
                         (fn [m]
                           (if (contains? m sid)
-                            (update m sid #(-> (dissoc % :channel)
+                            (update m sid #(-> (update % :channels disj ch)
                                                (assoc :created (System/currentTimeMillis))))
                             m))))}))
+
+(defn- push!
+  "Sends state to every stream this session has. A duplicated tab or a
+  reconnect that overlaps the old connection leaves more than one."
+  [session]
+  (run! (fn [ch] (http/send! ch (sse (:state session)) false))
+        (:channels session)))
 
 (defn- apply-shared
   "Runs another tab's action against this session. The edit is already in db, so
@@ -182,16 +189,13 @@
   [from-sid action]
   (doseq [sid (keys @sessions)
           :when (not= sid from-sid)]
-    (let [session (get (swap! sessions update-in [sid :state] apply-shared action) sid)]
-      (when-let [ch (:channel session)]
-        (http/send! ch (sse (:state session)) false)))))
+    (push! (get (swap! sessions update-in [sid :state] apply-shared action) sid))))
 
 (defn- action [req]
   (slow!)
   (let [{:keys [sid action]} (json/parse-string (slurp (:body req)) true)
         session (get (swap! sessions update-in [sid :state] apply-action action) sid)]
-    (when-let [ch (:channel session)]
-      (http/send! ch (sse (:state session)) false))
+    (push! session)
     ;; edits are shared data, so the other tabs see them without a reload
     (when (= "edit" (:type action))
       (broadcast! sid action))
