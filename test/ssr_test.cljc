@@ -20,6 +20,28 @@
                 (is (= (or (:dom case) (:html case)) (.-innerHTML el))))))
           corpus/cases)))
 
+(deftest escaping-test
+  (run! (fn [case]
+          (testing (pr-str (:hiccup case))
+            (is (= (:html case) (ssr/render (:hiccup case))))))
+        corpus/escaping-cases))
+
+(deftest inner-html-owns-subtree-test
+  (testing "children alongside innerHTML are not rendered"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:div {:innerHTML "<b>x</b>"} [:i "y"]])
+      (is (= "<div><b>x</b></div>" (.-innerHTML el)))))
+  (testing "innerHTML survives a re-render"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:div {:innerHTML "<b>x</b>"}])
+      (reagami/render el [:div {:innerHTML "<b>x</b>"}])
+      (is (= "<div><b>x</b></div>" (.-innerHTML el)))))
+  (testing "a changed innerHTML replaces the subtree"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:div {:innerHTML "<b>x</b>"}])
+      (reagami/render el [:div {:innerHTML "<i>z</i>"}])
+      (is (= "<div><i>z</i></div>" (.-innerHTML el))))))
+
 (deftest component-test
   (let [greet (fn [name] [:p "hi " name])]
     (is (= "<p>hi ann</p>" (ssr/render [greet "ann"])))

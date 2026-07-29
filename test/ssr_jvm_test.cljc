@@ -10,6 +10,12 @@
             (is (= (:html case) (ssr/render (:hiccup case))))))
         corpus/cases))
 
+(deftest escaping-test
+  (run! (fn [case]
+          (testing (pr-str (:hiccup case))
+            (is (= (:html case) (ssr/render (:hiccup case))))))
+        corpus/escaping-cases))
+
 (deftest component-test
   (let [greet (fn [name] [:p "hi " name])]
     (is (= "<p>hi ann</p>" (ssr/render [greet "ann"])))))

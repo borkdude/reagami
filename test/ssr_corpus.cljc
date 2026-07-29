@@ -40,11 +40,11 @@
     :dom "<input>"}
    {:hiccup [:input {:checked false}]
     :html "<input>"}
-   ;; :hydrate false because setting the innerHTML prop wipes the children patch
-   ;; is about to diff. reagami.core loses them on any re-render, not just here.
+   {:hiccup [:div {:innerHTML "<b>x</b>"}]
+    :html "<div><b>x</b></div>"}
+   ;; innerHTML owns the subtree, so the [:i "y"] child is dropped
    {:hiccup [:div {:innerHTML "<b>x</b>"} [:i "y"]]
-    :html "<div><b>x</b><i>y</i></div>"
-    :hydrate false}
+    :html "<div><b>x</b></div>"}
    {:hiccup [:p "a & b < c > d"]
     :html "<p>a &amp; b &lt; c &gt; d</p>"}
    {:hiccup [:div {:title "he said \"hi\" & left"}]
@@ -61,3 +61,25 @@
     :html "<svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"></path></svg>"}
    {:hiccup [:div [:span "a"] [:span "b"]]
     :html "<div><span>a</span><span>b</span></div>"}])
+
+;; rendered by reagami.ssr only. the DOM rejects the injected names, so these
+;; cannot go through the client comparisons the cases above are used for.
+(def escaping-cases
+  [{:hiccup [:p "<script>alert(1)</script>"]
+    :html "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>"}
+   {:hiccup [:div {:title "\" onmouseover=alert(1) x=\""}]
+    :html "<div title=\"&quot; onmouseover=alert(1) x=&quot;\"></div>"}
+   ;; angle brackets stay, matching how a browser serializes an attribute. a
+   ;; double quoted value cannot break out on them.
+   {:hiccup [:div {:title "<img src=x>"}]
+    :html "<div title=\"<img src=x>\"></div>"}
+   ;; names are not escaped, so an attacker controlled key or tag injects
+   {:hiccup [:div {(keyword "x\" onload=\"alert(1)") "y"}]
+    :html "<div x\" onload=\"alert(1)=\"y\"></div>"}
+   {:hiccup [(keyword "div onload=alert(1)") "hi"]
+    :html "<div onload=alert(1)>hi</div onload=alert(1)>"}
+   {:hiccup [:a {:href "javascript:alert(1)"} "x"]
+    :html "<a href=\"javascript:alert(1)\">x</a>"}
+   ;; innerHTML is raw, so it can close the element it sits in
+   {:hiccup [:script {:innerHTML "var s = '</script>'"}]
+    :html "<script>var s = '</script>'</script>"}])

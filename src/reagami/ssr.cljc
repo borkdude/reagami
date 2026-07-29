@@ -7,8 +7,8 @@
   #{"area" "base" "br" "col" "embed" "hr" "img" "input"
     "link" "meta" "param" "source" "track" "wbr"})
 
-;; mirrors reagami.core/properties: set as DOM properties on the client, so
-;; they have no attribute to copy and need an HTML equivalent here
+;; mirrors reagami.core/properties: set as DOM properties on the client, so they
+;; need an HTML equivalent here
 (def ^:private properties
   #{"checked" "disabled" "selected" "value" "innerHTML"})
 
@@ -47,8 +47,8 @@
 
 #?(:clj
    (defn- num->str
-     ;; match how JS stringifies a number, so an integral double does not turn
-     ;; into "1.0" here and "1" in the browser
+     ;; match how JS stringifies a number, so an integral double is not "1.0"
+     ;; here and "1" in the browser
      [^double v]
      (if (and (== v (Math/floor v)) (< (Math/abs v) 1e21))
        (str (long v))
@@ -78,8 +78,7 @@
   (some (fn [pair] (when (= k (nth pair 0)) (nth pair 1))) pairs))
 
 (defn- put
-  ;; replace in place when present, like aset on the attrs object in
-  ;; reagami.core, so the emitted order matches the DOM
+  ;; replace in place when present, so the emitted order matches the DOM
   [pairs k v]
   (let [n (count pairs)]
     (loop [i 0]
@@ -153,15 +152,15 @@
           prop-pairs)
     (app! b ">")
     (when-not (contains? void-tags tag)
-      (when-let [html (pair-get prop-pairs "innerHTML")]
-        (app! b (->str html)))
-      (children->html children b)
+      (let [html (pair-get prop-pairs "innerHTML")]
+        (if (some? html)
+          (app! b (->str html))
+          (children->html children b)))
       (app! b (str "</" tag ">")))))
 
 (defn- ->html [x b]
   (cond
-    ;; reagami.core gives a nil child a comment node so it keeps its slot. emit
-    ;; the same marker, or hydration finds one fewer child than it built.
+    ;; reagami.core gives a nil child a comment node, so emit the same marker
     (nil? x) (app! b "<!---->")
     (string? x) (app! b (escape-text x))
     (vector? x) (let [tag (nth x 0)]

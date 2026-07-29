@@ -118,10 +118,9 @@
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
-    ;; a nil child renders nothing but still holds its slot, so a conditional
-    ;; toggling between nil and an element swaps one node instead of shifting
-    ;; every sibling after it. a comment is the marker for that, because unlike
-    ;; an empty text node it survives server rendering.
+    ;; a nil child renders nothing but holds its slot, so toggling a conditional
+    ;; swaps one node instead of shifting its siblings. a comment is the marker
+    ;; because, unlike an empty text node, it survives server rendering.
     (nil? hiccup)
     #js {:tag comment-tag}
 
@@ -149,7 +148,12 @@
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
                          res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
-                 (let [new-children #js []
+                 (let [;; innerHTML owns the subtree, so it has no vnode children
+                       ;; to build or patch
+                       inner-html? (and (identical? 1 attr-idx)
+                                        (some? #?(:squint (aget first-child "innerHTML")
+                                                  :cljs (:innerHTML first-child))))
+                       new-children (when-not inner-html? #js [])
                        node #js {:svg in-svg?
                                  :tag (if in-svg?
                                         tag
@@ -159,11 +163,12 @@
                        modified-attrs #js {}]
                    (aset node props-key modified-props)
                    (aset node attrs-key modified-attrs)
-                   (dotimes [i (- (alength hiccup) children-idx)]
-                     (let [child (aget hiccup (+ i children-idx))]
-                       (if (hiccup-seq? child)
-                         (run! (fn [x] (.push new-children (create-vnode* x in-svg?))) child)
-                         (.push new-children (create-vnode* child in-svg?)))))
+                   (when new-children
+                     (dotimes [i (- (alength hiccup) children-idx)]
+                       (let [child (aget hiccup (+ i children-idx))]
+                         (if (hiccup-seq? child)
+                           (run! (fn [x] (.push new-children (create-vnode* x in-svg?))) child)
+                           (.push new-children (create-vnode* child in-svg?))))))
                    (when-not (identical? -1 attr-idx)
                      (let [attrs (aget hiccup 1)
                            #?@(:squint []
@@ -274,15 +279,14 @@
 
 (defn- adopt
   ;; a server-rendered node carries no vnode: rebuild one from the DOM so patch
-  ;; can diff against it. props stay empty because handlers, value and checked
-  ;; cannot travel in HTML, so the first patch sets every one of them.
+  ;; can diff against it. props stay empty, so the first patch sets all of them.
   [^js dom]
   (aset stats "adopted" (inc (aget stats "adopted")))
   (let [vnode (cond
                 (identical? 3 (.-nodeType dom))
                 #js {:tag "#text" :text (.-data dom)}
-                ;; comments and the like carry no attributes: tag alone, and no
-                ;; text, so patch always replaces them rather than reusing one
+                ;; comments carry no attributes and no text, so patch replaces
+                ;; them rather than reusing one
                 (not (identical? 1 (.-nodeType dom)))
                 #js {:tag (.-nodeName dom)}
                 :else
@@ -357,8 +361,7 @@
         (when-let [nc (aget new-vnode "children")]
           (patch old nc root))
         ;; an adopted node never went through create-node, so register its ref
-        ;; here. only when it has none: mount state lives on the ref itself, so
-        ;; replacing it on a reused node would mount again.
+        ;; here. only when it has none: mount state lives on the ref itself.
         (when-let [ref (aget new-vnode on-render-key)]
           (when-not (aget old on-render-key)
             (aset old on-render-key ref)
@@ -413,8 +416,8 @@
   ;; moves two nodes instead of cascading.
   [^js parent new-children root]
   (let [old-nodes (js/Array.from (.-childNodes parent))
-        ;; server children carry no vnode, so there are no keys to match on.
-        ;; pair them by position and let keys take over from the next render.
+        ;; server children carry no vnode and so no keys. pair them by position
+        ;; and let keys take over from the next render.
         hydrating? (and (pos? (alength old-nodes))
                         (not (aget (aget old-nodes 0) vnode-key)))
         old-by-key (js/Map.)
