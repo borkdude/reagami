@@ -2,6 +2,7 @@
 node_modules
 *.mjs
 !reagami.mjs
+!examples/ssr-live/proxy.mjs
 .shadow-cljs
 lib
 dist

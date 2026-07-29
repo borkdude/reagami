@@ -4,9 +4,8 @@
 (def viewport 480)
 (def overscan 30)
 
-;; browsers cap element height. chrome and safari allow about 33.5M px, firefox
-;; materially less, so the canvas is capped and the scroll position is scaled
-;; through it. below the cap the scale is 1 and this all reduces to scrollTop.
+;; browsers cap element height, Firefox lower than Chrome. past the cap the
+;; scroll position is scaled through it. below the cap the scale is 1.
 (def max-canvas 15000000)
 
 (defn canvas-height [total]
@@ -17,14 +16,13 @@
   [total]
   (/ (* total row-height) (canvas-height total)))
 
-;; browser state. the server renders from the state it is handed and never
-;; touches this, so its handlers are inert there.
+;; browser state. the server renders from the state it is handed and never reads
+;; this, so the handlers below are inert there.
 (defonce !state (atom nil))
 
-;; client-only view state. :want is the row range the viewport is over, set by
-;; the scroll handler. the default has to be a real value, because the server
-;; render reads it too, and it has no viewport.
-(defonce !view (atom {:want nil :editing nil}))
+;; client-only view state. :want is the row range on screen. the default must be
+;; a real value, because the server render reads it and has no viewport.
+(defonce !view (atom {:want nil :editing nil :optimistic true :inflight 0}))
 
 ;; the client installs a transport here. point it at the server to make state
 ;; changes server-authoritative, or at handle below to keep them local.
@@ -60,16 +58,13 @@
     "window" (let [from (max 0 (:from action))
                    to (min (:total state) (:to action))]
                (assoc state :from from :rows (window-rows state from to)))
-    ;; the page is state like everything else, so a direct hit renders it on the
-    ;; server and opening it in the browser is just another push
+    ;; the page is part of state, so a direct hit renders on the server
     "open" (assoc state :page "row" :row (merge (row (:id action))
                                                 (get (:edits state) (:id action))))
     "close" (dissoc (assoc state :page "table") :row)
 
-    ;; patch the rows in hand rather than rebuilding them from row. the client
-    ;; runs this optimistically and only knows the edits made since it loaded,
-    ;; so regenerating would drop every earlier one back to its generated value
-    ;; until the server's push landed.
+    ;; patches the rows in hand: the client only knows the edits made since it
+    ;; loaded, so regenerating them here would lose the rest.
     "edit" (let [id (:id action)
                  k (keyword (:field action))
                  v (:value action)]
@@ -92,36 +87,53 @@
   (parse-long (str s)))
 
 (defn- commit! [id c e]
-  ;; enter commits and re-renders, which removes the focused input, which fires
-  ;; blur, which would commit again in the middle of the first render. only the
-  ;; cell still marked as editing may commit.
+  ;; only the cell still marked as editing may commit, so the blur that follows
+  ;; Enter does not commit a second time.
   (when (= [id c] (:editing @!view))
-    (let [action {:type "edit" :id id :field c :value (.. e -target -value)}]
-      ;; optimistic: run the same reducer locally so the cell updates now, then
-      ;; send it. the server's push is authoritative and overwrites this.
-      ;; state first: clearing :editing renders the cell as text, and doing that
-      ;; before the new value lands draws the old one for a frame.
-      (swap! !state handle action)
-      (swap! !view assoc :editing nil)
+    (let [action {:type "edit" :id id :field c :value (.. e -target -value)}
+          optimistic? (:optimistic @!view)]
+      ;; optimistic: apply locally so the cell updates now, then send. the
+      ;; server's push is authoritative either way. state before :editing, or
+      ;; the cell redraws the old value.
+      (when optimistic?
+        (swap! !state handle action))
+      ;; one edit at a time: a second would be reverted by the push already on
+      ;; its way. the cell carries the typed value, because without an
+      ;; optimistic swap state still holds the old one. cleared on the push.
+      (swap! !view assoc :editing nil
+             :pending {:cell [id c] :value (:value action)})
       (dispatch! action))))
 
 (defn- cell [m]
   (let [r (:row m)
         c (:col m)
         id (:id r)
-        v (get r (keyword c))]
-    (if (= [id c] (:editing @!view))
-      ;; default-value, not value: a state push mid-edit must not overwrite what
-      ;; is being typed. on-render focuses the input when it is created.
+        v (get r (keyword c))
+        view @!view]
+    (cond
+      (= [id c] (:editing view))
+      ;; default-value so a state push mid-edit does not overwrite what is typed
       [:input {:key c
                :class (str "cell cell-" c)
                :default-value (str v)
                :on-render (fn [node phase _] (when (= :mount phase) (.focus node)) nil)
                :on-key-down (fn [e] (when (= "Enter" (.-key e)) (commit! id c e)))
                :on-blur (fn [e] (commit! id c e))}]
+
+      ;; this cell's commit is in flight, so it shows what was typed. only
+      ;; marked unconfirmed when state has not been given the value already.
+      (= [id c] (:cell (:pending view)))
+      [:span {:key c
+              :class (str "cell cell-" c (when-not (:optimistic view) " pending"))}
+       (:value (:pending view))]
+
+      :else
       [:span {:key c
               :class (str "cell cell-" c)
-              :on-click (fn [_] (swap! !view assoc :editing [id c]))}
+              ;; nothing is editable while a commit is in flight
+              :on-click (fn [_]
+                          (when-not (:pending view)
+                            (swap! !view assoc :editing [id c])))}
        v])))
 
 (defn- missing
@@ -144,19 +156,22 @@
         loaded-to (+ from (count rows))
         view @!view
         gaps (missing (:want view) from loaded-to)
-        ;; where the first visible row sits on the canvas, and which row that is.
-        ;; the server has no viewport, so both are 0 and rows land at index * h
+        ;; where the first visible row sits, and which row that is. the server
+        ;; has no viewport, so both are 0 and rows land at index * row-height
         base (or (:base view) 0)
         anchor (or (:anchor view) 0)
         top-of (fn [i] (px (+ base (* (- i anchor) row-height))))]
     [:div.app
+     ;; one bar for every request in flight, rather than an indicator per
+     ;; waiting thing. the client counts them, a server render never has any.
+     (when (pos? (or (:inflight view) 0))
+       [:div.progress])
      [:h1 "reagami ssr"]
      [:p (str (count rows) " of " total " rows are in the client. Scroll and the "
               "server sends the window you are looking at.")]
      [:p.latency
       "server delay "
-      ;; default-value, so dragging is not fought by the pushes it causes.
-      ;; on-input moves the label at once, on-change sends one action per drag.
+      ;; on-input moves the label, on-change sends one action per drag
       [:input#latency {:type "range" :min 0 :max 100
                        :default-value (str (:latency state))
                        :on-input (fn [e]
@@ -165,11 +180,15 @@
                        :on-change (fn [e]
                                     (dispatch! {:type "latency"
                                                 :ms (parse-ms (.. e -target -value))}))}]
-      [:span#latency-value (str " " (:latency state) " ms")]]
+      [:span#latency-value (str " " (:latency state) " ms")]
+      [:label.toggle
+       [:input#optimistic
+        {:type "checkbox"
+         :checked (:optimistic view)
+         :on-change (fn [e]
+                      (swap! !view assoc :optimistic (.. e -target -checked)))}]
+       "optimistic edits"]]
      [:div#scroller {:style {:height (px viewport) :overflow-y "auto"}}
-      ;; sticky, so it stays in view however far down the canvas you are
-      (when (seq gaps)
-        [:div.overlay [:div.spinner]])
       [:div#canvas {:style {:height (px (canvas-height total)) :position "relative"}}
        (for [i (range (count rows))]
          (let [r (nth rows i)]
@@ -194,8 +213,11 @@
           [:span.shimmer]])]]]))
 
 (defn- detail [state]
-  (let [r (:row state)]
+  (let [r (:row state)
+        view @!view]
     [:div.app
+     (when (pos? (or (:inflight view) 0))
+       [:div.progress])
      [:h1 "reagami ssr"]
      [:p [:a#back {:href "/"
                    :on-click (fn [e]

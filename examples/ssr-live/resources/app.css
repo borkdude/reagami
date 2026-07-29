@@ -51,23 +51,34 @@ a.open { flex: 0 0 auto; width: 3rem; font-size: 11px }
   100% { background-position: -200% 0 }
 }
 
-/* pinned so it stays in view however far down the canvas you are */
-.overlay { position: sticky; top: 0; height: 0; z-index: 2 }
-.spinner {
-  position: absolute;
-  top: 10px;
-  right: 14px;
-  width: 18px;
-  height: 18px;
-  border: 2px solid #ddd;
-  border-top-color: #555;
-  border-radius: 50%;
-  animation: spin .7s linear infinite;
+/* one bar for every request in flight, so a slow server is visible without
+   covering what is already on screen */
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #e8e8e8;
+  overflow: hidden;
+  z-index: 3;
 }
-@keyframes spin { to { transform: rotate(360deg) } }
+.progress::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: 35%;
+  background: #2b6cb0;
+  animation: slide 1.1s ease-in-out infinite;
+}
+@keyframes slide {
+  from { transform: translateX(-100%) }
+  to { transform: translateX(350%) }
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .shimmer, .spinner { animation: none }
+  .shimmer { animation: none }
+  .progress::after { animation: none; width: 100% }
 }
 
 #detail {
@@ -78,3 +89,25 @@ a.open { flex: 0 0 auto; width: 3rem; font-size: 11px }
 }
 #detail .label { color: #888; font-size: 12px }
 .field { display: contents }
+.toggle { margin-left: 1.5rem; user-select: none }
+.toggle input { margin-right: .35rem }
+.cell.pending { opacity: .45; cursor: progress }
+
+#stateview { display: flex; flex-wrap: wrap; gap: 0 2rem; align-items: baseline }
+.state-head {
+  flex: 0 0 100%;
+  margin-top: .75rem;
+  color: #888;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.state-json {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #444;
+  white-space: pre;
+  overflow-x: auto;
+  max-width: 100%;
+}

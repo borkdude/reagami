@@ -8,22 +8,29 @@
 (def debug-root (js/document.getElementById "debug"))
 (def sid (.. js/document -body -dataset -sid))
 
+;; the JSON the client last parsed into state: from the document at load, then
+;; from each push. every push carries the whole state, so this is its size.
 (defonce !bytes (atom 0))
-;; what the last push cost on the wire, reported by the brotli proxy. absent
-;; when the page is served straight from babashka on 8080.
+;; every push since the page loaded, so the stream can be judged as a whole
+(defonce !pushes (atom 0))
+(defonce !chars (atom 0))
+;; what the last push cost on the wire, reported by the proxy. absent on 8080.
 (defonce !wire (atom nil))
 (defonce !parse (atom nil))
 (defonce !asked (atom nil))
 
-;; when the first render finished, which is when the page became interactive
+;; when the first render finished
 (defonce !hydrated (atom nil))
 (defonce !last (atom {}))
 
 (defn- render-debug! []
   (r/render debug-root
-            [debug/stats (assoc @!last
-                                :wire @!wire :bytes @!bytes :parse @!parse
-                                :load (debug/first-load) :hydrated @!hydrated)]))
+            [:div
+             [debug/stats (assoc @!last
+                                 :wire @!wire :bytes @!bytes :parse @!parse
+                                 :pushes @!pushes :chars @!chars
+                                 :load (debug/first-load) :hydrated @!hydrated)]
+             [debug/state-view @app/!state]]))
 
 (defn- render-now! []
   (let [t0 (js/performance.now)
@@ -42,10 +49,8 @@
 (defonce !again (atom false))
 
 (defn render!
-  "Renders, unless a render is already running. reagami walks a snapshot of the
-  children while patching, so a render started from inside one, by a handler
-  that a DOM change happens to fire, corrupts that walk. Anything asked for
-  during a render runs after it instead."
+  "Renders, unless a render is already running. A render started from inside
+  another corrupts the patch, so it is deferred until the first one finishes."
   []
   (if @!rendering
     (reset! !again true)
@@ -57,11 +62,22 @@
           (reset! !again false)
           (render!)))))
 
+(defn- inflight! [n]
+  (swap! app/!view update :inflight (fn [c] (+ (or c 0) n))))
+
 (defn dispatch-to-server [action]
-  (js/fetch "/action"
-            #js {:method "POST"
-                 :headers #js {"Content-Type" "application/json"}
-                 :body (js/JSON.stringify #js {:sid sid :action action})}))
+  ;; counted rather than a flag, so overlapping requests keep the bar up until
+  ;; the last one answers
+  (inflight! 1)
+  (-> (js/fetch "/action"
+                #js {:method "POST"
+                     :headers #js {"Content-Type" "application/json"}
+                     :body (js/JSON.stringify #js {:sid sid :action action})})
+      ;; read the body, empty as it is: devtools logs a response nobody consumed
+      ;; as "Fetch failed loading"
+      (.then (fn [r] (.text r)))
+      (.catch (fn [e] (js/console.warn "action failed" e)))
+      (.finally (fn [] (inflight! -1)))))
 
 (defn- viewport
   "Which rows are on screen, and where to draw the first of them. Below the
@@ -104,7 +120,7 @@
 
 (defn listen! []
   (let [events (js/EventSource. (str "/state/" sid))]
-    ;; the proxy reports each push's compressed size just after the push itself
+    ;; the proxy reports each push's compressed size just after the push
     (.addEventListener events "wire"
                        (fn [e]
                          (reset! !wire (js/JSON.parse (.-data e)))
@@ -114,26 +130,28 @@
             (let [data (.-data e)
                   t0 (js/performance.now)
                   state (js/JSON.parse data)
-                  ;; microseconds: a window is a few thousand characters, which
-                  ;; parses far below what a millisecond can show
+                  ;; microseconds: a window parses well below a millisecond
                   us (js/Math.round (* 1000 (- (js/performance.now) t0)))
                   asked @!asked]
               (reset! !bytes (.-length data))
+              (swap! !pushes inc)
+              (swap! !chars + (.-length data))
               (reset! !parse us)
-              ;; jitter reorders responses, so a window requested earlier can
-              ;; land after a later one. drop anything that is not what we asked
-              ;; for last, and keep the placeholders up until that one arrives.
+              ;; any push means the server has answered, so release the edit
+              ;; lock even for a window this client no longer wants
+              (when (:pending @app/!view)
+                (swap! app/!view assoc :pending nil))
+              ;; responses can arrive out of order, so drop anything that is
+              ;; not the window asked for last
               (when (or (nil? asked) (= (:from state) (nth asked 0)))
                 (reset! app/!state state)))))
     events))
 
-;; the scroller is replaced on every render, so listen on the way up instead of
-;; binding a handler to a node reagami owns
+;; the scroller is replaced on every render, so listen during capture instead
 (defn watch-scroll! []
   (.addEventListener root "scroll" on-scroll true))
 
-;; the row a page was opened from, so the table can put it back under the
-;; cursor when you return rather than snapping to the top
+;; the row a page was opened from, so returning to the table lands on it
 (defonce !opened (atom nil))
 
 (defn- track-page! [_ _ old new]
@@ -143,7 +161,7 @@
       (and (not was) now) (reset! !opened (:id (:row new)))
       (and was (not now))
       (when-let [id @!opened]
-        ;; after the table has rendered, which the other watch is doing now
+        ;; after the table has rendered
         (js/queueMicrotask
          (fn []
            (when-let [el (js/document.getElementById "scroller")]
@@ -155,8 +173,7 @@
     (str "/row/" (:id (:row state)))
     "/"))
 
-;; the URL follows the state rather than driving it, so app.cljc needs no
-;; browser history API and a direct hit still renders on the server
+;; the URL follows the state, so app.cljc needs no browser history API
 (defn- sync-url! [_ _ old new]
   (let [to (path-for new)]
     (when (not= (path-for old) to)
@@ -169,7 +186,9 @@
       (app/dispatch! {:type "close"}))))
 
 (reset! app/!dispatch dispatch-to-server)
-(reset! app/!state (js/JSON.parse (.-textContent (js/document.getElementById "state"))))
+(let [json (.-textContent (js/document.getElementById "state"))]
+  (reset! !bytes (.-length json))
+  (reset! app/!state (js/JSON.parse json)))
 (add-watch app/!state ::render (fn [_ _ _ _] (render!)))
 (add-watch app/!view ::render (fn [_ _ _ _] (render!)))
 
@@ -184,6 +203,6 @@
 (watch-scroll!)
 (listen!)
 
-;; the squint vite plugin hot-swaps changed modules and calls this, so an edit
-;; to a view repaints from the atoms rather than reloading the page
+;; the Squint Vite plugin calls this after a hot swap, so an edit repaints from
+;; the atoms rather than reloading
 (defn ^:dev/after-load re-render [] (render!))
