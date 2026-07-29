@@ -199,7 +199,12 @@
     {:status 204}))
 
 (defn- html [body]
-  {:status 200 :headers {"Content-Type" "text/html"} :body body})
+  ;; never cache the page: it names the hashed client and carries a session id,
+  ;; so a stale copy points at an asset that is gone and shares its session
+  {:status 200
+   :headers {"Content-Type" "text/html"
+             "Cache-Control" "no-store"}
+   :body body})
 
 (defn handler [dev? req]
   (let [path (:uri req)
