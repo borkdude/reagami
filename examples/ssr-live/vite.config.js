@@ -10,6 +10,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: { input: 'out/client.mjs', output: { entryFileNames: 'client.js' } }
+    // the hash is the cache buster: server.clj looks the name up and serves it
+    // immutable
+    rollupOptions: { input: 'out/client.mjs', output: { entryFileNames: 'client-[hash].js' } }
   }
 })

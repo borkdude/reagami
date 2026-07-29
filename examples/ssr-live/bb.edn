@@ -20,13 +20,13 @@
        ;; no squint watch: the vite plugin compiles cljs in process
        :task (do (p/process ["npx" "vite"]
                             {:inherit true :shutdown p/destroy-tree})
-                 (p/process ["node" "proxy.js"]
+                 (p/process ["node" "proxy.mjs"]
                             {:inherit true :shutdown p/destroy-tree})
                  (server/start! {:dev? true})
                  (deref (promise)))}
 
   proxy {:doc "Brotli proxy in front of the server, on 8081"
-         :task (shell "node" "proxy.js")}
+         :task (shell "node" "proxy.mjs")}
 
   serve {:doc "Serve the production build"
          :depends [build]
