@@ -132,6 +132,11 @@
           (fn [_]
             (when (= 2 (.-readyState events))
               (js/setTimeout listen! 2000))))
+    ;; a reconnect voids whatever request was in flight. keeping :asked would
+    ;; drop the fresh session's first push and then dedup away the refetch of
+    ;; the same range, which wedges the tab.
+    (set! (.-onopen events)
+          (fn [_] (reset! !asked nil)))
     ;; the proxy reports each push's compressed size just after the push
     (.addEventListener events "wire"
                        (fn [e]
