@@ -115,6 +115,9 @@ http.createServer((req, res) => {
   })
   req.on('error', (e) => console.error(`client ${req.method} ${req.url}: ${e.message}`))
   res.on('error', (e) => console.error(`response ${req.method} ${req.url}: ${e.message}`))
+  // a client that goes away must take its upstream along, or the server keeps
+  // the stream open forever and pushes pile up in dead encoders
+  res.on('close', () => up.destroy())
   req.pipe(up)
 }).listen(PORT, HOST, () => {
   console.log(`Brotli proxy  http://localhost:${PORT}  ->  ${UPSTREAM}  (quality ${QUALITY})`)
