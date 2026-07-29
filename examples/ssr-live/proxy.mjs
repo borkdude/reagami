@@ -68,22 +68,33 @@ http.createServer((req, res) => {
       // state pushes only, so the wire events this proxy injects do not count
       // against the app's own totals
       let brTotal = 0
+      // a push bigger than one TCP chunk arrives in pieces. writing the wire
+      // event after a piece would splice it into the middle of the real event,
+      // so buffer until a complete blank-line-terminated event is in hand.
+      let buf = ''
       res.writeHead(ur.statusCode, { ...out, 'content-encoding': 'br' })
       enc.on('data', (c) => { comp += c.length; res.write(c) })
+      ur.setEncoding('utf8')
       ur.on('data', (chunk) => {
-        raw += chunk.length
-        const before = comp
-        enc.write(chunk)
-        // flush so the event reaches the browser now, keeping the window intact
-        enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {
-          event++
-          const cost = comp - before
-          brTotal += cost
-          log(`event ${String(event).padStart(3)}  raw ${String(chunk.length).padStart(7)}  br ${String(cost).padStart(7)}  (stream ${raw} -> ${brTotal})`)
-          // only this side knows what the push cost, so report it to the page
-          enc.write(Buffer.from(`event: wire\ndata: {"raw":${chunk.length},"br":${cost},"rawTotal":${raw},"brTotal":${brTotal}}\n\n`))
-          enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {})
-        })
+        buf += chunk
+        let i
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const one = buf.slice(0, i + 2)
+          buf = buf.slice(i + 2)
+          raw += one.length
+          const before = comp
+          enc.write(one)
+          // flush so the event reaches the browser now, keeping the window intact
+          enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {
+            event++
+            const cost = comp - before
+            brTotal += cost
+            log(`event ${String(event).padStart(3)}  raw ${String(one.length).padStart(7)}  br ${String(cost).padStart(7)}  (stream ${raw} -> ${brTotal})`)
+            // only this side knows what the push cost, so report it to the page
+            enc.write(`event: wire\ndata: {"raw":${one.length},"br":${cost},"rawTotal":${raw},"brTotal":${brTotal}}\n\n`)
+            enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {})
+          })
+        }
       })
       ur.on('end', () => enc.end(() => res.end()))
       return
