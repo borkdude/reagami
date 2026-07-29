@@ -35,7 +35,7 @@
   written back. Sessions never carry :edits themselves. :latency is server state
   the client can see and set, so it rides along on every push."
   [state action]
-  (when (= "latency" (:type action))
+  (when (and (= "latency" (:type action)) (number? (:ms action)))
     (reset! !latency (min 100 (max 0 (:ms action)))))
   (let [next (app/handle (assoc state :edits @db) action)]
     (reset! db (:edits next))
@@ -194,7 +194,14 @@
 (defn- action [req]
   (slow!)
   (let [{:keys [sid action]} (json/parse-string (slurp (:body req)) true)
-        session (get (swap! sessions update-in [sid :state] apply-action action) sid)]
+        ;; a tab that was open across a restart posts a sid this process has
+        ;; never seen. seed a session rather than applying the action to nil.
+        session (get (swap! sessions update sid
+                            (fn [s]
+                              (update (or s {:state (fresh-state)
+                                             :created (System/currentTimeMillis)})
+                                      :state apply-action action)))
+                     sid)]
     (push! session)
     ;; edits are shared data, so the other tabs see them without a reload
     (when (= "edit" (:type action))

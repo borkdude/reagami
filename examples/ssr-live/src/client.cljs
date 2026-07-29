@@ -120,6 +120,12 @@
 
 (defn listen! []
   (let [events (js/EventSource. (str "/state/" sid))]
+    ;; EventSource retries a dropped connection but gives up for good on an
+    ;; HTTP error, which is what nginx answers while the server restarts
+    (set! (.-onerror events)
+          (fn [_]
+            (when (= 2 (.-readyState events))
+              (js/setTimeout listen! 2000))))
     ;; the proxy reports each push's compressed size just after the push
     (.addEventListener events "wire"
                        (fn [e]
