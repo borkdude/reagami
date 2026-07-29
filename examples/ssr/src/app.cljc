@@ -1,7 +1,6 @@
 (ns app)
 
-;; This namespace runs twice: on babashka to produce the HTML, and in the
-;; browser to take that HTML over. Nothing in it is specific to either.
+;; Loaded twice: on Babashka to produce the HTML, and in the browser to adopt it.
 
 (defonce !state (atom {:count 0}))
 

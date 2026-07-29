@@ -7,8 +7,8 @@
 
 (defn render! []
   (let [result (r/render root [app/app @app/!state])]
-    ;; :created is how many DOM nodes reagami had to build. zero means it
-    ;; adopted every node the server sent instead of replacing them.
+    ;; :created is how many DOM nodes Reagami had to build. zero means it
+    ;; adopted every node the server rendered into #app.
     (js/console.log (str "created " (:created result)
                          ", adopted " (:adopted result)))))
 
@@ -17,5 +17,5 @@
 
 (render!)
 
-;; an edit to app.cljc hot-swaps and repaints, keeping the atom's state
+;; the Squint Vite plugin calls this after a hot swap, keeping the atom's state
 (defn ^:dev/after-load re-render [] (render!))

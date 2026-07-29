@@ -17,9 +17,8 @@
           ;; the browser needs the same state to render the same hiccup
           [:script {:type "application/json" :id "state"
                     :innerHTML (json/generate-string state)}]
-          ;; vite injects these into its own index.html. this page comes from
-          ;; here, so it emits them: vite's client, the squint plugin's REPL
-          ;; listener, and the compiled entry namespace.
+          ;; Vite injects these into its own index.html. this page is rendered
+          ;; here, so it emits them itself.
           [:script {:type "module" :src "http://localhost:5173/@vite/client"}]
           [:script {:type "module" :src "http://localhost:5173/@id/__x00__virtual:squint-repl-client"}]
           [:script {:type "module" :src "http://localhost:5173/out/client.mjs"}]]])))
