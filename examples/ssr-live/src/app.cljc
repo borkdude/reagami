@@ -22,7 +22,10 @@
 
 ;; client-only view state. :want is the row range on screen. the default must be
 ;; a real value, because the server render reads it and has no viewport.
-(defonce !view (atom {:want nil :editing nil :optimistic true :inflight 0}))
+;; :overscan is the margin fetched around the viewport, so it sets how many rows
+;; the client holds.
+(defonce !view (atom {:want nil :editing nil :optimistic true :inflight 0
+                      :overscan overscan}))
 
 ;; the client installs a transport here. point it at the server to make state
 ;; changes server-authoritative, or at handle below to keep them local.
@@ -181,6 +184,22 @@
                                     (dispatch! {:type "latency"
                                                 :ms (parse-ms (.. e -target -value))}))}]
       [:span#latency-value (str " " (:latency state) " ms")]
+      [:span.cache-ctl
+       " | client cache "
+       ;; a bigger margin means bigger pushes: the panel below shows what that
+       ;; does to the wire, the parse and the render
+       [:input#cache {:type "range" :min 30 :max 1000 :step 10
+                      :default-value (str (:overscan view))
+                      :on-change
+                      (fn [e]
+                        (let [o (parse-ms (.. e -target -value))
+                              a (or (:anchor view) 0)]
+                          (swap! !view assoc :overscan o)
+                          (dispatch! {:type "window"
+                                      :from (max 0 (- a o))
+                                      :to (min total (+ a (quot viewport row-height) o))})))}]
+       [:span#cache-value
+        (str " ~" (+ (quot viewport row-height) (* 2 (:overscan view))) " rows")]]
       [:label.toggle
        [:input#optimistic
         {:type "checkbox"

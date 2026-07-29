@@ -111,3 +111,4 @@ a.open { flex: 0 0 auto; width: 3rem; font-size: 11px }
   overflow-x: auto;
   max-width: 100%;
 }
+.note { color: #888; font-size: 12px; margin: .1rem 0 .4rem }

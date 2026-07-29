@@ -20,6 +20,11 @@ does not hold yet draw as placeholders, and a bar across the top of the page
 marks every request still in flight. Put the slider back to 0 and both stop
 appearing.
 
+**Drag the client cache slider.** It widens the window the client asks for
+around the viewport, from the default 80 rows up to about 2000. A 1000 row push
+is 145 kB of JSON and about 12 kB on the wire, and the panel shows what the
+parse and the render cost at that size.
+
 **Edit a cell.** Click it, type, press Enter. The change shows immediately,
 because the browser ran the same reducer the server is about to run. Refresh and
 it is still there. Nothing else can be edited until the server answers, so a
@@ -39,15 +44,14 @@ you left.
 **Watch the panel under the table.** It renders three lines:
 
 ```text
-received 12.2 kB over the wire | document 3.9 kB, assets 4.5 kB, stream 3.8 kB over 39 pushes (113x)
+stream 39 pushes carrying 425.9 kB of state, 3.8 kB on the wire (113x smaller)
 rows 73..153 of 1000000 | state 11.2 kB uncompressed | parse 100 us | created 0 | render 1 ms
 load: response 39 ms, painted 76 ms, interactive 65 ms
 ```
 
-The first line is everything the page has received since it loaded, split into
-the document, the JavaScript, and the state stream. Scroll for a while and watch
-the ratio climb well past what any single push achieves, because each window is
-mostly the one before it. The second line is the state the client is holding and
+The first line is the state stream since the page loaded. Scroll for a while and
+watch the ratio climb well past what any single push achieves, because each
+window is mostly the one before it. The second line is the state the client is holding and
 the render it caused. Every push carries the whole state, so that figure is both
 the JSON last parsed and the size of a push before compression, around 140 bytes
 per row. `created 0` means Reagami adopted the nodes the server rendered into

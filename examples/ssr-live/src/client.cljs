@@ -94,9 +94,15 @@
      :base (- top (mod virtual app/row-height))
      :anchor first-row}))
 
+(defn- overscan
+  "The cache slider sets how far around the viewport to fetch."
+  []
+  (or (:overscan @app/!view) app/overscan))
+
 (defn- with-margin [[a b]]
-  (let [total (:total @app/!state)]
-    [(max 0 (- a app/overscan)) (min total (+ b app/overscan))]))
+  (let [total (:total @app/!state)
+        o (overscan)]
+    [(max 0 (- a o)) (min total (+ b o))]))
 
 (defn- needs-fetch?
   "True once the viewport comes within half the margin of an edge of what the
@@ -105,7 +111,7 @@
   (let [state @app/!state
         have-from (:from state)
         have-to (+ have-from (count (:rows state)))
-        m (quot app/overscan 2)]
+        m (quot (overscan) 2)]
     (or (and (pos? have-from) (< (- a m) have-from))
         (and (< have-to (:total state)) (> (+ b m) have-to)))))
 

@@ -8,17 +8,6 @@
     (str n " B")
     (str (/ (js/Math.round (* 10 (/ n 1024))) 10) " kB")))
 
-(defn- assets
-  "Wire bytes for every subresource the page pulled. transferSize is already the
-  compressed size. The event stream is left out, because it is counted from the
-  proxy's own numbers instead."
-  []
-  (reduce (fn [n e]
-            (if (.includes (.-name e) "/state/")
-              n
-              (+ n (or (.-transferSize e) 0))))
-          0
-          (js/performance.getEntriesByType "resource")))
 
 (defn first-load
   "What the browser recorded for the document. transferSize is what came over
@@ -53,19 +42,17 @@
   (let [wire (:wire info)
         load (:load info)
         ;; without the proxy the stream is plain text, so its chars are its bytes
-        stream (or (:brTotal wire) (:chars info) 0)
-        doc (or (:wire load) 0)
-        asset (assets)]
+        stream (or (:brTotal wire) (:chars info) 0)]
     [:div#debugbox
      [:pre#wire
-      (str "received " (bytes-str (+ doc asset stream)) " over the wire"
-           " | document " (bytes-str doc)
-           ", assets " (bytes-str asset)
-           ", stream " (bytes-str stream)
-           " over " (:pushes info) " pushes"
+      (str "stream " (:pushes info) " pushes carrying " (bytes-str (:chars info))
+           " of state, " (bytes-str stream) " on the wire"
            (if wire
-             (str " (" (js/Math.round (/ (:rawTotal wire) (max 1 (:brTotal wire)))) "x)")
-             " uncompressed"))]
+             (str " (" (js/Math.round (/ (:rawTotal wire) (max 1 (:brTotal wire)))) "x smaller)")
+             " (uncompressed)"))]
+     [:div.note
+      (str "every push is the whole app state. Brotli spends bytes only on what "
+           "differs from the pushes before it.")]
      [:pre#stats
       (str "rows " (:from info) ".." (+ (:from info) (:rows info))
            " of " (:total info)
