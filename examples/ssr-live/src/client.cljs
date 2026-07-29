@@ -142,8 +142,10 @@
               (when (:pending @app/!view)
                 (swap! app/!view assoc :pending nil))
               ;; responses can arrive out of order, so drop anything that is
-              ;; not the window asked for last
-              (when (or (nil? asked) (= (:from state) (nth asked 0)))
+              ;; not the window asked for last. a push without rows is not a
+              ;; state this app can render, so it never replaces the one we hold.
+              (when (and (:rows state)
+                         (or (nil? asked) (= (:from state) (nth asked 0))))
                 (reset! app/!state state)))))
     events))
 

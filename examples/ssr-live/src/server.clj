@@ -97,12 +97,15 @@
 ;; the whole page goes through reagami.ssr. :innerHTML is the escape hatch for
 ;; content that must not be escaped: script and style are raw text to the HTML
 ;; parser, so entities inside them are never decoded.
+(defn- fresh-state []
+  (let [to (+ (quot app/viewport app/row-height) app/overscan)]
+    (apply-action initial-state {:type "window" :from 0 :to to})))
+
 (defn page
   ([dev?] (page dev? nil))
   ([dev? open-id]
    (let [sid (str (random-uuid))
-        to (+ (quot app/viewport app/row-height) app/overscan)
-        state (apply-action initial-state {:type "window" :from 0 :to to})
+        state (fresh-state)
         ;; a direct hit on /row/42 is rendered by the server, same components
         state (if open-id (apply-action state {:type "open" :id open-id}) state)]
     (swap! sessions assoc sid {:state state :created (System/currentTimeMillis)})
@@ -142,13 +145,29 @@
 (defn- state-stream [req sid]
   (http/as-channel req
     {:on-open (fn [ch]
-                (swap! sessions assoc-in [sid :channel] ch)
-                (http/send! ch {:status 200
-                                :headers {"Content-Type" "text/event-stream"
-                                          "Cache-Control" "no-cache"}
-                                :body (sse (get-in @sessions [sid :state]))}
-                            false))
-     :on-close (fn [_ _] (swap! sessions dissoc sid))}))
+                ;; EventSource reconnects with the same sid after any drop, and
+                ;; the session may have been reclaimed by then. Seed a new one
+                ;; rather than streaming null, which would wipe the client.
+                (let [session (-> (swap! sessions update sid
+                                         (fn [s]
+                                           (-> (or s {:state (fresh-state)
+                                                      :created (System/currentTimeMillis)})
+                                               (assoc :channel ch))))
+                                  (get sid))]
+                  (http/send! ch {:status 200
+                                  :headers {"Content-Type" "text/event-stream"
+                                            "Cache-Control" "no-cache"}
+                                  :body (sse (:state session))}
+                              false)))
+     ;; keep the state so a reconnect finds it. the sweeper reclaims it once the
+     ;; tab stays gone.
+     :on-close (fn [_ _]
+                 (swap! sessions
+                        (fn [m]
+                          (if (contains? m sid)
+                            (update m sid #(-> (dissoc % :channel)
+                                               (assoc :created (System/currentTimeMillis))))
+                            m))))}))
 
 (defn- apply-shared
   "Runs another tab's action against this session. The edit is already in db, so
