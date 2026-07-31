@@ -2,7 +2,7 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
-## Unreleased
+## v0.2.38 (2026-07-31)
 
 - Add `reagami.ssr` to render hiccup to an HTML string on the JVM, Babashka, Squint and CLJS. See [Server-side rendering](https://github.com/borkdude/reagami#server-side-rendering).
 - `render` hydrates a server-rendered page. It adopts the existing DOM instead of clearing the root.
