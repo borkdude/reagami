@@ -89,6 +89,11 @@
 (def ^:private root-key #?(:squint ::root
                            :cljs "reagami.core/root"))
 
+;; set on the root for the hydration render only, so patch-keyed knows to pair
+;; server children by position
+(def ^:private hydrating-key #?(:squint ::hydrating
+                                :cljs "reagami.core/hydrating"))
+
 (def ^:private is-run-key #?(:squint ::is-run
                              :cljs "reagami.core/is-run"))
 
@@ -113,11 +118,45 @@
                        m)
                  obj))]))
 
+(def ^:private comment-tag "#comment")
+
+;; a seq child builds to an array of vnodes, spliced flat into the parent
+(defn- push-vnode!
+  [^js arr x]
+  (if ^boolean (js/Array.isArray x)
+    (let [n (alength x)]
+      (dotimes [i n] (.push arr (aget x i))))
+    (.push arr x)))
+
+(declare create-vnode*)
+
+;; the select benchmark moved up to 10% with the placement of this code, without
+;; a semantic difference. do not chase that: see the ssr archive in the
+;; benchmark repo before moving anything for speed.
+(defn- splice-vnodes
+  [hiccup in-svg?]
+  (let [arr #js []]
+    (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) hiccup)
+    arr))
+
+(defn- comment-vnode
+  ;; a nil child renders nothing but holds its slot, so toggling a conditional
+  ;; swaps one node instead of shifting its siblings. a comment is the marker
+  ;; because, unlike an empty text node, it survives server rendering. empty
+  ;; props and attrs let the regular patch branch handle it.
+  []
+  (let [vnode #js {:tag comment-tag}]
+    (aset vnode props-key #js {})
+    (aset vnode attrs-key #js {})
+    vnode))
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
-    (or (nil? hiccup)
-        (string? hiccup)
+    (nil? hiccup)
+    (comment-vnode)
+
+    (or (string? hiccup)
         (number? hiccup)
         (boolean? hiccup))
     #js {:tag "#text"
@@ -154,15 +193,15 @@
                    (dotimes [i (- (alength hiccup) children-idx)]
                      (let [child (aget hiccup (+ i children-idx))]
                        (if (hiccup-seq? child)
-                         (run! (fn [x] (.push new-children (create-vnode* x in-svg?))) child)
-                         (.push new-children (create-vnode* child in-svg?)))))
+                         (run! (fn [x] (push-vnode! new-children (create-vnode* x in-svg?))) child)
+                         (push-vnode! new-children (create-vnode* child in-svg?)))))
                    (when-not (identical? -1 attr-idx)
                      (let [attrs (aget hiccup 1)
                            #?@(:squint []
                                :cljs [attrs (->attrs attrs)])
                            entry-names (js/Object.getOwnPropertyNames attrs)
                            entry-count (alength entry-names)]
-                       ;; fix for input type range where min / max must be in place before value / default-value
+                     ;; fix for input type range where min / max must be in place before value / default-value
                        (when (or (js-in "max" attrs) (js-in "min" attrs))
                          (move-to-back attrs "default-value")
                          (move-to-back attrs "value"))
@@ -189,14 +228,18 @@
                                             (fn [s e]
                                               (str s (aget e 0) ": " (aget e 1) ";"))
                                             "" (js/Object.entries v))]
-                                 ;; set/get attribute is faster to set, get
-                                 ;; and compare (in patch)than setting
-                                 ;; individual props and using cssText
+                               ;; set/get attribute is faster to set, get
+                               ;; and compare (in patch)than setting
+                               ;; individual props and using cssText
                                  (aset modified-attrs "style" style))
                                (property? k) (aset modified-props k v)
                                :else (when v
-                                       ;; not adding means it will be removed on new render
-                                       (aset modified-attrs k v))))))))
+                                     ;; not adding means it will be removed on new render
+                                       (aset modified-attrs k v))))))
+                     ;; innerHTML owns the subtree: drop the children, so patch
+                     ;; never touches what it sets
+                     (when (some? (aget modified-props "innerHTML"))
+                       (aset node "children" nil))))
                    (when-let [tag-class (aget parsed "class")]
                      (aset modified-attrs "class"
                            (if-let [c (aget modified-attrs "class")]
@@ -206,6 +249,8 @@
                      (aset modified-attrs "id" id))
                    node))]
       node)
+    ;; a top level seq splices, so a component can return one
+    (hiccup-seq? hiccup) (splice-vnodes hiccup in-svg?)
     :else
     (throw (do
              (js/console.error "Invalid hiccup:" hiccup)
@@ -220,36 +265,41 @@
    :cljs (defn update! [^js js-map k f & args]
            (.set js-map k (apply f (.get js-map k) args))))
 
+(def ^:private stats #js {:created 0 :adopted 0})
+
 (defn create-node [vnode root]
+  (aset stats "created" (inc (aget stats "created")))
   (let [node (if-let [text (aget vnode "text")]
                (js/document.createTextNode text)
-               (let [tag (aget vnode "tag")
-                     node (if (aget vnode "svg")
-                            (js/document.createElementNS svg-ns tag)
-                            (js/document.createElement tag))
-                     props (aget vnode props-key)
-                     attrs (aget vnode attrs-key)
-                     attr-names (js/Object.getOwnPropertyNames attrs)
-                     prop-names (js/Object.getOwnPropertyNames props)]
+               (let [tag (aget vnode "tag")]
+                 (if (identical? comment-tag tag)
+                   (js/document.createComment "")
+                   (let [node (if (aget vnode "svg")
+                                (js/document.createElementNS svg-ns tag)
+                                (js/document.createElement tag))
+                         props (aget vnode props-key)
+                         attrs (aget vnode attrs-key)
+                         attr-names (js/Object.getOwnPropertyNames attrs)
+                         prop-names (js/Object.getOwnPropertyNames props)]
                  ;; always make sure to first set attrs, then props because value should go last
-                 (dotimes [i (alength attr-names)]
-                   (let [n (aget attr-names i)
-                         new-attr (aget attrs n)]
-                     (.setAttribute node n new-attr)))
-                 (dotimes [i (alength prop-names)]
-                   (let [n (aget prop-names i)
-                         new-prop (aget props n)
-                         new-prop (if (undefined? new-prop) nil new-prop)]
-                     (aset node n new-prop)))
-                 (when-let [children (aget vnode "children")]
-                   (let [len (alength children)]
-                     (dotimes [i len]
-                       (let [child (aget children i)]
-                         (.appendChild node (create-node child root))))))
-                 (when-let [ref (aget vnode on-render-key)]
-                   (aset node on-render-key ref)
-                   (update! ref-registry root (fnil conj #{}) node))
-                 node))]
+                     (dotimes [i (alength attr-names)]
+                       (let [n (aget attr-names i)
+                             new-attr (aget attrs n)]
+                         (.setAttribute node n new-attr)))
+                     (dotimes [i (alength prop-names)]
+                       (let [n (aget prop-names i)
+                             new-prop (aget props n)
+                             new-prop (if (undefined? new-prop) nil new-prop)]
+                         (aset node n new-prop)))
+                     (when-let [children (aget vnode "children")]
+                       (let [len (alength children)]
+                         (dotimes [i len]
+                           (let [child (aget children i)]
+                             (.appendChild node (create-node child root))))))
+                     (when-let [ref (aget vnode on-render-key)]
+                       (aset node on-render-key ref)
+                       (update! ref-registry root (fnil conj #{}) node))
+                     node))))]
     (aset node vnode-key vnode)
     node))
 
@@ -259,12 +309,62 @@
   (when-let [vn (aget dom vnode-key)]
     (aget vn key-key)))
 
+(defn- adopt
+  ;; a server-rendered node carries no vnode: rebuild one from the DOM so the
+  ;; first patch can diff against it. props stay empty, so that patch sets all
+  ;; of them. field order matches create-vnode*, so both sides get the same
+  ;; hidden class and patching stays monomorphic.
+  [^js dom]
+  (aset stats "adopted" (inc (aget stats "adopted")))
+  (let [vnode (cond
+                (identical? 3 (.-nodeType dom))
+                #js {:tag "#text" :text (.-data dom)}
+                (not (identical? 1 (.-nodeType dom)))
+                (let [vnode #js {:tag (.-nodeName dom)}]
+                  (aset vnode props-key #js {})
+                  (aset vnode attrs-key #js {})
+                  vnode)
+                :else
+                (let [attrs #js {}
+                      dom-attrs (.-attributes dom)
+                      ;; patch only reads the length of :children
+                      vnode #js {:svg (identical? svg-ns (.-namespaceURI dom))
+                                 :tag (.-tagName dom)
+                                 :children (js/Array. (alength (.-childNodes dom)))}]
+                  (dotimes [i (alength dom-attrs)]
+                    (let [a (aget dom-attrs i)]
+                      (aset attrs (.-name a) (.-value a))))
+                  (aset vnode props-key #js {})
+                  (aset vnode attrs-key attrs)
+                  vnode))]
+    (aset dom vnode-key vnode)
+    vnode))
+
+(defn- adopt-tree
+  ;; hydration happens once, up front: adopt every server-rendered node before
+  ;; the first patch, so patching itself never has to consider hydration.
+  [^js parent]
+  (let [children (.-childNodes parent)]
+    (dotimes [i (alength children)]
+      (let [^js c (aget children i)]
+        (adopt c)
+        (when (identical? 1 (.-nodeType c))
+          (adopt-tree c))))))
+
 (defn- has-key? [new-children]
   (let [n (alength new-children)]
     (loop [i 0]
       (if (< i n)
         (if (aget (aget new-children i) key-key) true (recur (inc i)))
         false))))
+
+(defn- register-late-ref
+  ;; an adopted node never went through create-node, so its ref registers on
+  ;; the first patch. only when it has none: mount state lives on the ref.
+  [^js old ref root]
+  (when-not (aget old on-render-key)
+    (aset old on-render-key ref)
+    (update! ref-registry root (fnil conj #{}) old)))
 
 (defn- patch-node
   ;; patch `old` in place toward `new-vnode` when compatible, else build a fresh
@@ -308,6 +408,8 @@
               (aset old n new-prop))))
         (when-let [nc (aget new-vnode "children")]
           (patch old nc root))
+        (when-let [ref (aget new-vnode on-render-key)]
+          (register-late-ref old ref root))
         (aset old vnode-key new-vnode)
         old)
 
@@ -381,6 +483,13 @@
       (let [^js n (aget old-nodes oi)]
         (.set old-index n oi)
         (if-let [k (node-key n)] (.set old-by-key k n) (.push unkeyed n))))
+    ;; server children carry no keys, so the loop above left them all unkeyed.
+    ;; pair new keyed children with them by position, then keys take over from
+    ;; the next render.
+    (when (aget root hydrating-key)
+      (dotimes [i (js/Math.min cnt (alength old-nodes))]
+        (when-let [k (aget (aget new-children i) key-key)]
+          (.set old-by-key k (aget old-nodes i)))))
     ;; reuse each new child's old node by key, else next unkeyed, else create
     (dotimes [i cnt]
       (let [^js v (aget new-children i)
@@ -451,13 +560,23 @@
                 (.removeChild parent (aget old-children i))
                 (recur (dec i))))))))))
 
-(defn render [root hiccup]
-  (when-not (aget root root-key)
-    ;; clear all root children so we can rely on every child having a vnode
-    (set! root -textContent "")
-    (aset root root-key true))
-  (let [new-node (create-vnode hiccup)]
-    (patch root #js [new-node] root))
+(defn render
+  "Renders hiccup into root. Adopts server-rendered children already in root.
+  Returns a map of :created and :adopted node counts."
+  [root hiccup]
+  (aset root root-key true)
+  (aset stats "created" 0)
+  (aset stats "adopted" 0)
+  (let [^js fc (.-firstChild root)]
+    (when (and fc (not (aget fc vnode-key)))
+      (adopt-tree root)
+      (aset root hydrating-key true)))
+  (let [new-node (create-vnode hiccup)
+        new-children (if ^boolean (js/Array.isArray new-node)
+                       new-node
+                       #js [new-node])]
+    (patch root new-children root))
+  (aset root hydrating-key false)
   (run! (fn [node]
           (let [ref (aget node on-render-key)]
             (if (.-isConnected node)
@@ -470,4 +589,6 @@
               (do (ref node :unmount (aget ref data-key))
                   (js-delete ref data-key)
                   (update! ref-registry root disj node)))))
-        (.get ref-registry root)))
+        (.get ref-registry root))
+  {:created (aget stats "created")
+   :adopted (aget stats "adopted")})

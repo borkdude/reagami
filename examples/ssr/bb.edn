@@ -1,0 +1,13 @@
+{:paths ["src" "../../src"]
+ :tasks
+ {:requires ([babashka.process :as p])
+
+  install {:doc "Install node deps"
+           :task (shell "pnpm install")}
+
+  dev {:doc "Vite (compiles cljs, browser repl) and the ssr server"
+       :depends [install]
+       :requires ([server])
+       :task (do (p/process ["npx" "vite"] {:inherit true :shutdown p/destroy-tree})
+                 (server/-main)
+                 (deref (promise)))}}}

@@ -52,6 +52,7 @@ Reagami supports:
 - `:style` maps: `{:style {:background-color :green}}`
 - `:on-render` hook. See docs [here](https://github.com/borkdude/reagami?tab=readme-ov-file#on-render).
 - Keyed children for better diffing via `:key`. See docs [here](https://github.com/borkdude/reagami?tab=readme-ov-file#keyed-children).
+- Server-side rendering with hydration via `reagami.ssr`, on the JVM, Babashka, Squint, and CLJS. See [Server-side rendering](#server-side-rendering).
 
 Reagami does NOT support:
 
@@ -104,6 +105,74 @@ You can add a `:key` property to your elements to identify nodes. This will resu
  (for [{:keys [id label]} items]
    [:li {:key id} label])]
 ```
+
+## Server-side rendering
+
+`reagami.ssr` renders hiccup to an HTML string. It runs on the JVM, on
+Babashka, on Squint, and on ClojureScript. The namespace has one public
+function: `render`.
+
+``` clojure
+(require '[reagami.ssr :as ssr])
+
+(ssr/render [:div#app [:p "Hello"]])
+;;=> "<div id=\"app\"><p>Hello</p></div>"
+```
+
+The output matches the DOM that `reagami.core/render` builds from the same
+hiccup. Because the two match, the client hydrates the page. It adopts the
+server nodes instead of building new ones. The client attaches the event
+handlers during this first render.
+
+To use it:
+
+1. On the server, render the page with `ssr/render`. Put the result in the
+   container element.
+2. On the client, call `reagami.core/render` with that container and the same
+   hiccup.
+
+The [ssr example](examples/ssr) shows a small server on Babashka with
+hydration on the client. The [ssr-live example](examples/ssr-live) adds server
+state, event streams, and edits. A live instance of that example runs at
+https://reagami-ssr-live.michielborkent.nl.
+
+The output follows the hydration contract:
+
+- The output contains no `:key` attributes and no event handlers. The client
+  adds the handlers.
+- A nil child becomes the empty comment `<!---->`. This comment keeps the
+  position of the child.
+- Numbers get the JavaScript format. The double `1.0` becomes the string `"1"`.
+- The value of `:innerHTML` goes into the output without a change.
+
+CAUTION: Do not put user input in tag names, in attribute names, or in
+`:innerHTML`. Reagami escapes text and attribute values only.
+
+<!--
+### SSR benchmarks
+
+A page with a table of 80 rows and 10 columns renders in the times below.
+Each library received the same hiccup data at run time. Each library produced
+the same 35 KB of HTML. The numbers come from criterium on an M-series Mac.
+
+| Library | JVM time |
+|---|---|
+| [chassis](https://github.com/onionpancakes/chassis) | 0.165 ms |
+| reagami.ssr | 0.193 ms |
+| [hiccup2](https://github.com/weavejester/hiccup) | 0.324 ms |
+| [replicant.string](https://github.com/cjohansen/replicant) | 0.612 ms |
+
+Some context for these numbers:
+
+- hiccup2 and chassis also have compile-time macros. When the hiccup is a
+  literal vector in the source code, the macro converts its constant parts to
+  strings at compile time. In that style, hiccup2 renders this page in
+  0.076 ms. The table above measures the other case: hiccup that exists as
+  data at run time. Reagami views return hiccup as data, because the client
+  renders the same views.
+- chassis runs only on the JVM.
+- On Babashka, `reagami.ssr` renders the same page in 2.5 ms.
+-->
 
 ## Patch algorithm
 

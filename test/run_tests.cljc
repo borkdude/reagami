@@ -6,6 +6,7 @@
    [install-jsdom]
    [keyed-test]
    [on-render-test]
+   [ssr-test]
    [svg-test]
    [unkeyed-test]))
 
@@ -25,6 +26,7 @@
                'event-listener-test
                'keyed-test
                'on-render-test
+               'ssr-test
                'svg-test
                'unkeyed-test))
 

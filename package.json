@@ -21,7 +21,8 @@
   },
   "files": [
     "reagami.mjs",
-    "lib/reagami/core.mjs"
+    "lib/reagami/core.mjs",
+    "lib/reagami/ssr.mjs"
   ],
   "scripts": {
     "build": "pnpm squint compile --paths src",

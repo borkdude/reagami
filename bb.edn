@@ -1,9 +1,14 @@
-{:tasks {:requires ([babashka.fs :as fs]
+{:paths ["src" "test"]
+ :tasks {:requires ([babashka.fs :as fs]
                     [clojure.string :as str])
          install {:task (shell "pnpm install")}
          dev {:depends [install]
               :task (shell "pnpm watch")}
-         test {:depends [install]
+         test-jvm {:requires ([clojure.test :as t]
+                              [ssr-jvm-test])
+                   :task (let [{:keys [fail error]} (t/run-tests 'ssr-jvm-test)]
+                           (when (pos? (+ fail error)) (System/exit 1)))}
+         test {:depends [install test-jvm]
                :task (shell "pnpm test")}
          publish {:depends [test]
                   :task (do (shell "pnpm version patch")

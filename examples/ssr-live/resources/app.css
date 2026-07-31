@@ -1,0 +1,56 @@
+body { font: 14px/1.4 system-ui, sans-serif; margin: 2rem; color: #222 }
+
+@media (max-width: 640px) {
+  body { margin: 1rem }
+}
+h1 { font-size: 1.2rem }
+
+#scroller { border: 1px solid #ddd }
+
+.row, .ghost {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 0 .5rem;
+  box-sizing: border-box;
+  left: 0;
+  right: 0;
+}
+.row:nth-child(even) { background: #fafafa }
+.row.done { color: #888 }
+.row.new { font-weight: 600 }
+
+.cell { flex: 0 0 auto; overflow: hidden; white-space: nowrap }
+.cell-name { width: 7rem }
+.cell-qty { width: 2rem }
+.cell-price { width: 4rem }
+.cell-status { width: 4rem }
+.cell:hover { background: #eef }
+
+input.cell {
+  font: inherit;
+  border: 1px solid #88a;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.ghost { color: #bbb }
+.shimmer {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #eee, #f8f8f8, #eee);
+  background-size: 200% 100%;
+  animation: sh 1.1s linear infinite;
+}
+@keyframes sh {
+  0% { background-position: 200% 0 }
+  100% { background-position: -200% 0 }
+}
+
+#status p { color: #888; font-size: 12px }
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer { animation: none }
+}

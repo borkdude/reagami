@@ -27,6 +27,24 @@
 (def properties (js/Set. ["checked" "disabled" "selected"
                           "value" "innerHTML"]))
 
+(def ^:private tag-cache (js/Map.))
+
+(def ^:private event-name-cache (js/Map.))
+
+(defn- parse-tag-cached
+  ;; tags come from a small fixed set, so cache the parse work (indexOf,
+  ;; substring, toUpperCase, class join) per tag string
+  [tag]
+  (or (.get tag-cache tag)
+      (let [[t id class] (parse-tag tag)
+            entry #js {:tag t
+                       :upper (.toUpperCase t)
+                       :id id
+                       :class (when (and class (pos? (.-length class)))
+                                (.replaceAll class "." " "))}]
+        (.set tag-cache tag entry)
+        entry)))
+
 (defn property? [^js x]
   (.has properties x))
 
@@ -46,9 +64,9 @@
              s))
 
 (defn hiccup-seq? [x]
-  (and (not (string? x))
-       (seq? x)
-       (not (vector? x))))
+  (and (not (vector? x))
+       (not (string? x))
+       (seq? x)))
 
 (defn- move-to-back [o v]
   (when (js-in v o)
@@ -57,28 +75,28 @@
       (aset o v value))))
 
 (def ^:private on-render-key #?(:squint ::on-render
-                                :cljs "reagami.core/on-render"))
+                                :cljs "reagami.old/on-render"))
 
 (def ^:private attrs-key #?(:squint ::attrs
-                            :cljs "reagami.core/attrs"))
+                            :cljs "reagami.old/attrs"))
 
 (def ^:private props-key #?(:squint ::props
-                            :cljs "reagami.core/props"))
+                            :cljs "reagami.old/props"))
 
 (def ^:private vnode-key #?(:squint ::vnode
-                            :cljs "reagami.core/vnode"))
+                            :cljs "reagami.old/vnode"))
 
 (def ^:private root-key #?(:squint ::root
-                           :cljs "reagami.core/root"))
+                           :cljs "reagami.old/root"))
 
 (def ^:private is-run-key #?(:squint ::is-run
-                             :cljs "reagami.core/is-run"))
+                             :cljs "reagami.old/is-run"))
 
 (def ^:private data-key #?(:squint ::data
-                           :cljs "reagami.core/data"))
+                           :cljs "reagami.old/data"))
 
 (def ^:private key-key #?(:squint ::key
-                          :cljs "reagami.core/key"))
+                          :cljs "reagami.old/key"))
 
 (do
   #?@(:squint []
@@ -95,11 +113,19 @@
                        m)
                  obj))]))
 
+(def ^:private comment-tag "#comment")
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
-    (or (nil? hiccup)
-        (string? hiccup)
+    ;; a nil child renders nothing but still holds its slot, so a conditional
+    ;; toggling between nil and an element swaps one node instead of shifting
+    ;; every sibling after it. a comment is the marker for that, because unlike
+    ;; an empty text node it survives server rendering.
+    (nil? hiccup)
+    #js {:tag comment-tag}
+
+    (or (string? hiccup)
         (number? hiccup)
         (boolean? hiccup))
     #js {:tag "#text"
@@ -112,8 +138,8 @@
               :cljs [tag (if (keyword? tag)
                            (name tag)
                            tag)])
-          [tag id class] (if (string? tag) (parse-tag tag) [tag])
-          classes (when class (.split class "."))
+          parsed (when (string? tag) (parse-tag-cached tag))
+          tag (if parsed (aget parsed "tag") tag)
           first-child (aget hiccup children-idx)
           attr-idx (if (map? first-child) 1 -1)
           children-idx (if (identical? -1 attr-idx)
@@ -121,13 +147,13 @@
           in-svg? (or in-svg? (identical? "svg" tag))
           node (if (fn? tag)
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
-                         res (apply tag (.slice hiccup 1))]
+                         res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
                  (let [new-children #js []
-                       node #js {:type :element :svg in-svg?
+                       node #js {:svg in-svg?
                                  :tag (if in-svg?
                                         tag
-                                        (.toUpperCase tag))
+                                        (aget parsed "upper"))
                                  :children new-children}
                        modified-props #js {}
                        modified-attrs #js {}]
@@ -155,8 +181,10 @@
                              (identical? "key" k) (aset node key-key v)
                              (identical? "on-render" k) (aset node on-render-key v)
                              (.startsWith k "on")
-                             (let [event (-> k
-                                             (.replaceAll "-" ""))]
+                             (let [event (or (.get event-name-cache k)
+                                             (let [e (.replaceAll k "-" "")]
+                                               (.set event-name-cache k e)
+                                               e))]
                                (aset modified-props event v))
                              (.startsWith k "default")
                              (let [default-attr (-> (subs k 7)
@@ -177,13 +205,12 @@
                                :else (when v
                                        ;; not adding means it will be removed on new render
                                        (aset modified-attrs k v))))))))
-                   (when (and (not (nil? classes))
-                              (pos? (alength classes)))
+                   (when-let [tag-class (aget parsed "class")]
                      (aset modified-attrs "class"
-                           (str (when-let [c (aget modified-attrs "class")]
-                                  (str c " "))
-                                (.join classes " "))))
-                   (when id
+                           (if-let [c (aget modified-attrs "class")]
+                             (str c " " tag-class)
+                             tag-class)))
+                   (when-let [id (aget parsed "id")]
                      (aset modified-attrs "id" id))
                    node))]
       node)
@@ -201,11 +228,16 @@
    :cljs (defn update! [^js js-map k f & args]
            (.set js-map k (apply f (.get js-map k) args))))
 
+(def ^:private stats #js {:created 0 :adopted 0})
+
 (defn create-node [vnode root]
+  (aset stats "created" (inc (aget stats "created")))
   (let [node (if-let [text (aget vnode "text")]
                (js/document.createTextNode text)
-               (let [tag (aget vnode "tag")
-                     node (if (aget vnode "svg")
+               (let [tag (aget vnode "tag")]
+                 (if (identical? comment-tag tag)
+                 (js/document.createComment "")
+                 (let [node (if (aget vnode "svg")
                             (js/document.createElementNS svg-ns tag)
                             (js/document.createElement tag))
                      props (aget vnode props-key)
@@ -230,7 +262,7 @@
                  (when-let [ref (aget vnode on-render-key)]
                    (aset node on-render-key ref)
                    (update! ref-registry root (fnil conj #{}) node))
-                 node))]
+                 node))))]
     (aset node vnode-key vnode)
     node))
 
@@ -239,6 +271,35 @@
 (defn- node-key [^js dom]
   (when-let [vn (aget dom vnode-key)]
     (aget vn key-key)))
+
+(defn- adopt
+  ;; a server-rendered node carries no vnode: rebuild one from the DOM so patch
+  ;; can diff against it. props stay empty because handlers, value and checked
+  ;; cannot travel in HTML, so the first patch sets every one of them.
+  [^js dom]
+  (aset stats "adopted" (inc (aget stats "adopted")))
+  (let [vnode (cond
+                (identical? 3 (.-nodeType dom))
+                #js {:tag "#text" :text (.-data dom)}
+                ;; comments and the like carry no attributes: tag alone, and no
+                ;; text, so patch always replaces them rather than reusing one
+                (not (identical? 1 (.-nodeType dom)))
+                #js {:tag (.-nodeName dom)}
+                :else
+                (let [attrs #js {}
+                      dom-attrs (.-attributes dom)
+                      ;; patch only reads the length of :children
+                      vnode #js {:tag (.-tagName dom)
+                                 :svg (identical? svg-ns (.-namespaceURI dom))
+                                 :children (js/Array. (alength (.-childNodes dom)))}]
+                  (dotimes [i (alength dom-attrs)]
+                    (let [a (aget dom-attrs i)]
+                      (aset attrs (.-name a) (.-value a))))
+                  (aset vnode attrs-key attrs)
+                  (aset vnode props-key #js {})
+                  vnode))]
+    (aset dom vnode-key vnode)
+    vnode))
 
 (defn- has-key? [new-children]
   (let [n (alength new-children)]
@@ -251,7 +312,7 @@
   ;; patch `old` in place toward `new-vnode` when compatible, else build a fresh
   ;; node. returns the node to use, `old` when reused.
   [^js old ^js new-vnode root]
-  (let [^js old-vnode (aget old vnode-key)
+  (let [^js old-vnode (or (aget old vnode-key) (adopt old))
         txt-old (aget old-vnode "text")
         txt (aget new-vnode "text")
         new-tag (aget new-vnode "tag")]
@@ -260,6 +321,12 @@
       (do (when-not (identical? txt txt-old)
             (set! (.-textContent old) txt))
           (aset old vnode-key new-vnode)
+          old)
+
+      ;; two markers: nothing to patch, and it has no attrs or props to read
+      (and (identical? comment-tag new-tag)
+           (identical? comment-tag (aget old-vnode "tag")))
+      (do (aset old vnode-key new-vnode)
           old)
 
       (identical? new-tag (aget old-vnode "tag"))
@@ -289,6 +356,13 @@
               (aset old n new-prop))))
         (when-let [nc (aget new-vnode "children")]
           (patch old nc root))
+        ;; an adopted node never went through create-node, so register its ref
+        ;; here. only when it has none: mount state lives on the ref itself, so
+        ;; replacing it on a reused node would mount again.
+        (when-let [ref (aget new-vnode on-render-key)]
+          (when-not (aget old on-render-key)
+            (aset old on-render-key ref)
+            (update! ref-registry root (fnil conj #{}) old)))
         (aset old vnode-key new-vnode)
         old)
 
@@ -339,6 +413,10 @@
   ;; moves two nodes instead of cascading.
   [^js parent new-children root]
   (let [old-nodes (js/Array.from (.-childNodes parent))
+        ;; server children carry no vnode, so there are no keys to match on.
+        ;; pair them by position and let keys take over from the next render.
+        hydrating? (and (pos? (alength old-nodes))
+                        (not (aget (aget old-nodes 0) vnode-key)))
         old-by-key (js/Map.)
         old-index (js/Map.)
         unkeyed #js []
@@ -366,7 +444,7 @@
     (dotimes [i cnt]
       (let [^js v (aget new-children i)
             k (aget v key-key)
-            ^js ex (if k
+            ^js ex (if (and k (not hydrating?))
                      (let [^js e (.get old-by-key k)]
                        (when (and e (not (.has used e))) e))
                      (next-unkeyed))
@@ -409,7 +487,7 @@
         ;; nodes instead of rebuilding the whole list on a count change.
         (let [old-children (.-childNodes parent)
               new-count (alength new-children)
-              common (min old-children-count new-count)]
+              common (js/Math.min old-children-count new-count)]
           (dotimes [i common]
             (let [^js old (aget old-children i)
                   ^js new-vnode (aget new-children i)
@@ -432,11 +510,13 @@
                 (.removeChild parent (aget old-children i))
                 (recur (dec i))))))))))
 
-(defn render [root hiccup]
-  (when-not (aget root root-key)
-    ;; clear all root children so we can rely on every child having a vnode
-    (set! root -textContent "")
-    (aset root root-key true))
+(defn render
+  "Renders hiccup into root. Adopts server-rendered children already in root.
+  Returns a map of :created and :adopted node counts."
+  [root hiccup]
+  (aset root root-key true)
+  (aset stats "created" 0)
+  (aset stats "adopted" 0)
   (let [new-node (create-vnode hiccup)]
     (patch root #js [new-node] root))
   (run! (fn [node]
@@ -451,4 +531,6 @@
               (do (ref node :unmount (aget ref data-key))
                   (js-delete ref data-key)
                   (update! ref-registry root disj node)))))
-        (.get ref-registry root)))
+        (.get ref-registry root))
+  {:created (aget stats "created")
+   :adopted (aget stats "adopted")})

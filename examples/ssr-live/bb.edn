@@ -1,0 +1,35 @@
+{:paths ["src" "resources" "../../src"]
+ :tasks
+ {:requires ([babashka.process :as p])
+
+  install {:doc "Install node deps"
+           :task (shell "pnpm install")}
+
+  compile {:doc "Compile cljs to out/ with squint"
+           :depends [install]
+           :task (shell "npx squint compile")}
+
+
+  build {:doc "Bundle the client into dist/"
+         :depends [compile]
+         :task (shell "npx vite build")}
+
+  dev {:doc "vite (compiles cljs, browser repl), brotli proxy and the ssr server"
+       :depends [compile]
+       :requires ([server])
+       ;; no squint watch: the vite plugin compiles cljs in process
+       :task (do (p/process ["npx" "vite"]
+                            {:inherit true :shutdown p/destroy-tree})
+                 (p/process ["node" "proxy.mjs"]
+                            {:inherit true :shutdown p/destroy-tree})
+                 (server/start! {:dev? true})
+                 (deref (promise)))}
+
+  proxy {:doc "Brotli proxy in front of the server, on 8081"
+         :task (shell "node" "proxy.mjs")}
+
+  serve {:doc "Serve the production build"
+         :depends [build]
+         :requires ([server])
+         :task (do (server/start! {:dev? false})
+                   (deref (promise)))}}}
