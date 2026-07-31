@@ -2,6 +2,11 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## Unreleased
+
+- Add `reagami.ssr` to render hiccup to an HTML string on the JVM, Babashka, Squint and CLJS. See [Server-side rendering](https://github.com/borkdude/reagami#server-side-rendering).
+- `render` adopts server-rendered DOM instead of clearing the root. It returns `{:created n :adopted n}`, the count of nodes it made and the count it reused.
+
 ## v0.1.37 (2026-06-29)
 
 - Fix [#21](https://github.com/borkdude/reagami/issues/21): support keyed children via `:key` for stable node identification. Keys enable more efficient diffing and better node reuse. See [Patch algorithm](https://github.com/borkdude/reagami#patch-algorithm) for detailed explanation.
