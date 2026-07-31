@@ -24,7 +24,11 @@
   (testing "integral doubles stringify like JS, not like Clojure"
     (is (= "<div width=\"1\"></div>" (ssr/render [:div {:width 1.0}])))))
 
-(deftest fragment-no-attrs-test
-  (testing "a map on a fragment is an invalid child"
+(deftest fragment-attrs-test
+  (testing "a fragment accepts a lone :key and nothing else"
+    (is (= "<div><!----><p>x</p></div>"
+           (ssr/render [:div [:<> {:key "a"} [:p "x"]]])))
     (is (thrown? #?(:clj Exception :cljs js/Error)
-                 (ssr/render [:div [:<> {:key "a"} [:p "x"]]])))))
+                 (ssr/render [:div [:<> {:id "a"} [:p "x"]]])))
+    (is (thrown? #?(:clj Exception :cljs js/Error)
+                 (ssr/render [:div [:<> {:key "a" :id "b"} [:p "x"]]])))))

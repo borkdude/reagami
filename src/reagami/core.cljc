@@ -11,10 +11,10 @@
 (defn- parse-tag
   "From hiccup, thanks @weavejester"
   [^String tag]
-  (let [id-index    (let [index (.indexOf tag "#")] (when (pos? index) index))
+  (let [id-index (let [index (.indexOf tag "#")] (when (pos? index) index))
         class-index (let [index (.indexOf tag ".")] (when (pos? index) index))]
     [(cond
-       id-index    (.substring tag 0 id-index)
+       id-index (.substring tag 0 id-index)
        class-index (.substring tag 0 class-index)
        :else tag)
      (when id-index
@@ -136,6 +136,42 @@
     (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) hiccup)
     arr))
 
+;; out of create-vnode* for the same reason as splice-vnodes
+(defn- fragment-vnodes
+  [^js hiccup attr-idx children-idx first-child in-svg?]
+    ;; a fragment takes no attrs except a lone :key. the key
+    ;; composes into every child, so the flat keyed patch moves
+    ;; the whole unit together with zero range bookkeeping.
+  (let [attrs (when (identical? 1 attr-idx) first-child)
+        fkey (when attrs
+               #?(:squint (aget attrs "key")
+                  :cljs (:key attrs)))
+        arr #js [#js {:tag comment-tag}]]
+    (when (and attrs
+               (or (nil? fkey)
+                   (not (identical?
+                         1
+                         #?(:squint (alength (js/Object.keys attrs))
+                            :cljs (count first-child))))))
+      (throw (js/Error. "A fragment takes only a :key attribute")))
+    (dotimes [i (- (alength hiccup) children-idx)]
+      (let [child (aget hiccup (+ i children-idx))]
+        (if (hiccup-seq? child)
+          (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) child)
+          (push-vnode! arr (create-vnode* child in-svg?)))))
+    (when (some? fkey)
+        ;; a child's own key nests behind one separator, a
+        ;; positional one behind two, so they cannot collide
+      (let [ks (str fkey)]
+        (dotimes [i (alength arr)]
+          (let [v (aget arr i)
+                ck (aget v key-key)]
+            (aset v key-key
+                  (if (some? ck)
+                    (str ks "\u0000" ck)
+                    (str ks "\u0000\u0000" i)))))))
+    arr))
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
@@ -167,87 +203,80 @@
           in-svg? (or in-svg? (identical? "svg" tag))
           node (if (fn? tag)
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
-                         res (.apply tag nil (.slice hiccup 1))]
+                       res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
                  (if (identical? "<>" tag)
-                   ;; fragments carry no attrs, so a map is just an invalid child
-                   (let [arr #js [#js {:tag comment-tag}]]
-                     (dotimes [i (dec (alength hiccup))]
-                       (let [child (aget hiccup (inc i))]
-                         (if (hiccup-seq? child)
-                           (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) child)
-                           (push-vnode! arr (create-vnode* child in-svg?)))))
-                     arr)
-                 (let [;; innerHTML owns the subtree, so it has no vnode children
+                   (fragment-vnodes hiccup attr-idx children-idx first-child in-svg?)
+                   (let [;; innerHTML owns the subtree, so it has no vnode children
                        ;; to build or patch
-                       inner-html? (and (identical? 1 attr-idx)
-                                        (some? #?(:squint (aget first-child "innerHTML")
-                                                  :cljs (:innerHTML first-child))))
-                       new-children (when-not inner-html? #js [])
-                       node #js {:svg in-svg?
-                                 :tag (if in-svg?
-                                        tag
-                                        (aget parsed "upper"))
-                                 :children new-children}
-                       modified-props #js {}
-                       modified-attrs #js {}]
-                   (aset node props-key modified-props)
-                   (aset node attrs-key modified-attrs)
-                   (when new-children
-                     (dotimes [i (- (alength hiccup) children-idx)]
-                       (let [child (aget hiccup (+ i children-idx))]
-                         (if (hiccup-seq? child)
-                           (run! (fn [x] (push-vnode! new-children (create-vnode* x in-svg?))) child)
-                           (push-vnode! new-children (create-vnode* child in-svg?))))))
-                   (when-not (identical? -1 attr-idx)
-                     (let [attrs (aget hiccup 1)
-                           #?@(:squint []
-                               :cljs [attrs (->attrs attrs)])
-                           entry-names (js/Object.getOwnPropertyNames attrs)
-                           entry-count (alength entry-names)]
+                         inner-html? (and (identical? 1 attr-idx)
+                                          (some? #?(:squint (aget first-child "innerHTML")
+                                                    :cljs (:innerHTML first-child))))
+                         new-children (when-not inner-html? #js [])
+                         node #js {:svg in-svg?
+                                   :tag (if in-svg?
+                                          tag
+                                          (aget parsed "upper"))
+                                   :children new-children}
+                         modified-props #js {}
+                         modified-attrs #js {}]
+                     (aset node props-key modified-props)
+                     (aset node attrs-key modified-attrs)
+                     (when new-children
+                       (dotimes [i (- (alength hiccup) children-idx)]
+                         (let [child (aget hiccup (+ i children-idx))]
+                           (if (hiccup-seq? child)
+                             (run! (fn [x] (push-vnode! new-children (create-vnode* x in-svg?))) child)
+                             (push-vnode! new-children (create-vnode* child in-svg?))))))
+                     (when-not (identical? -1 attr-idx)
+                       (let [attrs (aget hiccup 1)
+                             #?@(:squint []
+                                 :cljs [attrs (->attrs attrs)])
+                             entry-names (js/Object.getOwnPropertyNames attrs)
+                             entry-count (alength entry-names)]
                        ;; fix for input type range where min / max must be in place before value / default-value
-                       (when (or (js-in "max" attrs) (js-in "min" attrs))
-                         (move-to-back attrs "default-value")
-                         (move-to-back attrs "value"))
-                       (dotimes [i entry-count]
-                         (let [k (aget entry-names i)
-                               v (aget attrs k)]
-                           (cond
-                             (identical? "key" k) (aset node key-key v)
-                             (identical? "on-render" k) (aset node on-render-key v)
-                             (.startsWith k "on")
-                             (let [event (or (.get event-name-cache k)
-                                             (let [e (.replaceAll k "-" "")]
-                                               (.set event-name-cache k e)
-                                               e))]
-                               (aset modified-props event v))
-                             (.startsWith k "default")
-                             (let [default-attr (-> (subs k 7)
-                                                    (.replaceAll "-" ""))]
-                               (aset modified-attrs default-attr v))
-                             :else
+                         (when (or (js-in "max" attrs) (js-in "min" attrs))
+                           (move-to-back attrs "default-value")
+                           (move-to-back attrs "value"))
+                         (dotimes [i entry-count]
+                           (let [k (aget entry-names i)
+                                 v (aget attrs k)]
                              (cond
-                               (and (identical? "style" k) (object? v))
-                               (let [style (reduce
-                                            (fn [s e]
-                                              (str s (aget e 0) ": " (aget e 1) ";"))
-                                            "" (js/Object.entries v))]
+                               (identical? "key" k) (aset node key-key v)
+                               (identical? "on-render" k) (aset node on-render-key v)
+                               (.startsWith k "on")
+                               (let [event (or (.get event-name-cache k)
+                                               (let [e (.replaceAll k "-" "")]
+                                                 (.set event-name-cache k e)
+                                                 e))]
+                                 (aset modified-props event v))
+                               (.startsWith k "default")
+                               (let [default-attr (-> (subs k 7)
+                                                      (.replaceAll "-" ""))]
+                                 (aset modified-attrs default-attr v))
+                               :else
+                               (cond
+                                 (and (identical? "style" k) (object? v))
+                                 (let [style (reduce
+                                              (fn [s e]
+                                                (str s (aget e 0) ": " (aget e 1) ";"))
+                                              "" (js/Object.entries v))]
                                  ;; set/get attribute is faster to set, get
                                  ;; and compare (in patch)than setting
                                  ;; individual props and using cssText
-                                 (aset modified-attrs "style" style))
-                               (property? k) (aset modified-props k v)
-                               :else (when v
+                                   (aset modified-attrs "style" style))
+                                 (property? k) (aset modified-props k v)
+                                 :else (when v
                                        ;; not adding means it will be removed on new render
-                                       (aset modified-attrs k v))))))))
-                   (when-let [tag-class (aget parsed "class")]
-                     (aset modified-attrs "class"
-                           (if-let [c (aget modified-attrs "class")]
-                             (str c " " tag-class)
-                             tag-class)))
-                   (when-let [id (aget parsed "id")]
-                     (aset modified-attrs "id" id))
-                   node)))]
+                                         (aset modified-attrs k v))))))))
+                     (when-let [tag-class (aget parsed "class")]
+                       (aset modified-attrs "class"
+                             (if-let [c (aget modified-attrs "class")]
+                               (str c " " tag-class)
+                               tag-class)))
+                     (when-let [id (aget parsed "id")]
+                       (aset modified-attrs "id" id))
+                     node)))]
       node)
     ;; a top level seq splices, so a component can return one
     (hiccup-seq? hiccup) (splice-vnodes hiccup in-svg?)
@@ -273,33 +302,33 @@
                (js/document.createTextNode text)
                (let [tag (aget vnode "tag")]
                  (if (identical? comment-tag tag)
-                 (js/document.createComment "")
-                 (let [node (if (aget vnode "svg")
-                            (js/document.createElementNS svg-ns tag)
-                            (js/document.createElement tag))
-                     props (aget vnode props-key)
-                     attrs (aget vnode attrs-key)
-                     attr-names (js/Object.getOwnPropertyNames attrs)
-                     prop-names (js/Object.getOwnPropertyNames props)]
+                   (js/document.createComment "")
+                   (let [node (if (aget vnode "svg")
+                                (js/document.createElementNS svg-ns tag)
+                                (js/document.createElement tag))
+                         props (aget vnode props-key)
+                         attrs (aget vnode attrs-key)
+                         attr-names (js/Object.getOwnPropertyNames attrs)
+                         prop-names (js/Object.getOwnPropertyNames props)]
                  ;; always make sure to first set attrs, then props because value should go last
-                 (dotimes [i (alength attr-names)]
-                   (let [n (aget attr-names i)
-                         new-attr (aget attrs n)]
-                     (.setAttribute node n new-attr)))
-                 (dotimes [i (alength prop-names)]
-                   (let [n (aget prop-names i)
-                         new-prop (aget props n)
-                         new-prop (if (undefined? new-prop) nil new-prop)]
-                     (aset node n new-prop)))
-                 (when-let [children (aget vnode "children")]
-                   (let [len (alength children)]
-                     (dotimes [i len]
-                       (let [child (aget children i)]
-                         (.appendChild node (create-node child root))))))
-                 (when-let [ref (aget vnode on-render-key)]
-                   (aset node on-render-key ref)
-                   (update! ref-registry root (fnil conj #{}) node))
-                 node))))]
+                     (dotimes [i (alength attr-names)]
+                       (let [n (aget attr-names i)
+                             new-attr (aget attrs n)]
+                         (.setAttribute node n new-attr)))
+                     (dotimes [i (alength prop-names)]
+                       (let [n (aget prop-names i)
+                             new-prop (aget props n)
+                             new-prop (if (undefined? new-prop) nil new-prop)]
+                         (aset node n new-prop)))
+                     (when-let [children (aget vnode "children")]
+                       (let [len (alength children)]
+                         (dotimes [i len]
+                           (let [child (aget children i)]
+                             (.appendChild node (create-node child root))))))
+                     (when-let [ref (aget vnode on-render-key)]
+                       (aset node on-render-key ref)
+                       (update! ref-registry root (fnil conj #{}) node))
+                     node))))]
     (aset node vnode-key vnode)
     node))
 

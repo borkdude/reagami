@@ -276,9 +276,18 @@
                     #?(:squint (identical? "<>" tag)
                        :cljs (keyword-identical? :<> tag)
                        :default (identical? :<> tag))
-                    ;; fragments carry no attrs, so a map is just an invalid child
-                    (do (app! b "<!---->")
-                        (children->html (subvec x 1) b))
+                    ;; a fragment takes no attrs except a lone :key, which is
+                    ;; client-side reconciliation data and renders as nothing
+                    (let [attrs (nth x 1 nil)
+                          attrs? (map? attrs)]
+                      (when (and attrs?
+                                 (or (nil? #?(:squint (aget attrs "key")
+                                              :default (:key attrs)))
+                                     (not= 1 (count (entries attrs)))))
+                        (throw (ex-info "A fragment takes only a :key attribute"
+                                        {:hiccup x})))
+                      (app! b "<!---->")
+                      (children->html (subvec x (if attrs? 2 1)) b))
                     :else (element->html x b)))
     (or (number? x) (boolean? x)) (app! b (escape-text (str x)))
     (hiccup-seq? x) (run! (fn [child] (->html child b)) x)
