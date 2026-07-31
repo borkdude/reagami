@@ -78,9 +78,20 @@ The merge this ADR lands in is about hydration. Fragments are a separate
 feature that reached a working state in the same branch, which is the only
 reason they were together.
 
-Deferring costs a papercut, not a trap. `reagami.core` and `reagami.ssr` both
-throw on a fragment, so a user who writes one gets an error rather than silent
-reordering damage.
+The two namespaces fail differently without fragments. `reagami.core` throws,
+because `createElement` rejects the name:
+
+```
+DOMException: "<>" did not match the Name production
+```
+
+`reagami.ssr` does not throw. It treats `<>` as an element name and emits
+`<div><<>><p>a</p></<>></div>`, which is what hiccup 2.0.0 does with the same
+input. A server rendered fragment is malformed and reports nothing.
+
+A special case throw in `reagami.ssr` would cost about five lines in a namespace
+that no client bundle loads. It was left out so that `reagami.ssr` keeps
+answering the way hiccup does for every tag name, rather than singling one out.
 
 Adding fragments later is additive. Nothing in the hydration work has to change
 to accept them.
