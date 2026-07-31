@@ -159,9 +159,10 @@
                          res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
                  (if (identical? "<>" tag)
+                   ;; fragments carry no attrs, so a map is just an invalid child
                    (let [arr #js [#js {:tag comment-tag}]]
-                     (dotimes [i (- (alength hiccup) children-idx)]
-                       (let [child (aget hiccup (+ i children-idx))]
+                     (dotimes [i (dec (alength hiccup))]
+                       (let [child (aget hiccup (inc i))]
                          (if (hiccup-seq? child)
                            (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) child)
                            (push-vnode! arr (create-vnode* child in-svg?)))))
@@ -237,6 +238,11 @@
                      (aset modified-attrs "id" id))
                    node)))]
       node)
+    ;; a top level seq splices, so a component can return one
+    (hiccup-seq? hiccup)
+    (let [arr #js []]
+      (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) hiccup)
+      arr)
     :else
     (throw (do
              (js/console.error "Invalid hiccup:" hiccup)

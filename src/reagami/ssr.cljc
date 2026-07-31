@@ -276,11 +276,9 @@
                     #?(:squint (identical? "<>" tag)
                        :cljs (keyword-identical? :<> tag)
                        :default (identical? :<> tag))
+                    ;; fragments carry no attrs, so a map is just an invalid child
                     (do (app! b "<!---->")
-                        (children->html (if (map? (nth x 1 nil))
-                                          (subvec x 2)
-                                          (subvec x 1))
-                                        b))
+                        (children->html (subvec x 1) b))
                     :else (element->html x b)))
     (or (number? x) (boolean? x)) (app! b (escape-text (str x)))
     (hiccup-seq? x) (run! (fn [child] (->html child b)) x)

@@ -141,3 +141,16 @@
         (reagami/render el [:ul [:<> [:li {:key "b"} "b"] [:li {:key "a"} "a"]]])
         (is (identical? la (aget (.querySelectorAll el "li") 1)))
         (is (= "ba" (.-textContent el)))))))
+
+(deftest fragment-no-attrs-test
+  (testing "a map on a fragment is an invalid child"
+    (is (thrown? js/Error (ssr/render [:div [:<> {:key "a"} [:p "x"]]])))
+    (is (thrown? js/Error
+                 (reagami/render (js/document.createElement "div")
+                                 [:div [:<> {:key "a"} [:p "x"]]])))))
+
+(deftest seq-component-test
+  (testing "a component can return a seq"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:ul [(fn [] (list [:li "one"] [:li "two"]))]])
+      (is (= "<ul><li>one</li><li>two</li></ul>" (.-innerHTML el))))))

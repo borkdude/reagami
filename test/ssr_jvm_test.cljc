@@ -23,3 +23,8 @@
 (deftest integral-double-test
   (testing "integral doubles stringify like JS, not like Clojure"
     (is (= "<div width=\"1\"></div>" (ssr/render [:div {:width 1.0}])))))
+
+(deftest fragment-no-attrs-test
+  (testing "a map on a fragment is an invalid child"
+    (is (thrown? #?(:clj Exception :cljs js/Error)
+                 (ssr/render [:div [:<> {:key "a"} [:p "x"]]])))))
