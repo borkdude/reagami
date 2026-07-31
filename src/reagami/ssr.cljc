@@ -103,22 +103,28 @@
     :else (str v)))
 
 ;; most strings contain nothing to escape, so scan before paying for the
-;; replace passes and their intermediate strings. the jvm checks all the
-;; characters in one pass, the other platforms lean on the native index-of.
+;; replace passes and their intermediate strings. on the jvm a char loop wins
+;; under ~32 chars on call overhead, and the simd indexOf wins above it.
 ;; mode 1 is text, 0 is attribute.
 #?(:clj
    (defn- clean? [^String s ^long mode]
      (let [n (.length s)]
-       (loop [i 0]
-         (if (< i n)
-           (let [c (unchecked-int (.charAt s i))]
-             (if (or (== c 38) (== c 160)
-                     (if (== mode 1)
-                       (or (== c 60) (== c 62))
-                       (== c 34)))
-               false
-               (recur (unchecked-inc i))))
-           true)))))
+       (if (< n 32)
+         (loop [i 0]
+           (if (< i n)
+             (let [c (unchecked-int (.charAt s i))]
+               (if (or (== c 38) (== c 160)
+                       (if (== mode 1)
+                         (or (== c 60) (== c 62))
+                         (== c 34)))
+                 false
+                 (recur (unchecked-inc i))))
+             true))
+         (and (neg? (.indexOf s 38))
+              (neg? (.indexOf s 160))
+              (if (== mode 1)
+                (and (neg? (.indexOf s 60)) (neg? (.indexOf s 62)))
+                (neg? (.indexOf s 34))))))))
 
 (defn- escape-text [s]
   (if #?(:bb (or (str/index-of s "&")
