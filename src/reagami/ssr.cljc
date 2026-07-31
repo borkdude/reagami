@@ -2,8 +2,7 @@
   ;; the flag lets squint load the defmacro below at compile time; squint and
   ;; cljs both take the :cljs branch, which makes the same-file macro visible
   {:squint/compile-time true}
-  #?(:cljs (:require-macros #_{:clj-kondo/ignore [:unresolved-var]}
-                            [reagami.ssr :refer [app!]]))
+  #?(:cljs (:require-macros [reagami.ssr :refer [app!]]))
   (:require [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -54,33 +53,38 @@
        :default (seq m))
     []))
 
-(defn- sb [] #?(:clj (StringBuilder.) :default (array)))
+;; bb collects pieces in a transient vector and joins once: a native conj! is
+;; about 9x cheaper than an interop .append under interpretation
+(defn- sb []
+  #?(:bb (volatile! (transient []))
+     :clj (StringBuilder.)
+     :default (array "")))
 
 ;; appends every piece to the string builder. each platform gets its cheapest
-;; shape: compiled targets append piece by piece, interpreted bb does one
-;; native str, because there the extra calls cost more than the string.
-#?(:clj
-   ^:squint/compile-time
-   (defmacro app! [b & xs]
-     #?(:squint
-        (let [arr (gensym "b")]
-          `(let [~arr ~b]
-             ~@(map (fn [x] (list '.push arr x)) xs)))
-        :bb
-        (if (= 1 (count xs))
-          `(.append ~b ~(first xs))
-          `(.append ~b (str ~@xs)))
-        :clj
-        (if (:ns &env)
-          ;; expanding for cljs
-          (let [arr (gensym "b")]
-            `(let [~arr ~b]
-               ~@(map (fn [x] (list '.push arr x)) xs)))
-          (let [sb (with-meta (gensym "sb") {:tag 'StringBuilder})]
-            `(let [~sb ~b]
-               ~@(map (fn [x] (list '.append sb x)) xs)))))))
+;; shape: the JS targets concatenate into one cell (V8 rope strings beat array
+;; push and join), bb conjes onto a transient (native calls beat interop), the
+;; JVM appends to a StringBuilder.
+(defmacro app! #_{:clj-kondo/ignore [:unused-binding]} [b & xs]
+  #?(:squint
+     (let [tmpl (apply str (interpose " + " (repeat (inc (count xs)) "~{}")))]
+       `(aset ~b 0 (~'js* ~tmpl (aget ~b 0) ~@xs)))
+     :bb
+     (if (= 1 (count xs))
+       `(vreset! ~b (conj! (deref ~b) ~(first xs)))
+       `(vreset! ~b (conj! (deref ~b) (str ~@xs))))
+     :clj
+     (if (:ns &env)
+       ;; expanding for cljs
+       (let [tmpl (apply str (interpose " + " (repeat (inc (count xs)) "~{}")))]
+         `(aset ~b 0 (~'js* ~tmpl (aget ~b 0) ~@xs)))
+       (let [sb (with-meta (gensym "sb") {:tag 'StringBuilder})]
+         `(let [~sb ~b]
+            ~@(map (fn [x] (list '.append sb x)) xs))))))
 
-(defn- sb->str [b] #?(:clj (.toString ^StringBuilder b) :default (.join b "")))
+(defn- sb->str [b]
+  #?(:bb (str/join (persistent! @b))
+     :clj (.toString ^StringBuilder b)
+     :default (aget b 0)))
 
 #?(:clj
    (defn- num->str
