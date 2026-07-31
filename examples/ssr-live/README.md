@@ -27,7 +27,7 @@ Every state push triggers a new render of the whole page.
 
 Babashka cannot compress with Brotli, so a tiny `proxy.mjs` sits in front of the stream. It also reports what each push costs on the wire, which is where the numbers above come from.
 
-The text `created 0` shows how many new nodes Reagami has created. Initially this should be 0 since the server-rendered HTML should be wholly adopted.
+The text `created 0` shows how many new nodes Reagami made. On the first render the count is 0, because the browser adopts all of the server-rendered HTML.
 
 The main component lives in `src/app.cljc` and renders on both sides. `app/handle` is a
 plain `[state action] -> state` function. Point `app/!dispatch` at it instead
