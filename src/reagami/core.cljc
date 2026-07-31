@@ -11,10 +11,10 @@
 (defn- parse-tag
   "From hiccup, thanks @weavejester"
   [^String tag]
-  (let [id-index (let [index (.indexOf tag "#")] (when (pos? index) index))
+  (let [id-index    (let [index (.indexOf tag "#")] (when (pos? index) index))
         class-index (let [index (.indexOf tag ".")] (when (pos? index) index))]
     [(cond
-       id-index (.substring tag 0 id-index)
+       id-index    (.substring tag 0 id-index)
        class-index (.substring tag 0 class-index)
        :else tag)
      (when id-index
@@ -159,8 +159,8 @@
           (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) child)
           (push-vnode! arr (create-vnode* child in-svg?)))))
     (when (some? fkey)
-        ;; a child's own key nests behind one separator, a
-        ;; positional one behind two, so they cannot collide
+      ;; a child's own key nests behind one separator, a positional one behind
+      ;; two, so they cannot collide
       (let [ks (str fkey)]
         (dotimes [i (alength arr)]
           (let [v (aget arr i)
@@ -202,7 +202,7 @@
           in-svg? (or in-svg? (identical? "svg" tag))
           node (if (fn? tag)
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
-                       res (.apply tag nil (.slice hiccup 1))]
+                         res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
                  (if (identical? "<>" tag)
                    (fragment-vnodes hiccup attr-idx children-idx first-child in-svg?)
