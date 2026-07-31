@@ -103,12 +103,34 @@
     :else (str v)))
 
 ;; most strings contain nothing to escape, so scan before paying for the
-;; replace passes and their intermediate strings
+;; replace passes and their intermediate strings. the jvm checks all the
+;; characters in one pass, the other platforms lean on the native index-of.
+;; mode 1 is text, 0 is attribute.
+#?(:clj
+   (defn- clean? [^String s ^long mode]
+     (let [n (.length s)]
+       (loop [i 0]
+         (if (< i n)
+           (let [c (unchecked-int (.charAt s i))]
+             (if (or (== c 38) (== c 160)
+                     (if (== mode 1)
+                       (or (== c 60) (== c 62))
+                       (== c 34)))
+               false
+               (recur (unchecked-inc i))))
+           true)))))
+
 (defn- escape-text [s]
-  (if (or (str/index-of s "&")
-          (str/index-of s "\u00a0")
-          (str/index-of s "<")
-          (str/index-of s ">"))
+  (if #?(:bb (or (str/index-of s "&")
+                 (str/index-of s "\u00a0")
+                 (str/index-of s "<")
+                 (str/index-of s ">"))
+         :clj (not (clean? s 1))
+         :default
+         (or (str/index-of s "&")
+             (str/index-of s "\u00a0")
+             (str/index-of s "<")
+             (str/index-of s ">")))
     (-> s
         (str/replace "&" "&amp;")
         (str/replace "\u00a0" "&nbsp;")
@@ -117,9 +139,14 @@
     s))
 
 (defn- escape-attr [s]
-  (if (or (str/index-of s "&")
-          (str/index-of s "\u00a0")
-          (str/index-of s "\""))
+  (if #?(:bb (or (str/index-of s "&")
+                 (str/index-of s "\u00a0")
+                 (str/index-of s "\""))
+         :clj (not (clean? s 0))
+         :default
+         (or (str/index-of s "&")
+             (str/index-of s "\u00a0")
+             (str/index-of s "\"")))
     (-> s
         (str/replace "&" "&amp;")
         (str/replace "\u00a0" "&nbsp;")
