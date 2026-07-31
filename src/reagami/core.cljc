@@ -127,21 +127,20 @@
 
 (declare create-vnode*)
 
-;; kept out of create-vnode*: an inline splice arm in that cond cost 20% on the
-;; benchmark select, with the arm never executed. v8 treats the hot function
-;; differently once the closure sits in its body.
+;; the select benchmark moved up to 10% with the placement of this code and of
+;; fragment-vnodes below, without a semantic difference. do not chase that: see
+;; the ssr archive in the benchmark repo before moving anything for speed.
 (defn- splice-vnodes
   [hiccup in-svg?]
   (let [arr #js []]
     (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) hiccup)
     arr))
 
-;; out of create-vnode* for the same reason as splice-vnodes
+;; a fragment takes no attrs except a lone :key. the key composes into every
+;; child, so the flat keyed patch moves the whole unit with zero range
+;; bookkeeping.
 (defn- fragment-vnodes
   [^js hiccup attr-idx children-idx first-child in-svg?]
-    ;; a fragment takes no attrs except a lone :key. the key
-    ;; composes into every child, so the flat keyed patch moves
-    ;; the whole unit together with zero range bookkeeping.
   (let [attrs (when (identical? 1 attr-idx) first-child)
         fkey (when attrs
                #?(:squint (aget attrs "key")
