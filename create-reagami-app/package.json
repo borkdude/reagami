@@ -1,6 +1,6 @@
 {
   "name": "create-reagami-app",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Scaffold a reagami app with Vite, hot reload and a browser nREPL",
   "type": "module",
   "bin": {

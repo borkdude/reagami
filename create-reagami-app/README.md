@@ -1,7 +1,7 @@
 # create-reagami-app
 
 Scaffolds a [reagami](https://github.com/borkdude/reagami) app with Vite, hot
-swap and a browser nREPL.
+reload and a browser nREPL.
 
 ```shell
 npm create reagami-app my-app
