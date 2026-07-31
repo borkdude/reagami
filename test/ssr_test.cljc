@@ -127,3 +127,17 @@
         (is (= 3 (:created result)))))
     (testing "a re-render of matching hiccup builds nothing"
       (is (= 0 (:created (reagami/render el [:div [:span "a"]])))))))
+
+(deftest fragment-test
+  (testing "a component can return multiple roots"
+    (let [multi (fn [] [:<> [:li "one"] [:li "two"]])
+          el (js/document.createElement "div")]
+      (reagami/render el [:ul [multi]])
+      (is (= "<ul><!----><li>one</li><li>two</li></ul>" (.-innerHTML el)))))
+  (testing "keyed children inside a fragment move by key"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:ul [:<> [:li {:key "a"} "a"] [:li {:key "b"} "b"]]])
+      (let [la (.querySelector el "li")]
+        (reagami/render el [:ul [:<> [:li {:key "b"} "b"] [:li {:key "a"} "a"]]])
+        (is (identical? la (aget (.querySelectorAll el "li") 1)))
+        (is (= "ba" (.-textContent el)))))))

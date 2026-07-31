@@ -267,9 +267,21 @@
     (nil? x) (app! b "<!---->")
     (string? x) (app! b (escape-text x))
     (vector? x) (let [tag (nth x 0)]
-                  (if (fn? tag)
-                    (->html (apply tag (rest x)) b)
-                    (element->html x b)))
+                  (cond
+                    (fn? tag) (->html (apply tag (rest x)) b)
+                    ;; a fragment is an anchor comment plus its children,
+                    ;; matching what the client builds. keywords intern on the
+                    ;; jvm and bb, and are strings on squint, so the check is
+                    ;; one identity compare.
+                    #?(:squint (identical? "<>" tag)
+                       :cljs (keyword-identical? :<> tag)
+                       :default (identical? :<> tag))
+                    (do (app! b "<!---->")
+                        (children->html (if (map? (nth x 1 nil))
+                                          (subvec x 2)
+                                          (subvec x 1))
+                                        b))
+                    :else (element->html x b)))
     (or (number? x) (boolean? x)) (app! b (escape-text (str x)))
     (hiccup-seq? x) (run! (fn [child] (->html child b)) x)
     :else (throw (ex-info (str "Invalid hiccup: " x) {:hiccup x}))))

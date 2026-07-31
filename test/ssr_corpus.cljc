@@ -60,7 +60,16 @@
    {:hiccup [:svg {:viewBox "0 0 1 1"} [:path {:d "M0 0"}]]
     :html "<svg viewBox=\"0 0 1 1\"><path d=\"M0 0\"></path></svg>"}
    {:hiccup [:div [:span "a"] [:span "b"]]
-    :html "<div><span>a</span><span>b</span></div>"}])
+    :html "<div><span>a</span><span>b</span></div>"}
+   ;; a fragment is an anchor comment plus its children, spliced into the parent
+   {:hiccup [:div [:<> [:p "a"] [:p "b"]] [:span "c"]]
+    :html "<div><!----><p>a</p><p>b</p><span>c</span></div>"}
+   {:hiccup [:div [:<>] "x"]
+    :html "<div><!---->x</div>"}
+   {:hiccup [:div [:<> [:<> [:i "x"]] [:b "y"]]]
+    :html "<div><!----><!----><i>x</i><b>y</b></div>"}
+   {:hiccup [:<> [:p "a"] [:p "b"]]
+    :html "<!----><p>a</p><p>b</p>"}])
 
 ;; rendered by reagami.ssr only. the DOM rejects the injected names, so these
 ;; cannot go through the client comparisons the cases above are used for.

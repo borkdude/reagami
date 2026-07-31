@@ -115,6 +115,16 @@
 
 (def ^:private comment-tag "#comment")
 
+;; a fragment builds to an anchor comment plus its children, spliced flat into
+;; the parent. the anchor keeps the slot when the fragment is empty, and patch
+;; never sees fragments at all.
+(defn- push-vnode!
+  [^js arr x]
+  (if ^boolean (js/Array.isArray x)
+    (let [n (alength x)]
+      (dotimes [i n] (.push arr (aget x i))))
+    (.push arr x)))
+
 (defn- create-vnode*
   [hiccup in-svg?]
   (cond
@@ -148,6 +158,14 @@
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
                          res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
+                 (if (identical? "<>" tag)
+                   (let [arr #js [#js {:tag comment-tag}]]
+                     (dotimes [i (- (alength hiccup) children-idx)]
+                       (let [child (aget hiccup (+ i children-idx))]
+                         (if (hiccup-seq? child)
+                           (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) child)
+                           (push-vnode! arr (create-vnode* child in-svg?)))))
+                     arr)
                  (let [;; innerHTML owns the subtree, so it has no vnode children
                        ;; to build or patch
                        inner-html? (and (identical? 1 attr-idx)
@@ -167,8 +185,8 @@
                      (dotimes [i (- (alength hiccup) children-idx)]
                        (let [child (aget hiccup (+ i children-idx))]
                          (if (hiccup-seq? child)
-                           (run! (fn [x] (.push new-children (create-vnode* x in-svg?))) child)
-                           (.push new-children (create-vnode* child in-svg?))))))
+                           (run! (fn [x] (push-vnode! new-children (create-vnode* x in-svg?))) child)
+                           (push-vnode! new-children (create-vnode* child in-svg?))))))
                    (when-not (identical? -1 attr-idx)
                      (let [attrs (aget hiccup 1)
                            #?@(:squint []
@@ -217,7 +235,7 @@
                              tag-class)))
                    (when-let [id (aget parsed "id")]
                      (aset modified-attrs "id" id))
-                   node))]
+                   node)))]
       node)
     :else
     (throw (do
@@ -520,8 +538,11 @@
   (aset root root-key true)
   (aset stats "created" 0)
   (aset stats "adopted" 0)
-  (let [new-node (create-vnode hiccup)]
-    (patch root #js [new-node] root))
+  (let [new-node (create-vnode hiccup)
+        new-children (if ^boolean (js/Array.isArray new-node)
+                       new-node
+                       #js [new-node])]
+    (patch root new-children root))
   (run! (fn [node]
           (let [ref (aget node on-render-key)]
             (if (.-isConnected node)
