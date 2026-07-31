@@ -134,7 +134,8 @@ To use it:
 
 The [ssr example](examples/ssr) shows a small server on Babashka with
 hydration on the client. The [ssr-live example](examples/ssr-live) adds server
-state, event streams, and edits.
+state, event streams, and edits. A live instance of that example runs at
+https://reagami-ssr-live.michielborkent.nl.
 
 The output follows the hydration contract:
 

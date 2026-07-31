@@ -8,8 +8,8 @@ const PORT = Number(process.env.PROXY_PORT || 8081)
 const UPSTREAM = Number(process.env.PORT || 8080)
 // loopback by default: behind nginx there is no reason to be reachable directly
 const HOST = process.env.PROXY_HOST || '127.0.0.1'
-// an address, not "localhost", which resolves to ::1 first on many machines and
-// would miss a server bound to IPv4 loopback
+// an address, not "localhost": localhost resolves to ::1 first on many
+// machines and then misses a server bound to IPv4 loopback
 const UPSTREAM_HOST = process.env.UPSTREAM_HOST || '127.0.0.1'
 const QUALITY = Number(process.env.BROTLI_QUALITY || 5)
 
@@ -22,8 +22,8 @@ const br = () => zlib.createBrotliCompress({
 
 const wantsBrotli = (req) => /\bbr\b/.test(req.headers['accept-encoding'] || '')
 
-// one line per event is what makes the numbers visible in dev, and what would
-// fill the journal in production. errors are always logged.
+// one line per event makes the numbers visible in dev and fills the journal
+// in production. errors always log.
 const VERBOSE = process.env.PROXY_VERBOSE !== '0'
 const log = (...args) => { if (VERBOSE) console.log(...args) }
 
@@ -68,9 +68,9 @@ http.createServer((req, res) => {
       // state pushes only, so the wire events this proxy injects do not count
       // against the app's own totals
       let brTotal = 0
-      // a push bigger than one TCP chunk arrives in pieces. writing the wire
-      // event after a piece would splice it into the middle of the real event,
-      // so buffer until a complete blank-line-terminated event is in hand.
+      // a push bigger than one TCP chunk arrives in pieces. a wire event
+      // after a piece splices into the middle of the real event, so buffer
+      // until one complete blank-line-terminated event arrives.
       let buf = ''
       res.writeHead(ur.statusCode, { ...out, 'content-encoding': 'br' })
       enc.on('data', (c) => { comp += c.length; res.write(c) })

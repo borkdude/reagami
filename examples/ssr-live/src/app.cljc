@@ -66,8 +66,8 @@
                                                 (get (:edits state) (:id action))))
     "close" (dissoc (assoc state :page "table") :row)
 
-    ;; patches the rows in hand: the client only knows the edits made since it
-    ;; loaded, so regenerating them here would lose the rest.
+    ;; patch the rows in place: the client only knows the edits since page
+    ;; load, so a regeneration here loses the rest.
     "edit" (let [id (:id action)
                  k (keyword (:field action))
                  v (:value action)]
@@ -85,24 +85,24 @@
 
 (defn- px [n] (str n "px"))
 
-;; the slider hands back a string on both platforms
+;; the slider value is a string on both platforms
 (defn- parse-ms [s]
   (parse-long (str s)))
 
 (defn- commit! [id c e]
-  ;; only the cell still marked as editing may commit, so the blur that follows
-  ;; Enter does not commit a second time.
+  ;; only the cell marked as editing can commit, so the blur after Enter does
+  ;; not commit twice.
   (when (= [id c] (:editing @!view))
     (let [action {:type "edit" :id id :field c :value (.. e -target -value)}
           optimistic? (:optimistic @!view)]
-      ;; optimistic: apply locally so the cell updates now, then send. the
-      ;; server's push is authoritative either way. state before :editing, or
-      ;; the cell redraws the old value.
+      ;; optimistic: apply locally first, so the cell updates now. the push
+      ;; from the server stays authoritative. update state before :editing,
+      ;; or the cell redraws the old value.
       (when optimistic?
         (swap! !state handle action))
-      ;; one edit at a time: a second would be reverted by the push already on
-      ;; its way. the cell carries the typed value, because without an
-      ;; optimistic swap state still holds the old one. cleared on the push.
+      ;; one edit at a time: the push already on its way reverts a second
+      ;; edit. the cell carries the typed value, because state can still hold
+      ;; the old one. the next push clears :pending.
       (swap! !view assoc :editing nil
              :pending {:cell [id c] :value (:value action)})
       (dispatch! action))))
@@ -123,8 +123,8 @@
                :on-key-down (fn [e] (when (= "Enter" (.-key e)) (commit! id c e)))
                :on-blur (fn [e] (commit! id c e))}]
 
-      ;; this cell's commit is in flight, so it shows what was typed. only
-      ;; marked unconfirmed when state has not been given the value already.
+      ;; the commit of this cell is in flight, so it shows the typed value.
+      ;; the pending style only applies when state does not have it yet.
       (= [id c] (:cell (:pending view)))
       [:span {:key c
               :class (str "cell cell-" c (when-not (:optimistic view) " pending"))}
@@ -133,7 +133,7 @@
       :else
       [:span {:key c
               :class (str "cell cell-" c)
-              ;; nothing is editable while a commit is in flight
+              ;; no edits while a commit is in flight
               :on-click (fn [_]
                           (when-not (:pending view)
                             (swap! !view assoc :editing [id c])))}
@@ -165,13 +165,13 @@
         anchor (or (:anchor view) 0)
         top-of (fn [i] (px (+ base (* (- i anchor) row-height))))]
     [:div.app
-     ;; one bar for every request in flight, rather than an indicator per
-     ;; waiting thing. the client counts them, a server render never has any.
+     ;; one bar for all requests in flight. the client counts them, and a
+     ;; server render has none.
      (when (pos? (or (:inflight view) 0))
        [:div.progress])
      [:h1 "reagami ssr"]
-     [:p (str (count rows) " of " total " rows are in the client. Scroll and the "
-              "server sends the window you are looking at.")]
+     [:p (str (count rows) " of " total " rows are in the client. Scroll, and "
+              "the server sends the window on your screen.")]
      [:p.latency
       "server delay "
       ;; on-input moves the label, on-change sends one action per drag
@@ -186,8 +186,7 @@
       [:span#latency-value (str " " (:latency state) " ms")]
       [:span.cache-ctl
        "client cache "
-       ;; a bigger margin means bigger pushes: the panel below shows what that
-       ;; does to the wire, the parse and the render
+       ;; a bigger margin means bigger pushes. the panel below shows the cost.
        [:input#cache {:type "range" :min 30 :max 1000 :step 10
                       :default-value (str (:overscan view))
                       :on-change

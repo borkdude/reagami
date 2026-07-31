@@ -26,14 +26,14 @@
     (when (pos? ms)
       (Thread/sleep (+ (quot ms 2) (rand-int ms))))))
 
-;; edits belong to the data rather than to a tab, so they outlive a session.
-;; stands in for a database.
+;; edits belong to the data, not to a tab, so they outlive a session. this
+;; atom is the database of this demo.
 (defonce db (atom {}))
 
 (defn- apply-action
-  "Runs an action against session state, with the shared edits laid in and
-  written back. Sessions never carry :edits themselves. :latency is server state
-  the client can see and set, so it rides along on every push."
+  "Runs an action against session state. The shared edits merge in before
+  and write back after, so sessions never carry :edits. :latency is server
+  state that the client can see and set, so every push includes it."
   [state action]
   (when (and (= "latency" (:type action)) (number? (:ms action)))
     (reset! !latency (min 100 (max 0 (:ms action)))))
@@ -89,8 +89,8 @@
     [:script {:type "module" :src (client-src)}]))
 
 (defn- state-json
-  ;; </script> inside the data would end the tag early, and <\/ is the same
-  ;; string once JSON is parsed
+  ;; </script> inside the data ends the tag early. <\/ is the same string
+  ;; once JSON is parsed.
   [state]
   (str/replace (json/generate-string state) "</" "<\\/"))
 
@@ -98,7 +98,7 @@
   (let [to (+ (quot app/viewport app/row-height) app/overscan)]
     (apply-action initial-state {:type "window" :from 0 :to to})))
 
-;; the whole page goes through reagami.ssr. :innerHTML is the escape hatch for
+;; the whole page goes through reagami.ssr. :innerHTML is the raw output for
 ;; content that must not be escaped: script and style are raw text to the HTML
 ;; parser, so entities inside them are never decoded.
 (defn page
@@ -126,7 +126,7 @@
             (client-tags dev?)]])))))
 
 (defn- asset [path]
-  ;; the name only, so a crafted path cannot walk out of dist/
+  ;; the name only, so a crafted path cannot reach outside dist/
   (let [f (fs/file "dist" (fs/file-name path))]
     (when (fs/regular-file? f)
       {:status 200
@@ -145,9 +145,9 @@
 (defn- state-stream [req sid]
   (http/as-channel req
     {:on-open (fn [ch]
-                ;; EventSource reconnects with the same sid after any drop, and
-                ;; the session may have been reclaimed by then. Seed a new one
-                ;; rather than streaming null, which would wipe the client.
+                ;; EventSource reconnects with the same sid after a drop,
+                ;; and the session can be gone by then. Seed a new one rather
+                ;; than stream null, because null wipes the client.
                 (let [session (-> (swap! sessions update sid
                                          (fn [s]
                                            (-> (or s {:state (fresh-state)

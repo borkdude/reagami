@@ -11,7 +11,7 @@
 ;; the JSON the client last parsed into state: from the document at load, then
 ;; from each push. every push carries the whole state, so this is its size.
 (defonce !bytes (atom 0))
-;; every push since the page loaded, so the stream can be judged as a whole
+;; totals for every push since the page loaded
 (defonce !pushes (atom 0))
 (defonce !chars (atom 0))
 ;; what the last push cost on the wire, reported by the proxy. absent on 8080.
@@ -49,8 +49,8 @@
 (defonce !again (atom false))
 
 (defn render!
-  "Renders, unless a render is already running. A render started from inside
-  another corrupts the patch, so it is deferred until the first one finishes."
+  "Renders, unless a render is already running. A render from inside another
+  corrupts the patch, so it waits until the first one finishes."
   []
   (if @!rendering
     (reset! !again true)
@@ -66,15 +66,15 @@
   (swap! app/!view update :inflight (fn [c] (+ (or c 0) n))))
 
 (defn dispatch-to-server [action]
-  ;; counted rather than a flag, so overlapping requests keep the bar up until
-  ;; the last one answers
+  ;; a count, not a flag: the bar stays until the last overlapping request
+  ;; answers
   (inflight! 1)
   (-> (js/fetch "/action"
                 #js {:method "POST"
                      :headers #js {"Content-Type" "application/json"}
                      :body (js/JSON.stringify #js {:sid sid :action action})})
-      ;; read the body, empty as it is: devtools logs a response nobody consumed
-      ;; as "Fetch failed loading"
+      ;; read the empty body: devtools logs an unread response as
+      ;; "Fetch failed loading"
       (.then (fn [r] (.text r)))
       (.catch (fn [e] (js/console.warn "action failed" e)))
       (.finally (fn [] (inflight! -1)))))
@@ -89,8 +89,8 @@
         first-row (js/Math.floor (/ virtual app/row-height))
         rows-shown (js/Math.ceil (/ (.-clientHeight el) app/row-height))]
     {:want [(max 0 first-row) (min total (+ first-row rows-shown))]
-     ;; the canvas y the first visible row is drawn at, keeping the part of it
-     ;; that is scrolled past off the top edge
+     ;; the canvas y of the first visible row. the part scrolled past stays
+     ;; off the top edge.
      :base (- top (mod virtual app/row-height))
      :anchor first-row}))
 
@@ -105,8 +105,8 @@
     [(max 0 (- a o)) (min total (+ b o))]))
 
 (defn- needs-fetch?
-  "True once the viewport comes within half the margin of an edge of what the
-  client holds, so the next window is asked for before a gap can show."
+  "True when the viewport comes within half the margin of an edge of what
+  the client holds. The client then asks before a gap shows."
   [[a b]]
   (let [state @app/!state
         have-from (:from state)
@@ -126,15 +126,15 @@
 
 (defn listen! []
   (let [events (js/EventSource. (str "/state/" sid))]
-    ;; EventSource retries a dropped connection but gives up for good on an
-    ;; HTTP error, which is what nginx answers while the server restarts
+    ;; EventSource retries a dropped connection but stops after an HTTP
+    ;; error, which is what nginx answers while the server restarts
     (set! (.-onerror events)
           (fn [_]
             (when (= 2 (.-readyState events))
               (js/setTimeout listen! 2000))))
-    ;; a reconnect voids whatever request was in flight. keeping :asked would
-    ;; drop the fresh session's first push and then dedup away the refetch of
-    ;; the same range, which wedges the tab.
+    ;; a reconnect voids the request in flight. a kept :asked drops the
+    ;; first push of the fresh session, then dedups away the refetch of the
+    ;; same range, and the tab freezes.
     (set! (.-onopen events)
           (fn [_] (reset! !asked nil)))
     ;; the proxy reports each push's compressed size just after the push
@@ -170,7 +170,7 @@
 (defn watch-scroll! []
   (.addEventListener root "scroll" on-scroll true))
 
-;; the row a page was opened from, so returning to the table lands on it
+;; the row that opened the page, so the table returns to it
 (defonce !opened (atom nil))
 
 (defn- track-page! [_ _ old new]
@@ -222,6 +222,6 @@
 (watch-scroll!)
 (listen!)
 
-;; the Squint Vite plugin calls this after a hot swap, so an edit repaints from
-;; the atoms rather than reloading
+;; the Squint Vite plugin calls this after a hot swap, so an edit repaints
+;; from the atoms instead of a page reload
 (defn ^:dev/after-load re-render [] (render!))

@@ -45,14 +45,14 @@
         stream (or (:brTotal wire) (:chars info) 0)]
     [:div#debugbox
      [:pre#wire
-      (str "stream " (:pushes info) " pushes carrying " (bytes-str (:chars info))
+      (str "stream " (:pushes info) " pushes, " (bytes-str (:chars info))
            " of state, " (bytes-str stream) " on the wire"
            (if wire
              (str " (" (js/Math.round (/ (:rawTotal wire) (max 1 (:brTotal wire)))) "x smaller)")
              " (uncompressed)"))]
      [:div.note
-      (str "every push is the whole app state. Brotli spends bytes only on what "
-           "differs from the pushes before it.")]
+      (str "Every push is the whole app state. Brotli only sends the "
+           "difference with the pushes before it.")]
      [:pre#stats
       (str "rows " (:from info) ".." (+ (:from info) (:rows info))
            " of " (:total info)
