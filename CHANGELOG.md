@@ -5,7 +5,7 @@
 ## v0.2.38 (2026-07-31)
 
 - Add `reagami.ssr` to render hiccup to an HTML string on the JVM, Babashka, Squint and CLJS. See [Server-side rendering](https://github.com/borkdude/reagami#server-side-rendering).
-- `render` hydrates a server-rendered page. It adopts the existing DOM instead of clearing the root.
+- `reagami.core/render` (the regular render function) now hydrates a server-rendered page. It adopts the existing DOM instead of clearing the root.
 - Add [create-reagami-app](https://github.com/borkdude/reagami/tree/main/create-reagami-app). Run `npm create reagami-app my-app` to create a Vite project with hot reload and a browser nREPL.
 
 ## v0.1.37 (2026-06-29)
