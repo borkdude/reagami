@@ -1,4 +1,8 @@
 body { font: 14px/1.4 system-ui, sans-serif; margin: 2rem; color: #222 }
+
+@media (max-width: 640px) {
+  body { margin: 1rem }
+}
 h1 { font-size: 1.2rem }
 
 #scroller { border: 1px solid #ddd }

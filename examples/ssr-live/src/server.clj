@@ -98,6 +98,8 @@
           [:html {:lang "en"}
            [:head
             [:meta {:charset "utf-8"}]
+            [:meta {:name "viewport"
+                    :content "width=device-width, initial-scale=1"}]
             [:title "reagami ssr"]
             ;; read per request, so editing the css only needs a reload
             [:style {:innerHTML (slurp (io/resource "app.css"))}]]
