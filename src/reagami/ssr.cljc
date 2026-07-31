@@ -229,7 +229,7 @@
   (let [[^String tag id class] (parse-tag-cached (->str (nth hiccup 0)))
         attrs (nth hiccup 1 nil)
         attrs? (map? attrs)
-        children (if attrs? (drop 2 hiccup) (drop 1 hiccup))
+        children (if attrs? (subvec hiccup 2) (subvec hiccup 1))
         [attr-pairs prop-pairs] (split-attrs (when attrs? attrs))
         attr-pairs (if class
                      (let [c (pair-get attr-pairs "class")]
