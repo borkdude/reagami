@@ -1,4 +1,9 @@
 (ns reagami.ssr
+  ;; the flag lets squint load the defmacro below at compile time; squint and
+  ;; cljs both take the :cljs branch, which makes the same-file macro visible
+  {:squint/compile-time true}
+  #?(:cljs (:require-macros #_{:clj-kondo/ignore [:unresolved-var]}
+                            [reagami.ssr :refer [app!]]))
   (:require [clojure.string :as str]))
 
 #?(:clj (set! *warn-on-reflection* true))
@@ -51,7 +56,29 @@
 
 (defn- sb [] #?(:clj (StringBuilder.) :default (array)))
 
-(defn- app! [b s] #?(:clj (.append ^StringBuilder b ^String s) :default (.push b s)))
+;; appends every piece to the string builder. each platform gets its cheapest
+;; shape: compiled targets append piece by piece, interpreted bb does one
+;; native str, because there the extra calls cost more than the string.
+#?(:clj
+   ^:squint/compile-time
+   (defmacro app! [b & xs]
+     #?(:squint
+        (let [arr (gensym "b")]
+          `(let [~arr ~b]
+             ~@(map (fn [x] (list '.push arr x)) xs)))
+        :bb
+        (if (= 1 (count xs))
+          `(.append ~b ~(first xs))
+          `(.append ~b (str ~@xs)))
+        :clj
+        (if (:ns &env)
+          ;; expanding for cljs
+          (let [arr (gensym "b")]
+            `(let [~arr ~b]
+               ~@(map (fn [x] (list '.push arr x)) xs)))
+          (let [sb (with-meta (gensym "sb") {:tag 'StringBuilder})]
+            `(let [~sb ~b]
+               ~@(map (fn [x] (list '.append sb x)) xs)))))))
 
 (defn- sb->str [b] #?(:clj (.toString ^StringBuilder b) :default (.join b "")))
 
@@ -159,18 +186,9 @@
         attr-pairs (if id (put attr-pairs "id" id) attr-pairs)]
     (app! b "<")
     (app! b tag)
-    ;; compiled targets append the pieces directly, skipping a str per
-    ;; attribute. interpreted bb pays more for the extra calls than for the
-    ;; str, so it keeps the single append.
     (run! (fn [pair]
-            #?@(:bb [(app! b (str " " (nth pair 0) "=\""
-                                 (escape-attr (->str (nth pair 1))) "\""))]
-                :default
-                [(app! b " ")
-                 (app! b (nth pair 0))
-                 (app! b "=\"")
-                 (app! b (escape-attr (->str (nth pair 1))))
-                 (app! b "\"")]))
+            (app! b " " (nth pair 0) "=\""
+                  (escape-attr (->str (nth pair 1))) "\""))
           attr-pairs)
     (run! (fn [pair]
             (let [k (nth pair 0)
@@ -178,17 +196,9 @@
               (cond
                 (= "innerHTML" k) nil
                 (contains? boolean-properties k)
-                (when v
-                  #?@(:bb [(app! b (str " " k "=\"\""))]
-                      :default [(app! b " ") (app! b k) (app! b "=\"\"")]))
+                (when v (app! b " " k "=\"\""))
                 (some? v)
-                #?(:bb (app! b (str " " k "=\"" (escape-attr (->str v)) "\""))
-                   :default
-                   (do (app! b " ")
-                       (app! b k)
-                       (app! b "=\"")
-                       (app! b (escape-attr (->str v)))
-                       (app! b "\""))))))
+                (app! b " " k "=\"" (escape-attr (->str v)) "\""))))
           prop-pairs)
     (app! b ">")
     (when-not (contains? void-tags tag)
@@ -196,11 +206,7 @@
         (if (some? html)
           (app! b (->str html))
           (children->html children b)))
-      #?@(:bb [(app! b (str "</" tag ">"))]
-          :default
-          [(app! b "</")
-           (app! b tag)
-           (app! b ">")]))))
+      (app! b "</" tag ">"))))
 
 (defn- ->html [x b]
   (cond
