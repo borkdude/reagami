@@ -1,0 +1,19 @@
+{
+  "name": "create-reagami-app",
+  "version": "0.1.0",
+  "description": "Scaffold a reagami app with Vite, hot swap and a browser nREPL",
+  "type": "module",
+  "bin": {
+    "create-reagami-app": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "template"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/borkdude/reagami.git",
+    "directory": "create-reagami-app"
+  },
+  "license": "MIT"
+}
