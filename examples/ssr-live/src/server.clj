@@ -33,8 +33,8 @@
 (defonce sessions (atom {}))
 
 ;; a page that is fetched but never opens its event stream leaves an entry
-;; behind, and a crawler makes one per visit. streaming sessions are removed
-;; when their last stream closes, so only the ones with none need sweeping.
+;; behind, and a crawler makes one per visit. only entries without a stream
+;; need sweeping.
 (def ^:private session-ttl-ms (* 5 60 1000))
 (def ^:private sweep-every-ms 60000)
 
@@ -67,8 +67,8 @@
     "/client.js"))
 
 (defn- client-tags
-  ;; Vite injects these into its own index.html. this page is rendered here, so
-  ;; it emits them itself.
+  ;; Vite injects these into its own index.html. this page is rendered here
+  ;; and emits them itself.
   [dev?]
   (if dev?
     (list [:script {:type "module" :src (str vite "/@vite/client")}]
@@ -87,8 +87,8 @@
     (apply-action initial-state {:type "window" :from 0 :to to})))
 
 ;; the whole page goes through reagami.ssr. :innerHTML is the raw output for
-;; content that must not be escaped: script and style are raw text to the HTML
-;; parser, so entities inside them are never decoded.
+;; content that must not be escaped: the HTML parser never decodes entities
+;; inside script and style.
 (defn page [dev?]
   (let [sid (str (random-uuid))
         state (fresh-state)]
@@ -112,20 +112,20 @@
             (client-tags dev?)]]))))
 
 (defn- asset [path]
-  ;; the name only, so a crafted path cannot reach outside dist/
+  ;; the name only: a crafted path must not reach outside dist/
   (let [f (fs/file "dist" (fs/file-name path))]
     (when (fs/regular-file? f)
       {:status 200
        :headers {"Content-Type" (if (.endsWith path ".js")
                                   "text/javascript"
                                   "text/plain")
-                 ;; the name carries a content hash, so it can be kept forever
+                 ;; the name carries a content hash and can be kept forever
                  "Cache-Control" "public, max-age=31536000, immutable"}
        :body (slurp f)})))
 
 (defn- sse [state]
-  ;; :edits is the server's record of what was changed. it only grows, and the
-  ;; client already sees the result baked into :rows, so it does not go over.
+  ;; :edits is the server's record of what changed. it only grows, and the
+  ;; client already sees the result in :rows.
   (str "data: " (json/generate-string (dissoc state :edits)) "\n\n"))
 
 (defn- state-stream [req sid]
@@ -208,8 +208,8 @@
                (= "/favicon.ico" path) {:status 204}
                (not dev?) (or (asset path) {:status 404 :body "not found"})
                :else {:status 404 :body "not found"})]
-    ;; http-kit writes the body even for HEAD, which HTTP does not allow and
-    ;; strict clients reject
+    ;; http-kit writes the body even for HEAD. HTTP does not allow that, and
+    ;; strict clients reject it.
     (if (and (= :head (:request-method req)) (string? (:body resp)))
       (dissoc resp :body)
       resp)))

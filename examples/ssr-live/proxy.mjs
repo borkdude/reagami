@@ -22,14 +22,14 @@ const br = () => zlib.createBrotliCompress({
 
 const wantsBrotli = (req) => /\bbr\b/.test(req.headers['accept-encoding'] || '')
 
-// one line per event makes the numbers visible in dev and fills the journal
-// in production. errors always log.
+// one line per event: useful in dev, too much for a production journal.
+// errors always log.
 const VERBOSE = process.env.PROXY_VERBOSE !== '0'
 const log = (...args) => { if (VERBOSE) console.log(...args) }
 
-// an upstream socket error can race the response, so every path that writes
-// headers checks first. writing them twice throws, and an unhandled throw here
-// takes down every connection, not just this one.
+// an upstream socket error can race the response. every path that writes
+// headers checks first, because writing them twice throws, and an unhandled
+// throw here takes down every connection.
 const head = (res, status, headers) => {
   if (res.headersSent) return false
   res.writeHead(status, headers)
@@ -63,14 +63,10 @@ http.createServer((req, res) => {
     if (type.startsWith('text/event-stream')) {
       const enc = br()
       let event = 0
-      let raw = 0
       let comp = 0
-      // state pushes only, so the wire events this proxy injects do not count
-      // against the app's own totals
-      let brTotal = 0
       // a push bigger than one TCP chunk arrives in pieces. a wire event
-      // after a piece splices into the middle of the real event, so buffer
-      // until one complete blank-line-terminated event arrives.
+      // after a piece splices into the middle of the real event. buffer until
+      // one complete blank-line-terminated event arrives.
       let buf = ''
       res.writeHead(ur.statusCode, { ...out, 'content-encoding': 'br' })
       enc.on('data', (c) => { comp += c.length; res.write(c) })
@@ -81,17 +77,14 @@ http.createServer((req, res) => {
         while ((i = buf.indexOf('\n\n')) >= 0) {
           const one = buf.slice(0, i + 2)
           buf = buf.slice(i + 2)
-          raw += one.length
           const before = comp
           enc.write(one)
           // flush so the event reaches the browser now, keeping the window intact
           enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {
-            event++
             const cost = comp - before
-            brTotal += cost
-            log(`event ${String(event).padStart(3)}  raw ${String(one.length).padStart(7)}  br ${String(cost).padStart(7)}  (stream ${raw} -> ${brTotal})`)
-            // only this side knows what the push cost, so report it to the page
-            enc.write(`event: wire\ndata: {"raw":${one.length},"br":${cost},"rawTotal":${raw},"brTotal":${brTotal}}\n\n`)
+            log(`event ${String(++event).padStart(3)}  raw ${String(one.length).padStart(7)}  br ${String(cost).padStart(7)}`)
+            // only this side knows what the push cost. report it to the page.
+            enc.write(`event: wire\ndata: {"raw":${one.length},"br":${cost}}\n\n`)
             enc.flush(zlib.constants.BROTLI_OPERATION_FLUSH, () => {})
           })
         }
