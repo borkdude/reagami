@@ -312,7 +312,8 @@
 (defn- adopt
   ;; a server-rendered node carries no vnode: rebuild one from the DOM so the
   ;; first patch can diff against it. props stay empty, so that patch sets all
-  ;; of them.
+  ;; of them. field order matches create-vnode*, so both sides get the same
+  ;; hidden class and patching stays monomorphic.
   [^js dom]
   (aset stats "adopted" (inc (aget stats "adopted")))
   (let [vnode (cond
