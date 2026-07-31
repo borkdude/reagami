@@ -269,25 +269,6 @@
     (vector? x) (let [tag (nth x 0)]
                   (cond
                     (fn? tag) (->html (apply tag (rest x)) b)
-                    ;; a fragment is an anchor comment plus its children,
-                    ;; matching what the client builds. keywords intern on the
-                    ;; jvm and bb, and are strings on squint, so the check is
-                    ;; one identity compare.
-                    #?(:squint (identical? "<>" tag)
-                       :cljs (keyword-identical? :<> tag)
-                       :default (identical? :<> tag))
-                    ;; a fragment takes no attrs except a lone :key, which is
-                    ;; client-side reconciliation data and renders as nothing
-                    (let [attrs (nth x 1 nil)
-                          attrs? (map? attrs)]
-                      (when (and attrs?
-                                 (or (nil? #?(:squint (aget attrs "key")
-                                              :default (:key attrs)))
-                                     (not= 1 (count (entries attrs)))))
-                        (throw (ex-info "A fragment takes only a :key attribute"
-                                        {:hiccup x})))
-                      (app! b "<!---->")
-                      (children->html (subvec x (if attrs? 2 1)) b))
                     :else (element->html x b)))
     (or (number? x) (boolean? x)) (app! b (escape-text (str x)))
     (hiccup-seq? x) (run! (fn [child] (->html child b)) x)

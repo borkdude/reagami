@@ -53,7 +53,6 @@ Reagami supports:
 - `:on-render` hook. See docs [here](https://github.com/borkdude/reagami?tab=readme-ov-file#on-render).
 - Keyed children for better diffing via `:key`. See docs [here](https://github.com/borkdude/reagami?tab=readme-ov-file#keyed-children).
 - Server-side rendering with hydration via `reagami.ssr`, on the JVM, Babashka, Squint, and CLJS. See [Server-side rendering](#server-side-rendering).
-- Fragments: `[:<> ...]` splices its children into the parent without a wrapper element. A comment node marks the spot, like a nil child. With `[:<> {:key k} ...]` the fragment moves as one unit in keyed lists.
 
 Reagami does NOT support:
 
