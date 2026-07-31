@@ -80,6 +80,24 @@
     (.click (.querySelector el "button"))
     (is (= 1 @clicks))))
 
+(deftest hydrate-on-render-test
+  (testing "an :on-render hook mounts on an adopted node and keeps its state"
+    (let [calls (atom [])
+          hook (fn [_ phase data]
+                 (swap! calls conj [phase data])
+                 :state)
+          hiccup [:div [:span {:on-render hook} "x"]]
+          el (js/document.createElement "div")]
+      ;; the hook checks isConnected, so the container must be in the document
+      (.appendChild js/document.body el)
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [result (reagami/render el hiccup)]
+        (is (= 0 (:created result))))
+      (is (= [[:mount nil]] @calls))
+      (reagami/render el hiccup)
+      (is (= [[:mount nil] [:update :state]] @calls))
+      (.remove el))))
+
 (deftest hydrate-mismatch-repairs-and-counts-test
   (let [el (js/document.createElement "div")]
     (set! (.-innerHTML el) (ssr/render [:div [:span "a"]]))
