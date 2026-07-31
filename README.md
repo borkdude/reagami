@@ -162,9 +162,12 @@ the same 35 KB of HTML. The numbers come from criterium on an M-series Mac.
 
 Some context for these numbers:
 
-- hiccup2 and chassis also have macro paths that compile literal templates.
-  The hiccup2 macro path takes 0.076 ms on this page. Those paths do not apply to
-  hiccup that a program builds at run time.
+- hiccup2 and chassis also have compile-time macros. When the hiccup is a
+  literal vector in the source code, the macro converts its constant parts to
+  strings at compile time. In that style, hiccup2 renders this page in
+  0.076 ms. The table above measures the other case: hiccup that exists as
+  data at run time. Reagami views return hiccup as data, because the client
+  renders the same views.
 - chassis runs only on the JVM.
 - On Babashka, `reagami.ssr` renders the same page in 2.5 ms.
 
