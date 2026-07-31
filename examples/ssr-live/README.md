@@ -55,12 +55,14 @@ rows 73..153 of 1000000 | state 11.2 kB uncompressed | parse 100 us | created 0 
 load: response 39 ms, painted 76 ms, interactive 65 ms
 ```
 
-The first line is the state stream since the page loaded. Each window overlaps
-the one before it, so the compression ratio climbs while you scroll. The
-second line shows the state that the client holds and the cost of the last
-render. `created 0` means that Reagami adopted the server nodes in `#app` and
-made no new ones. The client renders the panel into a separate root, so the
-panel is not part of that count.
+- The stream line counts every push since the page loaded. Each window
+  overlaps the one before it, so the compression ratio climbs while you
+  scroll.
+- The rows line shows the state that the client holds and the cost of the
+  last render. `created 0` means that Reagami adopted the server nodes in
+  `#app` and made no new ones. The panel itself renders into a separate root,
+  outside that count.
+- The load line is the page load as the browser recorded it.
 
 ## How it works
 
