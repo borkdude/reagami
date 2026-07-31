@@ -17,6 +17,6 @@
 (add-watch !state ::render (fn [_ _ _ _] (render!)))
 (render!)
 
-;; the Squint Vite plugin calls this after a hot swap, so an edit repaints
+;; the Squint Vite plugin calls this after a hot reload, so an edit repaints
 ;; and the atom keeps its state
 (defn ^:dev/after-load re-render [] (render!))

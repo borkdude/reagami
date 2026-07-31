@@ -47,7 +47,7 @@ To start a new project, run:
 npm create reagami-app my-app
 ```
 
-The command creates a Vite project with hot swap and a browser nREPL. See
+The command creates a Vite project with hot reload and a browser nREPL. See
 [create-reagami-app](create-reagami-app).
 
 Reagami supports:
