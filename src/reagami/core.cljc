@@ -118,6 +118,17 @@
 ;; a fragment builds to an anchor comment plus its children, spliced flat into
 ;; the parent. the anchor keeps the slot when the fragment is empty, and patch
 ;; never sees fragments at all.
+(declare create-vnode*)
+
+;; kept out of create-vnode*: an inline splice arm in that cond cost 20% on the
+;; benchmark select, with the arm never executed. v8 treats the hot function
+;; differently once the closure sits in its body.
+(defn- splice-vnodes
+  [hiccup in-svg?]
+  (let [arr #js []]
+    (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) hiccup)
+    arr))
+
 (defn- push-vnode!
   [^js arr x]
   (if ^boolean (js/Array.isArray x)
@@ -239,10 +250,7 @@
                    node)))]
       node)
     ;; a top level seq splices, so a component can return one
-    (hiccup-seq? hiccup)
-    (let [arr #js []]
-      (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) hiccup)
-      arr)
+    (hiccup-seq? hiccup) (splice-vnodes hiccup in-svg?)
     :else
     (throw (do
              (js/console.error "Invalid hiccup:" hiccup)
