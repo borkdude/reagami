@@ -118,6 +118,13 @@
 ;; a fragment builds to an anchor comment plus its children, spliced flat into
 ;; the parent. the anchor keeps the slot when the fragment is empty, and patch
 ;; never sees fragments at all.
+(defn- push-vnode!
+  [^js arr x]
+  (if ^boolean (js/Array.isArray x)
+    (let [n (alength x)]
+      (dotimes [i n] (.push arr (aget x i))))
+    (.push arr x)))
+
 (declare create-vnode*)
 
 ;; kept out of create-vnode*: an inline splice arm in that cond cost 20% on the
@@ -128,13 +135,6 @@
   (let [arr #js []]
     (run! (fn [x] (push-vnode! arr (create-vnode* x in-svg?))) hiccup)
     arr))
-
-(defn- push-vnode!
-  [^js arr x]
-  (if ^boolean (js/Array.isArray x)
-    (let [n (alength x)]
-      (dotimes [i n] (.push arr (aget x i))))
-    (.push arr x)))
 
 (defn- create-vnode*
   [hiccup in-svg?]
