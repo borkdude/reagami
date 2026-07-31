@@ -154,3 +154,16 @@
     (let [el (js/document.createElement "div")]
       (reagami/render el [:ul [(fn [] (list [:li "one"] [:li "two"]))]])
       (is (= "<ul><li>one</li><li>two</li></ul>" (.-innerHTML el))))))
+
+(deftest hydrate-fragment-test
+  (testing "a fragment page is adopted, anchor comment included"
+    (let [hiccup [:div [:<> [:p "a"] [:p "b"]] [:span "c"]]
+          el (js/document.createElement "div")]
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [p (.querySelector el "p")
+            span (.querySelector el "span")
+            result (reagami/render el hiccup)]
+        (is (= 0 (:created result)))
+        (is (identical? p (.querySelector el "p")))
+        (is (identical? span (.querySelector el "span")))
+        (is (= (ssr/render hiccup) (.-innerHTML el)))))))
