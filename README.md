@@ -41,6 +41,15 @@ io.github.borkdude/reagami {:git/sha "<latest-sha>" :git/tag "<latest-tag>"}
 
 and then require it with `(:require [reagami.core :as reagami])`.
 
+To start a new project, run:
+
+``` shell
+npm create reagami-app my-app
+```
+
+The command creates a Vite project with hot swap and a browser nREPL. See
+[create-reagami-app](create-reagami-app).
+
 Reagami supports:
 
 - Building small reactive apps with the only dependency being Squint or CLJS. Smallest app with Squint after minification is around 5.5 KB gzip.
