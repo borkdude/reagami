@@ -17,31 +17,19 @@
   (let [to (+ (quot app/viewport app/row-height) app/overscan)]
     {:total total :from 0 :rows (mapv app/row (range 0 to))}))
 
-;; the slider sets this, LATENCY picks the starting value. blocks an http-kit
-;; worker, which is fine for one browser and wrong for anything real.
-(defonce !latency (atom (or (some-> (System/getenv "LATENCY") parse-long) 20)))
-
-(defn- slow! []
-  (let [ms @!latency]
-    (when (pos? ms)
-      (Thread/sleep (+ (quot ms 2) (rand-int ms))))))
-
 ;; edits belong to the data, not to a tab, so they outlive a session. this
 ;; atom is the database of this demo.
 (defonce db (atom {}))
 
 (defn- apply-action
-  "Runs an action against session state. The shared edits merge in before
-  and write back after, so sessions never carry :edits. :latency is server
-  state that the client can see and set, so every push includes it."
+  "Runs an action against session state. The shared edits merge in before and
+  write back after, so sessions never carry :edits."
   [state action]
-  (when (and (= "latency" (:type action)) (number? (:ms action)))
-    (reset! !latency (min 100 (max 0 (:ms action)))))
   (let [next (app/handle (assoc state :edits @db) action)]
     (reset! db (:edits next))
-    (assoc (dissoc next :edits) :latency @!latency)))
+    (dissoc next :edits)))
 
-;; one entry per browser tab: {sid {:state ... :channels #{} :created ...}}
+;; one entry per browser tab: {sid {:state ... :channel ... :created ...}}
 (defonce sessions (atom {}))
 
 ;; a page that is fetched but never opens its event stream leaves an entry
@@ -51,7 +39,7 @@
 (def ^:private sweep-every-ms 60000)
 
 (defn- expired? [now session]
-  (and (empty? (:channels session))
+  (and (nil? (:channel session))
        (< (:created session 0) (- now session-ttl-ms))))
 
 (defn sweep-sessions!
@@ -101,13 +89,9 @@
 ;; the whole page goes through reagami.ssr. :innerHTML is the raw output for
 ;; content that must not be escaped: script and style are raw text to the HTML
 ;; parser, so entities inside them are never decoded.
-(defn page
-  ([dev?] (page dev? nil))
-  ([dev? open-id]
-   (let [sid (str (random-uuid))
-        state (fresh-state)
-        ;; a direct hit on /row/42 is rendered by the server, same components
-        state (if open-id (apply-action state {:type "open" :id open-id}) state)]
+(defn page [dev?]
+  (let [sid (str (random-uuid))
+        state (fresh-state)]
     (swap! sessions assoc sid {:state state :created (System/currentTimeMillis)})
     (str "<!doctype html>"
          (ssr/render
@@ -119,11 +103,11 @@
             [:style {:innerHTML (slurp (io/resource "app.css"))}]]
            [:body {:data-sid sid}
             [:div#app [app/app state]]
-            ;; the debug panel is client only, so the server leaves its root empty
-            [:div#debug]
+            ;; the status line is client only, so the server leaves its root empty
+            [:div#status]
             [:script {:type "application/json" :id "state"
                       :innerHTML (state-json state)}]
-            (client-tags dev?)]])))))
+            (client-tags dev?)]]))))
 
 (defn- asset [path]
   ;; the name only, so a crafted path cannot reach outside dist/
@@ -152,7 +136,7 @@
                                          (fn [s]
                                            (-> (or s {:state (fresh-state)
                                                       :created (System/currentTimeMillis)})
-                                               (update :channels (fnil conj #{}) ch))))
+                                               (assoc :channel ch))))
                                   (get sid))]
                   (http/send! ch {:status 200
                                   :headers {"Content-Type" "text/event-stream"
@@ -161,24 +145,21 @@
                               false)))
      ;; keep the state so a reconnect finds it. the sweeper reclaims it once the
      ;; tab stays gone.
-     :on-close (fn [ch _]
+     :on-close (fn [_ _]
                  (swap! sessions
                         (fn [m]
                           (if (contains? m sid)
-                            (update m sid #(-> (update % :channels disj ch)
+                            (update m sid #(-> (dissoc % :channel)
                                                (assoc :created (System/currentTimeMillis))))
                             m))))}))
 
-(defn- push!
-  "Sends state to every stream this session has. A duplicated tab or a
-  reconnect that overlaps the old connection leaves more than one."
-  [session]
-  (run! (fn [ch] (http/send! ch (sse (:state session)) false))
-        (:channels session)))
+(defn- push! [session]
+  (when-let [ch (:channel session)]
+    (http/send! ch (sse (:state session)) false)))
 
 (defn- apply-shared
-  "Runs another tab's action against this session. The edit is already in db, so
-  this only brings the session's own rows and open row up to date."
+  "Runs another tab's action against this session. The edit is already in db,
+  so this only brings the rows of that session up to date."
   [state action]
   (dissoc (app/handle (assoc state :edits @db) action) :edits))
 
@@ -192,7 +173,6 @@
     (push! (get (swap! sessions update-in [sid :state] apply-shared action) sid))))
 
 (defn- action [req]
-  (slow!)
   (let [{:keys [sid action]} (json/parse-string (slurp (:body req)) true)
         ;; a tab that was open across a restart posts a sid this process has
         ;; never seen. seed a session rather than applying the action to nil.
@@ -221,7 +201,6 @@
   (let [path (:uri req)
         resp (cond
                (= "/" path) (html (page dev?))
-               (str/starts-with? path "/row/") (html (page dev? (parse-long (subs path 5))))
                (str/starts-with? path "/state/") (state-stream req (subs path 7))
                (= "/action" path) (action req)
                (= "/favicon.ico" path) {:status 204}

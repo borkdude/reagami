@@ -1,87 +1,44 @@
 (ns client
   (:require
    [app]
-   [debug]
    [reagami.core :as r]))
 
 (def root (js/document.getElementById "app"))
-(def debug-root (js/document.getElementById "debug"))
+(def status-root (js/document.getElementById "status"))
 (def sid (.. js/document -body -dataset -sid))
 
-;; the JSON the client last parsed into state: from the document at load, then
-;; from each push. every push carries the whole state, so this is its size.
-(defonce !bytes (atom 0))
-;; totals for every push since the page loaded
-(defonce !pushes (atom 0))
+;; the last push: its size as JSON, and what it cost on the wire. the proxy
+;; reports the compressed size, so this is empty on port 8080.
 (defonce !chars (atom 0))
-;; what the last push cost on the wire, reported by the proxy. absent on 8080.
 (defonce !wire (atom nil))
-(defonce !parse (atom nil))
+(defonce !created (atom nil))
 (defonce !asked (atom nil))
 
-;; when the first render finished
-(defonce !hydrated (atom nil))
-(defonce !last (atom {}))
+(defn- render-status! []
+  (r/render status-root
+            [:p (str "push " @!chars " chars of state"
+                     (when-let [w @!wire]
+                       (str ", " (:br w) " B on the wire ("
+                            (js/Math.round (/ (:raw w) (max 1 (:br w)))) "x smaller)"))
+                     " | created " @!created)]))
 
-(defn- render-debug! []
-  (r/render debug-root
-            [:div
-             [debug/stats (assoc @!last
-                                 :wire @!wire :bytes @!bytes :parse @!parse
-                                 :pushes @!pushes :chars @!chars
-                                 :load (debug/first-load) :hydrated @!hydrated)]
-             [debug/state-view @app/!state]]))
-
-(defn- render-now! []
-  (let [t0 (js/performance.now)
-        result (r/render root [app/app @app/!state])
-        ms (js/Math.round (- (js/performance.now) t0))]
-    (when-not @!hydrated
-      (reset! !hydrated (js/Math.round (js/performance.now))))
-    (reset! !last {:rows (count (:rows @app/!state))
-                   :total (:total @app/!state)
-                   :from (:from @app/!state)
-                   :created (:created result)
-                   :ms ms})
-    (render-debug!)))
-
-(defonce !rendering (atom false))
-(defonce !again (atom false))
-
-(defn render!
-  "Renders, unless a render is already running. A render from inside another
-  corrupts the patch, so it waits until the first one finishes."
-  []
-  (if @!rendering
-    (reset! !again true)
-    (do (reset! !rendering true)
-        (try
-          (render-now!)
-          (finally (reset! !rendering false)))
-        (when @!again
-          (reset! !again false)
-          (render!)))))
-
-(defn- inflight! [n]
-  (swap! app/!view update :inflight (fn [c] (+ (or c 0) n))))
+(defn render! []
+  (let [result (r/render root [app/app @app/!state])]
+    (reset! !created (:created result))
+    (render-status!)))
 
 (defn dispatch-to-server [action]
-  ;; a count, not a flag: the bar stays until the last overlapping request
-  ;; answers
-  (inflight! 1)
   (-> (js/fetch "/action"
                 #js {:method "POST"
                      :headers #js {"Content-Type" "application/json"}
                      :body (js/JSON.stringify #js {:sid sid :action action})})
       ;; read the empty body: devtools logs an unread response as
       ;; "Fetch failed loading"
-      (.then (fn [r] (.text r)))
-      (.catch (fn [e] (js/console.warn "action failed" e)))
-      (.finally (fn [] (inflight! -1)))))
+      (.then (fn [r] (.text r)))))
 
 (defn- viewport
   "Which rows are on screen, and where to draw the first of them. Below the
-  canvas cap the scale is 1 and this is just scrollTop divided by row height."
+  canvas cap the scale is 1 and this is scrollTop divided by row height."
   [el]
   (let [total (:total @app/!state)
         top (.-scrollTop el)
@@ -94,31 +51,25 @@
      :base (- top (mod virtual app/row-height))
      :anchor first-row}))
 
-(defn- overscan
-  "The cache slider sets how far around the viewport to fetch."
-  []
-  (or (:overscan @app/!view) app/overscan))
-
 (defn- with-margin [[a b]]
-  (let [total (:total @app/!state)
-        o (overscan)]
-    [(max 0 (- a o)) (min total (+ b o))]))
+  (let [total (:total @app/!state)]
+    [(max 0 (- a app/overscan)) (min total (+ b app/overscan))]))
 
 (defn- needs-fetch?
-  "True when the viewport comes within half the margin of an edge of what
-  the client holds. The client then asks before a gap shows."
+  "True when the viewport comes within half the margin of an edge of what the
+  client holds. The client then asks before a gap shows."
   [[a b]]
   (let [state @app/!state
         have-from (:from state)
         have-to (+ have-from (count (:rows state)))
-        m (quot (overscan) 2)]
+        m (quot app/overscan 2)]
     (or (and (pos? have-from) (< (- a m) have-from))
         (and (< have-to (:total state)) (> (+ b m) have-to)))))
 
 (defn on-scroll [e]
   (let [{:keys [want base anchor]} (viewport (.-target e))
         fetch (with-margin want)]
-    ;; what is on screen drives the placeholders, a wider range drives the fetch
+    ;; the rows on screen drive the placeholders, a wider range drives the fetch
     (swap! app/!view assoc :want want :base base :anchor anchor)
     (when (and (needs-fetch? want) (not= @!asked fetch))
       (reset! !asked fetch)
@@ -126,43 +77,20 @@
 
 (defn listen! []
   (let [events (js/EventSource. (str "/state/" sid))]
-    ;; EventSource retries a dropped connection but stops after an HTTP
-    ;; error, which is what nginx answers while the server restarts
-    (set! (.-onerror events)
-          (fn [_]
-            (when (= 2 (.-readyState events))
-              (js/setTimeout listen! 2000))))
-    ;; a reconnect voids the request in flight. a kept :asked drops the
-    ;; first push of the fresh session, then dedups away the refetch of the
-    ;; same range, and the tab freezes.
-    (set! (.-onopen events)
-          (fn [_] (reset! !asked nil)))
-    ;; the proxy reports each push's compressed size just after the push
+    ;; the proxy reports the compressed size of each push, just after it
     (.addEventListener events "wire"
                        (fn [e]
                          (reset! !wire (js/JSON.parse (.-data e)))
-                         (render-debug!)))
+                         (render-status!)))
     (set! (.-onmessage events)
           (fn [e]
             (let [data (.-data e)
-                  t0 (js/performance.now)
                   state (js/JSON.parse data)
-                  ;; microseconds: a window parses well below a millisecond
-                  us (js/Math.round (* 1000 (- (js/performance.now) t0)))
                   asked @!asked]
-              (reset! !bytes (.-length data))
-              (swap! !pushes inc)
-              (swap! !chars + (.-length data))
-              (reset! !parse us)
-              ;; any push means the server has answered, so release the edit
-              ;; lock even for a window this client no longer wants
-              (when (:pending @app/!view)
-                (swap! app/!view assoc :pending nil))
+              (reset! !chars (.-length data))
               ;; responses can arrive out of order, so drop anything that is
-              ;; not the window asked for last. a push without rows is not a
-              ;; state this app can render, so it never replaces the one we hold.
-              (when (and (:rows state)
-                         (or (nil? asked) (= (:from state) (nth asked 0))))
+              ;; not the window asked for last
+              (when (or (nil? asked) (= (:from state) (nth asked 0)))
                 (reset! app/!state state)))))
     events))
 
@@ -170,53 +98,10 @@
 (defn watch-scroll! []
   (.addEventListener root "scroll" on-scroll true))
 
-;; the row that opened the page, so the table returns to it
-(defonce !opened (atom nil))
-
-(defn- track-page! [_ _ old new]
-  (let [was (= "row" (:page old))
-        now (= "row" (:page new))]
-    (cond
-      (and (not was) now) (reset! !opened (:id (:row new)))
-      (and was (not now))
-      (when-let [id @!opened]
-        ;; after the table has rendered
-        (js/queueMicrotask
-         (fn []
-           (when-let [el (js/document.getElementById "scroller")]
-             (set! (.-scrollTop el)
-                   (/ (* id app/row-height) (app/scale (:total @app/!state)))))))))))
-
-(defn- path-for [state]
-  (if (= "row" (:page state))
-    (str "/row/" (:id (:row state)))
-    "/"))
-
-;; the URL follows the state, so app.cljc needs no browser history API
-(defn- sync-url! [_ _ old new]
-  (let [to (path-for new)]
-    (when (not= (path-for old) to)
-      (.pushState js/history nil "" to))))
-
-(defn- open-from-url! []
-  (let [p (.. js/window -location -pathname)]
-    (if (.startsWith p "/row/")
-      (app/dispatch! {:type "open" :id (parse-long (subs p 5))})
-      (app/dispatch! {:type "close"}))))
-
 (reset! app/!dispatch dispatch-to-server)
-(let [json (.-textContent (js/document.getElementById "state"))]
-  (reset! !bytes (.-length json))
-  (reset! app/!state (js/JSON.parse json)))
+(reset! app/!state (js/JSON.parse (.-textContent (js/document.getElementById "state"))))
 (add-watch app/!state ::render (fn [_ _ _ _] (render!)))
 (add-watch app/!view ::render (fn [_ _ _ _] (render!)))
-
-(add-watch app/!state ::url sync-url!)
-(add-watch app/!state ::page track-page!)
-;; a direct hit on /row/42 has no transition to observe, so seed it
-(when (= "row" (:page @app/!state))
-  (reset! !opened (:id (:row @app/!state))))
-(.addEventListener js/window "popstate" (fn [_] (open-from-url!)))
 
 (render!)
 (watch-scroll!)
