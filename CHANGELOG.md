@@ -5,7 +5,7 @@
 ## Unreleased
 
 - Add `reagami.ssr` to render hiccup to an HTML string on the JVM, Babashka, Squint and CLJS. See [Server-side rendering](https://github.com/borkdude/reagami#server-side-rendering).
-- `render` adopts server-rendered DOM instead of clearing the root. It returns `{:created n :adopted n}`, the count of nodes it made and the count it reused.
+- `render` hydrates a server-rendered page. It adopts the existing DOM instead of clearing the root.
 
 ## v0.1.37 (2026-06-29)
 

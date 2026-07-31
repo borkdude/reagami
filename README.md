@@ -120,9 +120,9 @@ function: `render`.
 ```
 
 The output matches the DOM that `reagami.core/render` builds from the same
-hiccup. Because the two match, the client adopts the server nodes and does not
-build new ones. The client attaches the event handlers during this first
-render. The result map shows the counts: `{:created 0, :adopted 9}`.
+hiccup. Because the two match, the client hydrates the page. It adopts the
+server nodes instead of building new ones. The client attaches the event
+handlers during this first render.
 
 To use it:
 
