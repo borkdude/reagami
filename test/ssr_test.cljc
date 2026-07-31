@@ -167,3 +167,26 @@
         (is (identical? p (.querySelector el "p")))
         (is (identical? span (.querySelector el "span")))
         (is (= (ssr/render hiccup) (.-innerHTML el)))))))
+
+(deftest hydrate-sibling-fragment-components-test
+  (testing "sibling components that each return a fragment hydrate by adoption"
+    (let [head (fn [] [:<> [:h1 "title"] [:p "intro"]])
+          body (fn [] [:<> [:ul [:li "a"]] [:footer "end"]])
+          hiccup [:div [head] [body]]
+          el (js/document.createElement "div")]
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [h1 (.querySelector el "h1")
+            li (.querySelector el "li")
+            footer (.querySelector el "footer")
+            result (reagami/render el hiccup)]
+        (is (= 0 (:created result)))
+        (is (identical? h1 (.querySelector el "h1")))
+        (is (identical? li (.querySelector el "li")))
+        (is (identical? footer (.querySelector el "footer")))
+        (is (= (ssr/render hiccup) (.-innerHTML el)))
+        (testing "and a re-render after hydration still patches in place"
+          (let [hiccup2 [:div [head] [(fn [] [:<> [:ul [:li "a2"]] [:footer "end"]])]]
+                result2 (reagami/render el hiccup2)]
+            (is (= 0 (:created result2)))
+            (is (identical? li (.querySelector el "li")))
+            (is (= "a2" (.-textContent (.querySelector el "li"))))))))))
