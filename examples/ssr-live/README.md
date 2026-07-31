@@ -2,7 +2,7 @@
 
 What if we just send the whole app state on every client action and re-render the whole app?
 
-A million row CRUD virtual scroll, rendered by Babashka, streamed over SSE, and adopted by the
+A million row CRUD virtual scroll, rendered by Babashka, streamed over SSE, and hydrated by the
 browser.
 
 Deployed at https://reagami-ssr-live.michielborkent.nl. All

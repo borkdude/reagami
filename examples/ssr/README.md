@@ -1,7 +1,7 @@
 # Reagami SSR
 
 The smallest server rendering setup: Babashka renders the page, the browser
-adopts it.
+hydrates it.
 
 `src/app.cljc` is loaded by both sides. The server renders it with
 `reagami.ssr/render`. The browser then calls `reagami.core/render` on the same
