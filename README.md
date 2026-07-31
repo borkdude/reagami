@@ -147,6 +147,7 @@ The output follows the hydration contract:
 CAUTION: Do not put user input in tag names, in attribute names, or in
 `:innerHTML`. Reagami escapes text and attribute values only.
 
+<!--
 ### SSR benchmarks
 
 A page with a table of 80 rows and 10 columns renders in the times below.
@@ -170,6 +171,7 @@ Some context for these numbers:
   renders the same views.
 - chassis runs only on the JVM.
 - On Babashka, `reagami.ssr` renders the same page in 2.5 ms.
+-->
 
 ## Patch algorithm
 
