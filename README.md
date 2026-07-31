@@ -155,18 +155,18 @@ the same 35 KB of HTML. The numbers come from criterium on an M-series Mac.
 
 | Library | JVM time |
 |---|---|
-| [chassis](https://github.com/onionpancakes/chassis) | 0.167 ms |
-| reagami.ssr | 0.194 ms |
-| [hiccup2](https://github.com/weavejester/hiccup) | 0.319 ms |
-| [replicant.string](https://github.com/cjohansen/replicant) | 0.591 ms |
+| [chassis](https://github.com/onionpancakes/chassis) | 0.165 ms |
+| reagami.ssr | 0.193 ms |
+| [hiccup2](https://github.com/weavejester/hiccup) | 0.324 ms |
+| [replicant.string](https://github.com/cjohansen/replicant) | 0.612 ms |
 
 Some context for these numbers:
 
 - hiccup2 and chassis also have macro paths that compile literal templates.
-  The hiccup2 macro path takes 0.073 ms on this page. Those paths do not apply to
+  The hiccup2 macro path takes 0.076 ms on this page. Those paths do not apply to
   hiccup that a program builds at run time.
 - chassis runs only on the JVM.
-- On Babashka, `reagami.ssr` renders the same page in 2.4 ms.
+- On Babashka, `reagami.ssr` renders the same page in 2.5 ms.
 
 ## Patch algorithm
 
