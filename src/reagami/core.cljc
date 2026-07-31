@@ -89,6 +89,11 @@
 (def ^:private root-key #?(:squint ::root
                            :cljs "reagami.core/root"))
 
+;; set on the root for the hydration render only, so patch-keyed knows to pair
+;; server children by position
+(def ^:private hydrating-key #?(:squint ::hydrating
+                                :cljs "reagami.core/hydrating"))
+
 (def ^:private is-run-key #?(:squint ::is-run
                              :cljs "reagami.core/is-run"))
 
@@ -307,15 +312,14 @@
 (defn- adopt
   ;; a server-rendered node carries no vnode: rebuild one from the DOM so the
   ;; first patch can diff against it. props stay empty, so that patch sets all
-  ;; of them. :adopted lets patch-keyed pair server children by position; the
-  ;; first patch replaces the vnode, so the mark expires with it.
+  ;; of them.
   [^js dom]
   (aset stats "adopted" (inc (aget stats "adopted")))
   (let [vnode (cond
                 (identical? 3 (.-nodeType dom))
-                #js {:tag "#text" :text (.-data dom) :adopted true}
+                #js {:tag "#text" :text (.-data dom)}
                 (not (identical? 1 (.-nodeType dom)))
-                (let [vnode #js {:tag (.-nodeName dom) :adopted true}]
+                (let [vnode #js {:tag (.-nodeName dom)}]
                   (aset vnode props-key #js {})
                   (aset vnode attrs-key #js {})
                   vnode)
@@ -325,8 +329,7 @@
                       ;; patch only reads the length of :children
                       vnode #js {:svg (identical? svg-ns (.-namespaceURI dom))
                                  :tag (.-tagName dom)
-                                 :children (js/Array. (alength (.-childNodes dom)))
-                                 :adopted true}]
+                                 :children (js/Array. (alength (.-childNodes dom)))}]
                   (dotimes [i (alength dom-attrs)]
                     (let [a (aget dom-attrs i)]
                       (aset attrs (.-name a) (.-value a))))
@@ -479,15 +482,13 @@
       (let [^js n (aget old-nodes oi)]
         (.set old-index n oi)
         (if-let [k (node-key n)] (.set old-by-key k n) (.push unkeyed n))))
-    ;; adopted children carry no keys, so the loop above left them all unkeyed.
+    ;; server children carry no keys, so the loop above left them all unkeyed.
     ;; pair new keyed children with them by position, then keys take over from
     ;; the next render.
-    (when (pos? (alength old-nodes))
-      (let [^js vn (aget (aget old-nodes 0) vnode-key)]
-        (when (and vn (aget vn "adopted"))
-          (dotimes [i (js/Math.min cnt (alength old-nodes))]
-            (when-let [k (aget (aget new-children i) key-key)]
-              (.set old-by-key k (aget old-nodes i)))))))
+    (when (aget root hydrating-key)
+      (dotimes [i (js/Math.min cnt (alength old-nodes))]
+        (when-let [k (aget (aget new-children i) key-key)]
+          (.set old-by-key k (aget old-nodes i)))))
     ;; reuse each new child's old node by key, else next unkeyed, else create
     (dotimes [i cnt]
       (let [^js v (aget new-children i)
@@ -567,12 +568,14 @@
   (aset stats "adopted" 0)
   (let [^js fc (.-firstChild root)]
     (when (and fc (not (aget fc vnode-key)))
-      (adopt-tree root)))
+      (adopt-tree root)
+      (aset root hydrating-key true)))
   (let [new-node (create-vnode hiccup)
         new-children (if ^boolean (js/Array.isArray new-node)
                        new-node
                        #js [new-node])]
     (patch root new-children root))
+  (aset root hydrating-key false)
   (run! (fn [node]
           (let [ref (aget node on-render-key)]
             (if (.-isConnected node)
