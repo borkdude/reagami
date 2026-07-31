@@ -128,12 +128,7 @@ function: `render`.
 ;;=> "<div id=\"app\"><p>Hello</p></div>"
 ```
 
-The output matches the DOM that `reagami.core/render` builds from the same
-hiccup. Because the two match, the client hydrates the page. It adopts the
-server nodes instead of building new ones. The client attaches the event
-handlers during this first render.
-
-To use it:
+To make hydration work, follow these steps:
 
 1. On the server, render the page with `ssr/render`. Put the result in the
    container element.
