@@ -33,6 +33,16 @@
          (when (pos? (count class))
            (str/replace class "." " "))))]))
 
+;; tags come from code, so the cache stays small. mirrors the client's cache in
+;; reagami.core.
+(def ^:private tag-cache (atom {}))
+
+(defn- parse-tag-cached [tag]
+  (or (get @tag-cache tag)
+      (let [parsed (parse-tag tag)]
+        (swap! tag-cache assoc tag parsed)
+        parsed)))
+
 (defn- entries [m]
   (if m
     #?(:squint (js/Object.entries m)
@@ -61,18 +71,29 @@
     #?@(:clj [(float? v) (num->str v)])
     :else (str v)))
 
+;; most strings contain nothing to escape, so scan before paying for the
+;; replace passes and their intermediate strings
 (defn- escape-text [s]
-  (-> s
-      (str/replace "&" "&amp;")
-      (str/replace "\u00a0" "&nbsp;")
-      (str/replace "<" "&lt;")
-      (str/replace ">" "&gt;")))
+  (if (or (str/index-of s "&")
+          (str/index-of s "\u00a0")
+          (str/index-of s "<")
+          (str/index-of s ">"))
+    (-> s
+        (str/replace "&" "&amp;")
+        (str/replace "\u00a0" "&nbsp;")
+        (str/replace "<" "&lt;")
+        (str/replace ">" "&gt;"))
+    s))
 
 (defn- escape-attr [s]
-  (-> s
-      (str/replace "&" "&amp;")
-      (str/replace "\u00a0" "&nbsp;")
-      (str/replace "\"" "&quot;")))
+  (if (or (str/index-of s "&")
+          (str/index-of s "\u00a0")
+          (str/index-of s "\""))
+    (-> s
+        (str/replace "&" "&amp;")
+        (str/replace "\u00a0" "&nbsp;")
+        (str/replace "\"" "&quot;"))
+    s))
 
 (defn- pair-get [pairs k]
   (some (fn [pair] (when (= k (nth pair 0)) (nth pair 1))) pairs))
@@ -125,7 +146,7 @@
    (entries attrs)))
 
 (defn- element->html [hiccup b]
-  (let [[^String tag id class] (parse-tag (->str (nth hiccup 0)))
+  (let [[^String tag id class] (parse-tag-cached (->str (nth hiccup 0)))
         attrs (nth hiccup 1 nil)
         attrs? (map? attrs)
         children (if attrs? (drop 2 hiccup) (drop 1 hiccup))
@@ -138,17 +159,36 @@
         attr-pairs (if id (put attr-pairs "id" id) attr-pairs)]
     (app! b "<")
     (app! b tag)
+    ;; compiled targets append the pieces directly, skipping a str per
+    ;; attribute. interpreted bb pays more for the extra calls than for the
+    ;; str, so it keeps the single append.
     (run! (fn [pair]
-            (app! b (str " " (nth pair 0) "=\""
-                         (escape-attr (->str (nth pair 1))) "\"")))
+            #?@(:bb [(app! b (str " " (nth pair 0) "=\""
+                                 (escape-attr (->str (nth pair 1))) "\""))]
+                :default
+                [(app! b " ")
+                 (app! b (nth pair 0))
+                 (app! b "=\"")
+                 (app! b (escape-attr (->str (nth pair 1))))
+                 (app! b "\"")]))
           attr-pairs)
     (run! (fn [pair]
             (let [k (nth pair 0)
                   v (nth pair 1)]
               (cond
                 (= "innerHTML" k) nil
-                (contains? boolean-properties k) (when v (app! b (str " " k "=\"\"")))
-                (some? v) (app! b (str " " k "=\"" (escape-attr (->str v)) "\"")))))
+                (contains? boolean-properties k)
+                (when v
+                  #?@(:bb [(app! b (str " " k "=\"\""))]
+                      :default [(app! b " ") (app! b k) (app! b "=\"\"")]))
+                (some? v)
+                #?(:bb (app! b (str " " k "=\"" (escape-attr (->str v)) "\""))
+                   :default
+                   (do (app! b " ")
+                       (app! b k)
+                       (app! b "=\"")
+                       (app! b (escape-attr (->str v)))
+                       (app! b "\""))))))
           prop-pairs)
     (app! b ">")
     (when-not (contains? void-tags tag)
@@ -156,7 +196,11 @@
         (if (some? html)
           (app! b (->str html))
           (children->html children b)))
-      (app! b (str "</" tag ">")))))
+      #?@(:bb [(app! b (str "</" tag ">"))]
+          :default
+          [(app! b "</")
+           (app! b tag)
+           (app! b ">")]))))
 
 (defn- ->html [x b]
   (cond
