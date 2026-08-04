@@ -1,7 +1,7 @@
 (ns on-render-test
   (:require
    [clojure.string :as str]
-   [clojure.test :refer [deftest is]]
+   [clojure.test :refer [deftest is testing]]
    [reagami.core :as reagami]))
 
 (def state (atom {:counter 0 :show true}))
@@ -59,3 +59,48 @@
     (.click (js/document.querySelector "#inc"))
     (is (str/includes? (.-innerHTML el) "Counter in subcomponent: 2"))
     (is (= {:updates 3} (:data @end-state)))))
+
+(defn- mount-root []
+  (let [el (js/document.createElement "div")]
+    (js/document.body.appendChild el)
+    el))
+
+(deftest per-node-state-test
+  (testing "nodes sharing one handler keep separate lifecycle state"
+    (let [el (mount-root)
+          seen (atom [])
+          hook (fn [node lifecycle data]
+                 (swap! seen conj [(.-textContent node)
+                                   #?(:squint lifecycle :cljs (name lifecycle))
+                                   (:n data)])
+                 {:n (inc (or (:n data) 0))})
+          items (fn [ks]
+                  (into [:ul] (map (fn [k] [:li {:key k :on-render hook} (str "i" k)]) ks)))]
+      (reagami/render el (items [1 2 3]))
+      (is (= [["i1" "mount" nil] ["i2" "mount" nil] ["i3" "mount" nil]] @seen))
+      (reset! seen [])
+      (reagami/render el (items [1 2 3]))
+      (is (= [["i1" "update" 1] ["i2" "update" 1] ["i3" "update" 1]] @seen)))))
+
+(deftest latest-handler-test
+  (testing "the handler of the newest render runs, not the first one"
+    (let [el (mount-root)
+          seen (atom [])
+          view (fn [label]
+                 [:div {:on-render (fn [_ _ _] (swap! seen conj label))} label])]
+      (reagami/render el (view "a"))
+      (reagami/render el (view "b"))
+      (reagami/render el (view "c"))
+      (is (= ["a" "b" "c"] @seen)))))
+
+(deftest removed-hook-test
+  (testing "dropping :on-render unmounts the hook and stops calling it"
+    (let [el (mount-root)
+          seen (atom [])
+          hook (fn [_ lifecycle _]
+                 (swap! seen conj #?(:squint lifecycle :cljs (name lifecycle))))]
+      (reagami/render el [:div {:on-render hook} "x"])
+      (reset! seen [])
+      (reagami/render el [:div "x"])
+      (reagami/render el [:div "x"])
+      (is (= ["unmount"] @seen)))))
