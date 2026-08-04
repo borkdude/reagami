@@ -361,6 +361,18 @@
           (aset v "children" (adopt-tree c)))))
     arr))
 
+(defn- own-children
+  ;; render was called on a node whose children another render made. their
+  ;; vnodes are still on them, so take those as this root's old child list
+  ;; instead of starting from nothing.
+  [^js parent]
+  (let [children (.-childNodes parent)
+        n (alength children)
+        arr (js/Array. n)]
+    (dotimes [i n]
+      (aset arr i (aget (aget children i) vnode-key)))
+    arr))
+
 (defn- has-key? [new-children]
   (let [n (alength new-children)]
     (loop [i 0]
@@ -581,9 +593,11 @@
   (aset stats "created" 0)
   (aset stats "adopted" 0)
   (let [^js fc (.-firstChild root)]
-    (when (and fc (not (aget fc vnode-key)))
-      (aset root children-key (adopt-tree root))
-      (aset root hydrating-key true)))
+    (when (and fc (nil? (aget root children-key)))
+      (if (aget fc vnode-key)
+        (aset root children-key (own-children root))
+        (do (aset root children-key (adopt-tree root))
+            (aset root hydrating-key true)))))
   (let [new-node (create-vnode hiccup)
         new-children (if ^boolean (js/Array.isArray new-node)
                        new-node
