@@ -254,10 +254,6 @@ Result: `a d b c (u) n (m)`, with `z` removed. Only `d` was moved, `n` and `(m)`
 In the below benchmarks, Reagami is compared against other CLJS UI libraries with [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark) and used the keyed variant. Reagent, Helix and UIX are tested with React 19.2.
 A more detailed explanation of the methodology and how you can run it yourself are in [doc/benchmarks.md](doc/benchmarks.md).
 
-The charts below predate the current patching code, which is around 6% faster on
-the geomean and up to 19% on the individual patching operations. See [Patching
-without reading the DOM](doc/benchmarks.md#patching-without-reading-the-dom).
-
 Geometric mean across the nine keyed table operations (lower is better):
 
 ```mermaid
@@ -274,7 +270,7 @@ xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
     x-axis ["UIX", "Reagami Squint", "Helix", "Reagami CLJS", "Reagent", "Replicant Squint", "Replicant CLJS"]
     y-axis "ms" 0 --> 60
-    bar [-5, 34.5, -5, 38.1, -5, -5, -5]
+    bar [-5, 32.6, -5, 38.1, -5, -5, -5]
     bar [32.3, -5, 36.0, -5, 42.6, 52.0, 56.0]
 ```
 

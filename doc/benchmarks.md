@@ -15,6 +15,10 @@ Replicant a22f871 for the CLJS entry / 4bfd556 for the Squint entry, which build
 Replicant from a local checkout. Reagent, Helix and UIX run on React 19.2.
 "Squint" and "CLJS" denote the compile target.
 
+The Reagami Squint column is the b756045 run scaled per operation by the speedup
+of the current patching code. That speedup was measured on the same machine
+against the same build. The other frameworks were not run again.
+
 One reproducibility caveat: the Squint entry resolves Reagami from npm, where the
 published package still trails this source. The numbers here are for Reagami at
 b756045, so reproducing them needs that build rather than a plain `npm ci`.
@@ -47,15 +51,15 @@ so a single slow run does not skew it. The best result per row is in bold.
 
 | benchmark (median ms) | Reagami Squint | Reagami CLJS | Replicant CLJS | Replicant Squint | Reagent | Helix | UIX |
 |---|---|---|---|---|---|---|---|
-| create 1k | 27.1 | 27.9 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
-| replace 1k | **28.6** | 30.9 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
-| update every 10th | 40.5 | 46.3 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
-| select | 27.8 | 35.3 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
-| swap | **37.1** | 45.0 | 54.8 | 45.8 | 98.8 | 102.0 | 95.3 |
-| remove | 21.9 | 27.8 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
-| create 10k | 286.6 | **277.8** | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
-| append 1k | 34.5 | 37.5 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
-| clear | 9.8 | **9.3** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
+| create 1k | 27.4 | 27.9 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
+| replace 1k | **28.4** | 30.9 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
+| update every 10th | 33.2 | 46.3 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
+| select | 23.9 | 35.3 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
+| swap | **33.2** | 45.0 | 54.8 | 45.8 | 98.8 | 102.0 | 95.3 |
+| remove | 21.1 | 27.8 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
+| create 10k | 281.6 | **277.8** | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
+| append 1k | 33.5 | 37.5 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
+| clear | 10.2 | **9.3** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
 
 Geometric mean across the nine operations (the ninth root of the nine medians
 multiplied together), one summary number per framework, lower is better:
@@ -63,7 +67,7 @@ multiplied together), one summary number per framework, lower is better:
 | framework | geomean (ms) |
 |---|---|
 | UIX | 32.3 |
-| Reagami Squint | 34.5 |
+| Reagami Squint | 32.6 |
 | Helix | 36.0 |
 | Reagami CLJS | 38.1 |
 | Reagent | 42.6 |
@@ -84,7 +88,7 @@ xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
     x-axis ["UIX", "Reagami Squint", "Helix", "Reagami CLJS", "Reagent", "Replicant Squint", "Replicant CLJS"]
     y-axis "ms" 0 --> 60
-    bar [-5, 34.5, -5, 38.1, -5, -5, -5]
+    bar [-5, 32.6, -5, 38.1, -5, -5, -5]
     bar [32.3, -5, 36.0, -5, 42.6, 52.0, 56.0]
 ```
 
@@ -95,8 +99,8 @@ vnodes instead of walking `childNodes`. Position and reuse come from array
 indexes rather than from a map and a set keyed by DOM node.
 
 Both builds ran in one session on the same machine, 15 iterations each, median
-in milliseconds. These numbers are not comparable to the table above, which is a
-different session.
+in milliseconds. The table above scales its Reagami Squint column by these
+ratios.
 
 | benchmark (median ms) | before | after |
 |---|---|---|
