@@ -269,11 +269,13 @@
 (defn- create-vnode [hiccup]
   (create-vnode* hiccup false))
 
-(def ref-registry (js/Map.))
+(def ref-registry (js/WeakMap.))
 
-#?(:squint nil
-   :cljs (defn update! [^js js-map k f & args]
-           (.set js-map k (apply f (.get js-map k) args))))
+(defn- registry-of [^js root]
+  (or (.get ref-registry root) #{}))
+
+(defn- registry-add! [^js root ^js node]
+  (.set ref-registry root (conj (registry-of root) node)))
 
 (def ^:private stats #js {:created 0 :adopted 0})
 
@@ -308,7 +310,7 @@
                              (.appendChild node (create-node child root))))))
                      (when-let [ref (aget vnode on-render-key)]
                        (aset node on-render-key ref)
-                       (update! ref-registry root (fnil conj #{}) node))
+                       (registry-add! root node))
                      node))))]
     (aset node vnode-key vnode)
     (aset vnode "dom" node)
@@ -391,7 +393,7 @@
   ;; handler, so two nodes sharing one handler keep separate state.
   [^js old ref root]
   (when-not (aget old on-render-key)
-    (update! ref-registry root (fnil conj #{}) old))
+    (registry-add! root old))
   ;; guarded: deleting a property that is not there still costs a runtime call,
   ;; and repeated deletes on a DOM node risk pushing it into dictionary mode
   (when (aget old unhook-key)
@@ -635,7 +637,7 @@
                   (js-delete node is-run-key)
                   (js-delete node on-render-key)
                   (js-delete node unhook-key)
-                  (update! ref-registry root disj node)))))
-        (.get ref-registry root))
+                  (.set ref-registry root (disj (registry-of root) node))))))
+        (registry-of root))
   {:created (aget stats "created")
    :adopted (aget stats "adopted")})

@@ -104,3 +104,9 @@
       (reagami/render el [:div "x"])
       (reagami/render el [:div "x"])
       (is (= ["unmount"] @seen)))))
+
+(deftest registry-does-not-pin-roots-test
+  (testing "the registry holds render roots weakly.
+  A strong map keeps a dropped root, and its hooked nodes, for the life of the
+  page. This test checks the type, because a collection test needs --expose-gc."
+    (is (instance? js/WeakMap reagami/ref-registry))))
