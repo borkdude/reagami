@@ -8,16 +8,19 @@ this page has the full numbers, the methodology and how to run it yourself.
 ## Methodology
 
 All frameworks ran on the same machine (Macbook M4 Max) with headless Chrome and
-CPU throttling, 10 iterations each, reported as the median in milliseconds.
+CPU throttling, 15 iterations each, reported as the median in milliseconds.
 
-Framework versions: Reagami b756045, Reagent 2.0.1, Helix 0.2.2, UIX 1.4.9, and
+All frameworks ran in one invocation of the benchmark runner. This matters. The
+same build measured in two sessions can differ by 25% on a single operation, so
+numbers from different sessions are not comparable.
+
+Framework versions: Reagami 784aea4, Reagent 2.0.1, Helix 0.2.2, UIX 1.4.9, and
 Replicant a22f871 for the CLJS entry / 4bfd556 for the Squint entry, which builds
 Replicant from a local checkout. Reagent, Helix and UIX run on React 19.2.
 "Squint" and "CLJS" denote the compile target.
 
-One reproducibility caveat: the Squint entry resolves Reagami from npm, where the
-published package still trails this source. The numbers here are for Reagami at
-b756045, so reproducing them needs that build rather than a plain `npm ci`.
+Both Reagami entries build from a local checkout, not from npm, because the
+published package trails this source.
 
 Every entry is built the same way for its target, which matters: an entry built
 with different settings is not comparable. The CLJS entries all build with
@@ -47,28 +50,28 @@ so a single slow run does not skew it. The best result per row is in bold.
 
 | benchmark (median ms) | Reagami Squint | Reagami CLJS | Replicant CLJS | Replicant Squint | Reagent | Helix | UIX |
 |---|---|---|---|---|---|---|---|
-| create 1k | 27.1 | 27.9 | 58.5 | 53.8 | 39.3 | **26.1** | 27.1 |
-| replace 1k | **28.6** | 30.9 | 68.2 | 64.5 | 46.1 | 31.5 | 31.6 |
-| update every 10th | 40.5 | 46.3 | 49.8 | 47.0 | 30.7 | 24.6 | **20.7** |
-| select | 27.8 | 35.3 | 31.6 | 26.3 | 7.3 | 13.2 | **7.0** |
-| swap | **37.1** | 45.0 | 54.8 | 45.8 | 98.8 | 102.0 | 95.3 |
-| remove | 21.9 | 27.8 | 27.1 | 23.1 | 18.5 | 16.4 | **14.6** |
-| create 10k | 286.6 | **277.8** | 453.5 | 450.3 | 448.1 | 366.1 | 381.8 |
-| append 1k | 34.5 | 37.5 | 73.3 | 63.9 | 44.8 | **31.3** | 32.5 |
-| clear | 9.8 | **9.3** | 17.5 | 21.2 | 31.3 | 19.8 | 18.1 |
+| create 1k | 27.5 | 27.9 | 52.2 | 52.4 | 38.5 | **25.6** | 26.5 |
+| replace 1k | **28.7** | 30.0 | 64.6 | 66.2 | 47.0 | 30.8 | 32.7 |
+| update every 10th | 38.1 | 44.0 | 36.6 | 48.0 | 26.0 | 26.4 | **22.8** |
+| select | 25.3 | 34.1 | 17.5 | 26.4 | **5.9** | 14.1 | 7.1 |
+| swap | **33.2** | 42.1 | 37.5 | 43.3 | 96.3 | 99.7 | 91.5 |
+| remove | 20.2 | 26.0 | 18.5 | 24.0 | 18.2 | 16.0 | **13.7** |
+| create 10k | 295.2 | **294.3** | 439.0 | 455.2 | 459.2 | 381.9 | 398.2 |
+| append 1k | 38.9 | 40.5 | 68.9 | 65.8 | 46.4 | 35.2 | **33.9** |
+| clear | 10.3 | **10.0** | 20.0 | 20.6 | 30.8 | 19.3 | 18.3 |
 
 Geometric mean across the nine operations (the ninth root of the nine medians
 multiplied together), one summary number per framework, lower is better:
 
 | framework | geomean (ms) |
 |---|---|
-| UIX | 32.3 |
-| Reagami Squint | 34.5 |
-| Helix | 36.0 |
-| Reagami CLJS | 38.1 |
-| Reagent | 42.6 |
-| Replicant Squint | 52.0 |
-| Replicant CLJS | 56.0 |
+| UIX | 32.8 |
+| Reagami Squint | 34.0 |
+| Helix | 36.7 |
+| Reagami CLJS | 38.0 |
+| Reagent | 40.9 |
+| Replicant CLJS | 45.9 |
+| Replicant Squint | 52.1 |
 
 ```mermaid
 ---
@@ -82,27 +85,55 @@ config:
 ---
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
-    x-axis ["UIX", "Reagami Squint", "Helix", "Reagami CLJS", "Reagent", "Replicant Squint", "Replicant CLJS"]
+    x-axis ["UIX", "Reagami Squint", "Helix", "Reagami CLJS", "Reagent", "Replicant CLJS", "Replicant Squint"]
     y-axis "ms" 0 --> 60
-    bar [-5, 34.5, -5, 38.1, -5, -5, -5]
-    bar [32.3, -5, 36.0, -5, 42.6, 52.0, 56.0]
+    bar [-5, 34.0, -5, 38.0, -5, -5, -5]
+    bar [32.8, -5, 36.7, -5, 40.9, 45.9, 52.1]
 ```
+
+### Patching without reading the DOM
+
+Reagami keeps the DOM node on the vnode and diffs against the previous child
+vnodes instead of walking `childNodes`. Position and reuse come from array
+indexes rather than from a map and a set keyed by DOM node.
+
+The previous patcher ran in the same invocation as an extra entry, so these two
+columns are directly comparable.
+
+| benchmark (median ms) | before | after |
+|---|---|---|
+| create 1k | 27.6 | 27.5 |
+| replace 1k | 29.7 | 28.7 |
+| update every 10th | 50.5 | 38.1 |
+| select | 27.0 | 25.3 |
+| swap | 37.4 | 33.2 |
+| remove | 21.4 | 20.2 |
+| create 10k | 288.2 | 295.2 |
+| append 1k | 39.0 | 38.9 |
+| clear | 9.8 | 10.3 |
+| geomean | 35.9 | 34.0 |
+
+The gain is on the patching operations. Creating nodes is unchanged.
+
+A copy of the unchanged build ran as a control in an earlier run. It measured
+within 4% of the original on every operation. That is the noise floor of this
+setup, so treat a difference of less than 5% on one operation as noise.
 
 ## Size
 
 The same data-table app, compiled with production settings, gzipped. The Squint
-figure is on squint-cljs 0.14.206; of the 9.0 KB, around 1.5 KB is protocol
-dispatch machinery that a plain-data app never exercises.
+figure is on squint-cljs 0.14.206. Around 1.5 KB of it is protocol dispatch
+machinery that a plain-data app never uses.
 
 | framework | gzip (KB) |
 |---|---|
-| Reagami Squint | 9.2 |
-| Replicant Squint | 16.9 |
-| Reagami CLJS | 28.7 |
-| Replicant CLJS | 41.2 |
-| UIX | 91.7 |
-| Helix | 98.4 |
-| Reagent | 99.5 |
+| Reagami Squint | 9.4 |
+| Replicant Squint | 16.5 |
+| Reagami CLJS | 28.5 |
+| Replicant CLJS | 40.2 |
+| UIX | 89.5 |
+| Helix | 96.1 |
+| Reagent | 97.1 |
 
 ```mermaid
 ---
@@ -118,8 +149,8 @@ xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [9.2, 0, 28.7, 0, 0, 0, 0]
-    bar [0, 16.9, 0, 41.2, 91.7, 98.4, 99.5]
+    bar [9.4, 0, 28.5, 0, 0, 0, 0]
+    bar [0, 16.5, 0, 40.2, 89.5, 96.1, 97.1]
 ```
 
 These are the full benchmark app. A minimal Reagami app under Squint is smaller,
@@ -158,10 +189,14 @@ Then start the server and run the driver:
 cd server && npm start            # serves on http://localhost:8080, leave running
 # in another shell:
 cd webdriver-ts
-node dist/benchmarkRunner.js --headless true --count 10 \
-  --framework keyed/reagami keyed/reagami-cljs keyed/reagent keyed/helix keyed/uix \
+node dist/benchmarkRunner.js --headless true --count 15 \
+  --framework keyed/reagami keyed/reagami-cljs keyed/replicant \
+  keyed/replicant-squint keyed/reagent keyed/helix keyed/uix \
   --benchmark 01_ 02_ 03_ 04_ 05_ 06_ 07_ 08_ 09_
 ```
+
+Give all frameworks to one invocation, as shown above. Two invocations give
+numbers that you cannot compare.
 
 Results land as JSON in `webdriver-ts/results/`. Use `npm run results` to render
 the official report.

@@ -1,6 +1,6 @@
 (ns basic-test
   (:require
-   [clojure.test :refer [deftest is]]
+   [clojure.test :refer [deftest is testing]]
    [reagami.core :as reagami]))
 
 (deftest render-test
@@ -119,3 +119,28 @@
              [sub-ui "Hello world"])]
     (reagami/render el [ui])
     (is (= "<div>Hello world</div>" (.-innerHTML el)))))
+
+(deftest nested-render-test
+  (let [el (js/document.createElement "div")]
+    (reagami/render el [:div [:div#inner "placeholder"] [:span "sibling"]])
+    (reagami/render (.querySelector el "#inner") [:b "inner"])
+    (testing "rendering into an already rendered node replaces its children"
+      (is (= "<div><div id=\"inner\"><b>inner</b></div><span>sibling</span></div>"
+             (.-innerHTML el))))
+    (reagami/render el [:div [:div#inner "placeholder"] [:span "changed"]])
+    (testing "the outer render leaves the nested root alone"
+      (is (= "<div><div id=\"inner\"><b>inner</b></div><span>changed</span></div>"
+             (.-innerHTML el))))
+    (reagami/render (.querySelector el "#inner") [:i "again"])
+    (testing "the nested root keeps patching its own children"
+      (is (= "<div><div id=\"inner\"><i>again</i></div><span>changed</span></div>"
+             (.-innerHTML el))))))
+
+(deftest nested-render-after-patch-test
+  (testing "a render takes over children that an earlier render already patched"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:div [:div#inner [:ul [:li "a"] [:li "b"]]] [:span "s"]])
+      (reagami/render el [:div [:div#inner [:ul [:li "a"]]] [:span "s"]])
+      (reagami/render (.querySelector el "#inner") [:ul [:li "a"]])
+      (is (= "<div><div id=\"inner\"><ul><li>a</li></ul></div><span>s</span></div>"
+             (.-innerHTML el))))))
