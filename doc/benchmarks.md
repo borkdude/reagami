@@ -88,6 +88,34 @@ xychart-beta
     bar [32.3, -5, 36.0, -5, 42.6, 52.0, 56.0]
 ```
 
+### Patching without reading the DOM
+
+Reagami keeps the DOM node on the vnode and diffs against the previous child
+vnodes instead of walking `childNodes`. Position and reuse come from array
+indexes rather than from a map and a set keyed by DOM node.
+
+Both builds ran in one session on the same machine, 15 iterations each, median
+in milliseconds. These numbers are not comparable to the table above, which is a
+different session.
+
+| benchmark (median ms) | before | after |
+|---|---|---|
+| create 1k | 28.6 | 29.2 |
+| replace 1k | 32.2 | 30.6 |
+| update every 10th | 43.9 | 35.6 |
+| select | 25.2 | 21.7 |
+| swap | 36.6 | 32.2 |
+| remove | 22.3 | 22.8 |
+| create 10k | 281.9 | 283.3 |
+| append 1k | 37.1 | 35.7 |
+| clear | 9.0 | 9.1 |
+| geomean | 35.0 | 33.0 |
+
+The gain is on the patching operations. Creating nodes is unchanged.
+
+A copy of the unchanged build ran alongside as a control and measured within 4%
+of the original on every operation, which is the noise floor of this setup.
+
 ## Size
 
 The same data-table app, compiled with production settings, gzipped. The Squint
