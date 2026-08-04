@@ -89,6 +89,10 @@
 (def ^:private root-key #?(:squint ::root
                            :cljs "reagami.core/root"))
 
+;; the root has no vnode of its own, so its child list lives on the node
+(def ^:private children-key #?(:squint ::children
+                               :cljs "reagami.core/children"))
+
 ;; set on the root for the hydration render only, so patch-keyed knows to pair
 ;; server children by position
 (def ^:private hydrating-key #?(:squint ::hydrating
@@ -145,7 +149,7 @@
   ;; because, unlike an empty text node, it survives server rendering. empty
   ;; props and attrs let the regular patch branch handle it.
   []
-  (let [vnode #js {:tag comment-tag}]
+  (let [vnode #js {:tag comment-tag :dom nil}]
     (aset vnode props-key #js {})
     (aset vnode attrs-key #js {})
     vnode))
@@ -160,7 +164,8 @@
         (number? hiccup)
         (boolean? hiccup))
     #js {:tag "#text"
-         :text (str hiccup)}
+         :text (str hiccup)
+         :dom nil}
     (vector? hiccup)
     (let [#?@(:squint [] :cljs [hiccup (into-array hiccup)])
           tag (aget hiccup 0)
@@ -185,7 +190,8 @@
                                  :tag (if in-svg?
                                         tag
                                         (aget parsed "upper"))
-                                 :children new-children}
+                                 :children new-children
+                                 :dom nil}
                        modified-props #js {}
                        modified-attrs #js {}]
                    (aset node props-key modified-props)
@@ -301,13 +307,10 @@
                        (update! ref-registry root (fnil conj #{}) node))
                      node))))]
     (aset node vnode-key vnode)
+    (aset vnode "dom" node)
     node))
 
 (declare patch)
-
-(defn- node-key [^js dom]
-  (when-let [vn (aget dom vnode-key)]
-    (aget vn key-key)))
 
 (defn- adopt
   ;; a server-rendered node carries no vnode: rebuild one from the DOM so the
@@ -318,19 +321,20 @@
   (aset stats "adopted" (inc (aget stats "adopted")))
   (let [vnode (cond
                 (identical? 3 (.-nodeType dom))
-                #js {:tag "#text" :text (.-data dom)}
+                #js {:tag "#text" :text (.-data dom) :dom nil}
                 (not (identical? 1 (.-nodeType dom)))
-                (let [vnode #js {:tag (.-nodeName dom)}]
+                (let [vnode #js {:tag (.-nodeName dom) :dom nil}]
                   (aset vnode props-key #js {})
                   (aset vnode attrs-key #js {})
                   vnode)
                 :else
                 (let [attrs #js {}
                       dom-attrs (.-attributes dom)
-                      ;; patch only reads the length of :children
+                      ;; adopt-tree fills :children with the adopted vnodes
                       vnode #js {:svg (identical? svg-ns (.-namespaceURI dom))
                                  :tag (.-tagName dom)
-                                 :children (js/Array. (alength (.-childNodes dom)))}]
+                                 :children #js []
+                                 :dom nil}]
                   (dotimes [i (alength dom-attrs)]
                     (let [a (aget dom-attrs i)]
                       (aset attrs (.-name a) (.-value a))))
@@ -338,18 +342,24 @@
                   (aset vnode attrs-key attrs)
                   vnode))]
     (aset dom vnode-key vnode)
+    (aset vnode "dom" dom)
     vnode))
 
 (defn- adopt-tree
   ;; hydration happens once, up front: adopt every server-rendered node before
   ;; the first patch, so patching itself never has to consider hydration.
+  ;; returns the adopted children, which become the parent's old child list.
   [^js parent]
-  (let [children (.-childNodes parent)]
-    (dotimes [i (alength children)]
-      (let [^js c (aget children i)]
-        (adopt c)
+  (let [children (.-childNodes parent)
+        n (alength children)
+        arr (js/Array. n)]
+    (dotimes [i n]
+      (let [^js c (aget children i)
+            ^js v (adopt c)]
+        (aset arr i v)
         (when (identical? 1 (.-nodeType c))
-          (adopt-tree c))))))
+          (aset v "children" (adopt-tree c)))))
+    arr))
 
 (defn- has-key? [new-children]
   (let [n (alength new-children)]
@@ -367,10 +377,10 @@
     (update! ref-registry root (fnil conj #{}) old)))
 
 (defn- patch-node
-  ;; patch `old` in place toward `new-vnode` when compatible, else build a fresh
-  ;; node. returns the node to use, `old` when reused.
-  [^js old ^js new-vnode root]
-  (let [^js old-vnode (aget old vnode-key)
+  ;; patch `old-vnode`'s node in place toward `new-vnode` when compatible, else
+  ;; build a fresh one. returns the node to use, the old one when reused.
+  [^js old-vnode ^js new-vnode root]
+  (let [^js old (aget old-vnode "dom")
         txt-old (aget old-vnode "text")
         txt (aget new-vnode "text")
         new-tag (aget new-vnode "tag")]
@@ -379,6 +389,7 @@
       (do (when-not (identical? txt txt-old)
             (set! (.-textContent old) txt))
           (aset old vnode-key new-vnode)
+          (aset new-vnode "dom" old)
           old)
 
       (identical? new-tag (aget old-vnode "tag"))
@@ -407,10 +418,11 @@
             (when-not (identical? (aget old-props n) new-prop)
               (aset old n new-prop))))
         (when-let [nc (aget new-vnode "children")]
-          (patch old nc root))
+          (patch old (aget old-vnode "children") nc root))
         (when-let [ref (aget new-vnode on-render-key)]
           (register-late-ref old ref root))
         (aset old vnode-key new-vnode)
+        (aset new-vnode "dom" old)
         old)
 
       :else (create-node new-vnode root))))
@@ -458,107 +470,108 @@
   ;; match new children to old by key (unkeyed ones by position), drop the
   ;; unused, and move only nodes outside the longest stable run, so e.g. a swap
   ;; moves two nodes instead of cascading.
-  [^js parent new-children root]
-  (let [old-nodes (js/Array.from (.-childNodes parent))
+  ;;
+  ;; the old children are vnodes we already own, so their order is an array
+  ;; index: no Array.from of a live NodeList, no map from node to position, and
+  ;; used-ness is a slot in a flat array instead of a Set of DOM nodes.
+  [^js parent ^js old-children new-children root]
+  (let [old-count (if old-children (alength old-children) 0)
         old-by-key (js/Map.)
-        old-index (js/Map.)
         unkeyed #js []
-        used (js/Set.)
-        ptr (volatile! 0)
+        used (js/Array. old-count)
+        ptr #js [0]
         target #js []
         source #js []
         cnt (alength new-children)
-        reuse (fn [^js ex ^js v]
-                (let [^js r (patch-node ex v root)]
-                  (when (identical? r ex) (.add used ex))
-                  r))
         next-unkeyed (fn []
                        (loop []
-                         (when (< @ptr (alength unkeyed))
-                           (let [^js c (aget unkeyed @ptr)]
-                             (vswap! ptr inc)
-                             (if (.has used c) (recur) c)))))]
-    ;; index old nodes: keyed into a map, unkeyed kept in order
-    (dotimes [oi (alength old-nodes)]
-      (let [^js n (aget old-nodes oi)]
-        (.set old-index n oi)
-        (if-let [k (node-key n)] (.set old-by-key k n) (.push unkeyed n))))
+                         (let [p (aget ptr 0)]
+                           (if (< p (alength unkeyed))
+                             (let [oi (aget unkeyed p)]
+                               (aset ptr 0 (inc p))
+                               (if (aget used oi) (recur) oi))
+                             -1))))]
+    ;; index old children: keyed into a map by position, unkeyed kept in order
+    (dotimes [oi old-count]
+      (let [^js ov (aget old-children oi)
+            k (aget ov key-key)]
+        (if k (.set old-by-key k oi) (.push unkeyed oi))))
     ;; server children carry no keys, so the loop above left them all unkeyed.
     ;; pair new keyed children with them by position, then keys take over from
     ;; the next render.
     (when (aget root hydrating-key)
-      (dotimes [i (js/Math.min cnt (alength old-nodes))]
+      (dotimes [i (js/Math.min cnt old-count)]
         (when-let [k (aget (aget new-children i) key-key)]
-          (.set old-by-key k (aget old-nodes i)))))
+          (.set old-by-key k i))))
     ;; reuse each new child's old node by key, else next unkeyed, else create
     (dotimes [i cnt]
       (let [^js v (aget new-children i)
             k (aget v key-key)
-            ^js ex (if k
-                     (let [^js e (.get old-by-key k)]
-                       (when (and e (not (.has used e))) e))
-                     (next-unkeyed))
-            ^js node (if ex (reuse ex v) (create-node v root))
-            reused? (and ex (identical? node ex))]
-        (.push target node)
-        (.push source (if reused? (inc (.get old-index ex)) 0)))) ; source = old pos + 1, or 0 for new
+            oi (if k
+                 (let [e (.get old-by-key k)]
+                   (if (and (not (undefined? e)) (not (aget used e))) e -1))
+                 (next-unkeyed))]
+        (if (identical? -1 oi)
+          (do (.push target (create-node v root))
+              (.push source 0)) ; 0 marks a new node
+          (let [^js ov (aget old-children oi)
+                ^js ex (aget ov "dom")
+                ^js node (patch-node ov v root)
+                reused? (identical? node ex)]
+            (when reused? (aset used oi true))
+            (.push target node)
+            (.push source (if reused? (inc oi) 0))))))  ; source = old pos + 1
     ;; drop old nodes left unused
-    (dotimes [i (alength old-nodes)]
-      (let [^js n (aget old-nodes i)]
-        (when-not (.has used n) (.removeChild parent n))))
+    (dotimes [i old-count]
+      (when-not (aget used i)
+        (.removeChild parent (aget (aget old-children i) "dom"))))
     ;; place right to left, moving only nodes outside the stable run
     (let [lis (lis-indices source)
-          len (alength target)
-          si (volatile! (dec (alength lis)))]
-      (loop [i (dec len)]
+          len (alength target)]
+      (loop [i (dec len)
+             si (dec (alength lis))]
         (when (>= i 0)
           (let [^js node (aget target i)
-                ^js nxt (when (< (inc i) len) (aget target (inc i)))]
-            (cond
-              (identical? 0 (aget source i)) (.insertBefore parent node nxt) ; new
-              (and (>= @si 0) (identical? i (aget lis @si))) (vswap! si dec) ; in stable run, keep
-              :else (.insertBefore parent node nxt)) ; reused, move
-            (recur (dec i))))))))
+                ^js nxt (when (< (inc i) len) (aget target (inc i)))
+                keep? (and (not (identical? 0 (aget source i)))
+                           (>= si 0)
+                           (identical? i (aget lis si)))]
+            (when-not keep?
+              (.insertBefore parent node nxt))
+            (recur (dec i) (if keep? (dec si) si))))))))
 
-(defn- patch [^js parent new-children root]
-  (let [parent-vnode (aget parent vnode-key)
-        old-children-count (cond (and parent-vnode
-                                      ;; other render root
-                                      (not (aget parent root-key)))
-                                 (alength (aget parent-vnode "children"))
-                                 ;; current render root
-                                 (identical? root parent) (alength (.-childNodes parent))
-                                 :else -1)]
-    ;; -1: we've stumbled upon a different render root
-    (when-not (identical? -1 old-children-count)
-      (if (has-key? new-children)
-        (patch-keyed parent new-children root)
-        ;; unkeyed: patch the common prefix, then add or remove the tail, reusing
-        ;; nodes instead of rebuilding the whole list on a count change.
-        (let [old-children (.-childNodes parent)
-              new-count (alength new-children)
-              common (js/Math.min old-children-count new-count)]
-          (dotimes [i common]
-            (let [^js old (aget old-children i)
-                  ^js new-vnode (aget new-children i)
-                  ^js result (patch-node old new-vnode root)]
-              (when-not (identical? result old)
-                (.replaceChild parent result old))))
-          (cond
-            (> new-count old-children-count)
-            (loop [i common]
-              (when (< i new-count)
-                (.appendChild parent (create-node (aget new-children i) root))
-                (recur (inc i))))
+(defn- patch [^js parent ^js old-children new-children root]
+  ;; a node that is some other render's root owns its own children: leave it be
+  (when-not (and (aget parent root-key) (not (identical? root parent)))
+    (if (has-key? new-children)
+      (patch-keyed parent old-children new-children root)
+      ;; unkeyed: patch the common prefix, then add or remove the tail, reusing
+      ;; nodes instead of rebuilding the whole list on a count change.
+      (let [old-count (if old-children (alength old-children) 0)
+            new-count (alength new-children)
+            common (js/Math.min old-count new-count)]
+        (dotimes [i common]
+          (let [^js ov (aget old-children i)
+                ^js old (aget ov "dom")
+                ^js new-vnode (aget new-children i)
+                ^js result (patch-node ov new-vnode root)]
+            (when-not (identical? result old)
+              (.replaceChild parent result old))))
+        (cond
+          (> new-count old-count)
+          (loop [i common]
+            (when (< i new-count)
+              (.appendChild parent (create-node (aget new-children i) root))
+              (recur (inc i))))
 
-            (identical? 0 new-count)
-            (set! (.-textContent parent) "")
+          (identical? 0 new-count)
+          (set! (.-textContent parent) "")
 
-            (> old-children-count new-count)
-            (loop [i (dec old-children-count)]
-              (when (>= i new-count)
-                (.removeChild parent (aget old-children i))
-                (recur (dec i))))))))))
+          (> old-count new-count)
+          (loop [i (dec old-count)]
+            (when (>= i new-count)
+              (.removeChild parent (aget (aget old-children i) "dom"))
+              (recur (dec i)))))))))
 
 (defn render
   "Renders hiccup into root. Adopts server-rendered children already in root.
@@ -569,13 +582,14 @@
   (aset stats "adopted" 0)
   (let [^js fc (.-firstChild root)]
     (when (and fc (not (aget fc vnode-key)))
-      (adopt-tree root)
+      (aset root children-key (adopt-tree root))
       (aset root hydrating-key true)))
   (let [new-node (create-vnode hiccup)
         new-children (if ^boolean (js/Array.isArray new-node)
                        new-node
                        #js [new-node])]
-    (patch root new-children root))
+    (patch root (aget root children-key) new-children root)
+    (aset root children-key new-children))
   (aset root hydrating-key false)
   (run! (fn [node]
           (let [ref (aget node on-render-key)]
