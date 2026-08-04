@@ -2,6 +2,11 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## Unreleased
+
+- `render` now compares against the vnode tree of the previous render instead of reading the DOM. Patching is around 5% faster overall and up to 25% faster on update-heavy operations. See [benchmarks](https://github.com/borkdude/reagami/blob/main/doc/benchmarks.md).
+- Reagami owns the children of the nodes it renders. It no longer repairs a node that other code adds, removes or reorders.
+
 ## v0.2.38 (2026-07-31)
 
 - Add `reagami.ssr` to render hiccup to an HTML string on the JVM, Babashka, Squint and CLJS. See [Server-side rendering](https://github.com/borkdude/reagami#server-side-rendering).
