@@ -135,3 +135,12 @@
     (testing "the nested root keeps patching its own children"
       (is (= "<div><div id=\"inner\"><i>again</i></div><span>changed</span></div>"
              (.-innerHTML el))))))
+
+(deftest nested-render-after-patch-test
+  (testing "a render takes over children that an earlier render already patched"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:div [:div#inner [:ul [:li "a"] [:li "b"]]] [:span "s"]])
+      (reagami/render el [:div [:div#inner [:ul [:li "a"]]] [:span "s"]])
+      (reagami/render (.querySelector el "#inner") [:ul [:li "a"]])
+      (is (= "<div><div id=\"inner\"><ul><li>a</li></ul></div><span>s</span></div>"
+             (.-innerHTML el))))))
