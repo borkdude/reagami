@@ -6,6 +6,9 @@
 
 - `render` now compares against the vnode tree of the previous render instead of reading the DOM. Patching is around 5% faster overall and up to 25% faster on update-heavy operations. See [benchmarks](https://github.com/borkdude/reagami/blob/main/doc/benchmarks.md).
 - Reagami owns the children of the nodes it renders. It no longer repairs a node that other code adds, removes or reorders.
+- Fix `:on-render` state. The state is per node now. Nodes that share one handler each get their own `:mount` call and their own data.
+- Fix `:on-render` to call the handler of the newest render. A handler written as an inline function now sees the values of the current render.
+- Fix `:on-render` when a render drops it. Reagami calls the handler once with `:unmount` and then stops. Before, it called `:update` on every render.
 
 ## v0.2.38 (2026-07-31)
 

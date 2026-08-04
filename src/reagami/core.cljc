@@ -104,6 +104,10 @@
 (def ^:private data-key #?(:squint ::data
                            :cljs "reagami.core/data"))
 
+;; set when a render drops the :on-render of a node that had one
+(def ^:private unhook-key #?(:squint ::unhook
+                             :cljs "reagami.core/unhook"))
+
 (def ^:private key-key #?(:squint ::key
                           :cljs "reagami.core/key"))
 
@@ -380,13 +384,19 @@
         (if (aget (aget new-children i) key-key) true (recur (inc i)))
         false))))
 
-(defn- register-late-ref
-  ;; an adopted node never went through create-node, so its ref registers on
-  ;; the first patch. only when it has none: mount state lives on the ref.
+(defn- register-ref!
+  ;; the node keeps the handler of the newest render, so a hook written as an
+  ;; inline closure sees this render's values instead of the first one's. the
+  ;; node registers once. lifecycle state lives on the node, not on the
+  ;; handler, so two nodes sharing one handler keep separate state.
   [^js old ref root]
   (when-not (aget old on-render-key)
-    (aset old on-render-key ref)
-    (update! ref-registry root (fnil conj #{}) old)))
+    (update! ref-registry root (fnil conj #{}) old))
+  ;; guarded: deleting a property that is not there still costs a runtime call,
+  ;; and repeated deletes on a DOM node risk pushing it into dictionary mode
+  (when (aget old unhook-key)
+    (js-delete old unhook-key))
+  (aset old on-render-key ref))
 
 (defn- patch-node
   ;; patch `old-vnode`'s node in place toward `new-vnode` when compatible, else
@@ -431,8 +441,14 @@
               (aset old n new-prop))))
         (when-let [nc (aget new-vnode "children")]
           (patch old (aget old-vnode "children") nc root))
-        (when-let [ref (aget new-vnode on-render-key)]
-          (register-late-ref old ref root))
+        (let [ref (aget new-vnode on-render-key)]
+          (if ref
+            (register-ref! old ref root)
+            ;; the hook was there and is gone now: unmount it on this render.
+            ;; asked of the old vnode, which is already loaded, rather than of
+            ;; the DOM node, where the read would be megamorphic
+            (when (aget old-vnode on-render-key)
+              (aset old unhook-key true))))
         (aset old vnode-key new-vnode)
         (aset new-vnode "dom" old)
         old)
@@ -607,15 +623,18 @@
   (aset root hydrating-key false)
   (run! (fn [node]
           (let [ref (aget node on-render-key)]
-            (if (.-isConnected node)
-              (if (not (aget ref is-run-key))
+            (if (and (.-isConnected node) (not (aget node unhook-key)))
+              (if (not (aget node is-run-key))
                 (let [data (ref node :mount nil)]
-                  (aset ref is-run-key true)
-                  (aset ref data-key data))
-                (let [data (ref node :update (aget ref data-key))]
-                  (aset ref data-key data)))
-              (do (ref node :unmount (aget ref data-key))
-                  (js-delete ref data-key)
+                  (aset node is-run-key true)
+                  (aset node data-key data))
+                (let [data (ref node :update (aget node data-key))]
+                  (aset node data-key data)))
+              (do (ref node :unmount (aget node data-key))
+                  (js-delete node data-key)
+                  (js-delete node is-run-key)
+                  (js-delete node on-render-key)
+                  (js-delete node unhook-key)
                   (update! ref-registry root disj node)))))
         (.get ref-registry root))
   {:created (aget stats "created")
