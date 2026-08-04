@@ -268,10 +268,10 @@ config:
 ---
 xychart-beta
     title "Perf: geomean of 9 keyed ops (ms, lower is better)"
-    x-axis ["UIX", "Reagami Squint", "Helix", "Reagami CLJS", "Reagent", "Replicant Squint", "Replicant CLJS"]
+    x-axis ["UIX", "Reagami Squint", "Helix", "Reagami CLJS", "Reagent", "Replicant CLJS", "Replicant Squint"]
     y-axis "ms" 0 --> 60
-    bar [-5, 32.6, -5, 38.1, -5, -5, -5]
-    bar [32.3, -5, 36.0, -5, 42.6, 52.0, 56.0]
+    bar [-5, 34.0, -5, 38.0, -5, -5, -5]
+    bar [32.8, -5, 36.7, -5, 40.9, 45.9, 52.1]
 ```
 
 The same data-table app was compiled with production settings. Below we compare the output size, gzipped.
@@ -290,14 +290,15 @@ xychart-beta
     title "Bundle size (gzip KB, lower is better)"
     x-axis ["Reagami Squint", "Replicant Squint", "Reagami CLJS", "Replicant CLJS", "UIX", "Helix", "Reagent"]
     y-axis "KB" 0 --> 100
-    bar [9.2, -5, 28.7, -5, -5, -5, -5]
-    bar [-5, 16.9, -5, 41.2, 91.7, 98.4, 99.5]
+    bar [9.4, -5, 28.5, -5, -5, -5, -5]
+    bar [-5, 16.5, -5, 40.2, 89.5, 96.1, 97.1]
 ```
 
 The minimal Reagami app under Squint is smaller, around 5.5 KB gzip, but in the benchmark the js-framework-benchmark's standard table app is compared.
 
-As you can see Reagami on Squint can perform in the ballpark of modern CLJS React or React-free alternatives, yet is the leanest when it comes to output size.
-Performance on Squint tends to be a tad faster than on CLJS too.
+Reagami on Squint is in the same range as the React libraries and the React-free
+alternatives. It has the smallest output size of the group. The Squint target is
+faster than the CLJS target.
 
 ## Examples
 
