@@ -72,7 +72,7 @@ Reagami does NOT support:
   it renders. A node that something else adds, removes or reorders stays that
   way.
 
-Local state can be accomplished by using nested renders like in [this example](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE5VTTW%2BDMAy98ys8ekkOLZWmXXJZ%2F0OPCE1ZcEu2kNB8DFUV%2F30KpCr00K3mkOA8Pz87MdEOWi51BkCYxVOQFqHMG%2B87x4oCXbtxTWGRH3krd9vNdvP6lgPjDpKvojTLSI0HcJ57BMK9aeHChAnao4UtMNeYHrwNOFyxGoKEssoASlbLnwzi5jN4bzRcmNFroaT4hhVxPe9eEnPo6rhMdNp4OsQ4yPeN6d8hBzKd7EY0jeRA%2Bgb13cEYNOWFC3P%2BrHCUq4wFdrSIeuK9WpRjUddogRw0lNrUCEoeUJyFwmqBvTMiuJthH0EBWBs7BkShh1IZwdV62dG5bzvQx2wLa8%2FrICf11cNGz1Nc2z33SS3o8ETiu3YsuHazH1o9U066jRVJT7BIjvFmyrHYij68mLkoXtfrnnvRLKpnLJFOy3%2FlkQT%2FA6%2BlonSoYtnT7FhjPJAvV9RGhBa135wC2vMeFQpvLOQr3nX5bXySuHGE7tswcpUhTeatvGVhMTA%2BiA8Yv%2BomPUal%2FS91%2BT%2BoHgQAAA%3D%3D) or using [web components](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE2VSsW7bMBDd9RVXeaEGSZ05FQgKZGjQIdkEDzR5juhQJM07NhUM%2F3shiW5tlBOP9967h3sUnmCaWxVjBSBkwnO2CSsAGOqROZLse6Spo7FPqN7VZGuQiqAU%2BxVJ52w9dzokBJnwiAkGg0ftFNF%2B3zRVJW4lvMzfHU7oeZmHvxm9IThR%2F%2Fz28qN0mqV1tOgMtC5o5VpixQhCcZjgInXInjHB1%2BsiDSB08MQpaw4JBh4trbZAUI6Ymu2ujGk%2FFevxUVPKhN5ggp3oym0RaDbln4cTai4jPGpG86ScOyj98TDokbp6Ki%2F3qLKz%2Fg68NgAGaewvGOQhMwcPFxl8q53VH7AT9Knil0fTOZrV%2B20R1uvmWqTKqZ9W%2BoqAGsRf7Ld7pWZ%2FYw3S%2BpgZLjI6pXEMbrFY8xwRKEzIo%2FXv9XVJc4mzM3i0HkFn4jCV3AjkNLe4Ff%2BCLvF7uK1kX%2F2%2FDHGi3gSdF0J3zpjmV3S4JlrvVIx1A8Od%2BvapNm7zB8tsjFnEAgAA).
+Local state can be accomplished by using nested renders like in [this example](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAC%2F5VTu3LkIBDM9yvmtAkEazkmOf%2BDQxV1hdHY4oxA5nFbKpf%2B3YDYWmmDPRsFPDTT090wxHgYhTIHAMIcfkTlELpmCGHyrG3Rjw9%2BaB2KNzGqBpjwUDec0sOB9PgKPoiAQESwI3wyaaMJ6OARmB%2FsGYKLuFxiDUQFHU%2FVOtarf2lOi5cYgjUp1ZqT1Eq%2Bw5H4s5h%2BVeQ49Xla4YwNdMl50Dyn%2FW9oEvHy56lE0wwO5DyguflRkta6qZYPs8ZCV1sH7M0hmhX3MjIdh6ZPWkgi3n2yd5w9dMb2CFq9opylRr7wXdbNIFL4TfS90FRxzN4B0Rig01YKfdp7uz17XOh9tN0Y51Nyvujgdy3flrgYvz1TRtLlB4Vv7NhhPW02lP9ETr2XI6mPsa0H5W66IpZT%2Fk1AIvr%2BdBZBDjv1jFXQdfouPVLD%2FxNvlKZ04Vn22kXO2nT1f33bWxlHNOHhI6Kbn1GjDOmJNkcxTc21kSq50ky3NhSsLtYevcrbC8uJ%2BUH8gfLxK%2FWcVddfaaeGSyEEAAA%3D) or using [web components](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE2VSsW7bMBDd9RVXeaEGSZ05FQgKZGjQIdkEDzR5juhQJM07NhUM%2F3shiW5tlBOP9967h3sUnmCaWxVjBSBkwnO2CSsAGOqROZLse6Spo7FPqN7VZGuQiqAU%2BxVJ52w9dzokBJnwiAkGg0ftFNF%2B3zRVJW4lvMzfHU7oeZmHvxm9IThR%2F%2Fz28qN0mqV1tOgMtC5o5VpixQhCcZjgInXInjHB1%2BsiDSB08MQpaw4JBh4trbZAUI6Ymu2ujGk%2FFevxUVPKhN5ggp3oym0RaDbln4cTai4jPGpG86ScOyj98TDokbp6Ki%2F3qLKz%2Fg68NgAGaewvGOQhMwcPFxl8q53VH7AT9Knil0fTOZrV%2B20R1uvmWqTKqZ9W%2BoqAGsRf7Ld7pWZ%2FYw3S%2BpgZLjI6pXEMbrFY8xwRKEzIo%2FXv9XVJc4mzM3i0HkFn4jCV3AjkNLe4Ff%2BCLvF7uK1kX%2F2%2FDHGi3gSdF0J3zpjmV3S4JlrvVIx1A8Od%2BvapNm7zB8tsjFnEAgAA).
 
 Reagami's patching algorithm is detailed in the [Patch algorithm](#patch-algorithm) section.
 
@@ -80,33 +80,37 @@ For a more fully featured version of Reagent in squint, check out [Eucalypt](htt
 
 ## `:on-render`
 
-The `:on-render` hook can be used to do something after a DOM node is mounted, updated or unmounted.
-It takes 3 arguments: `(fn [node lifecycle data])`
+Reagami calls the `:on-render` hook after it mounts, updates or unmounts a DOM
+node. The hook takes a map:
 
-- `node`: the DOM node that is mounted, updated or unmounted.
-- `lifecycle`: one of `:mount`, `:update` or `:unmount`
-- `data`: the result of the `:on-render` function every time it is called. By
-  returning data you can pass data from one lifecycle to another. E.g. when you mount a JS component, you can return `{:unmount unmount}` so you can call the unmount function in the `:unmount` lifecycle.
+``` clojure
+[:div {:on-render (fn [{:keys [node lifecycle state save]}] ...)}]
+```
+
+- `node`: the DOM node.
+- `lifecycle`: one of `:mount`, `:update` or `:unmount`.
+- `state`: the value that you saved on the last call. It is `nil` on `:mount`.
+- `save`: call it with one value to keep that value for the next call.
 
 Example:
 
 ``` clojure
-(fn [node lifecycle {:keys [unmount updates] :as data}]
+(fn [{:keys [node lifecycle state save]}]
   (case lifecycle
     :mount
-    {:unmount (install-clock! node)
-     :updates 0}
+    (save {:stop (install-clock! node)
+           :updates 0})
 
     :update
-    (update data :updates inc)
+    (save (update state :updates inc))
 
     :unmount
     (do
-      (println "Number of updates in total: " updates)
-      (unmount))))
+      (println "Number of updates in total:" (:updates state))
+      ((:stop state)))))
 ```
 
-See a full working example [on the playground](https://squint-cljs.github.io/squint/?src=gzip%3AH4sIAAAAAAAAE41UTW%2FbMAy951ew7kU%2BxMmu7mVANmAdtl3SnQxjUGUmVitTrkQ3C4r890Gy8tFsCeYcIpsi%2Bcj3SEEeOqlpAiBKhy%2BDdjgBgCprmXtfzmbou8K3M4dyLTudQSk9pJc6zycT0eAKPEtGEJJtB2%2Blb%2B0G2A0Ipe2l0rwF4SQ1%2BW7vQKDJszRmqoxVzzcTgOyh1a6BXjrewtclKNv1lpA4gwlARbbBOqA0yFD5XhKIQjmUjJ8NdkgMT37WWDXEcxZuZHkoJT4OqUGXssGt8Mg3IIop429eWOLgE1yOHn89omD7zSpp8EF3uGSnaQ3iyc8%2BScYiz4%2BurDt00eSR74nRvUpzBuHDfD7P6%2Bgi3lnGMKKQfY%2FULFptGgjFn8C7uwOHPDgCZVDS0MOKRq8VQVUnHCG%2FsuStwcLYNWQDdXYgDrC5RYjpDi2Ktw1Kd8AbqziYC4edfcVzPPmR0UEHFr9LTfDzfiQtQKnKRr%2FeRiNUZe8QRO%2Bmnh18jKoZm1CVjwOzJXgrLU2V0eo5sLSR%2FU0S19A34W8UF1nOd2PJegVi%2FJjiQfZFNwiLWB5ky2AaX%2F43lfTeqnPtpnzZopW0RkjGLIYUmxbpDMbYuFh96uHYidj2vVTeSs9bgwHKPtnhlOLsDrIKcEepjERHFoxeodqqGOMZtx6qRHNqmK%2FjxDaS5a7%2Bt7iFkv4k0KUJKGPYS9a3cp9XvB%2FtKJbLY1UmmDDfTS5mHu9cMoskjVDjMZ4mlV%2BJSFerEY29sgh6p4kNQfZj6B7RgV3BMSuwZWlKyPbfrq2UBCOM0a6u8%2FowTInnOEEirdvZnvyTRVe8DOi2SzSo2DrIbmXfZzlUQ1rOsmmmG8mqTdIuy1MF%2FYL4q%2FcraJzmdP4DI1TwhhsGAAA%3D).
+On `:unmount` the node is already out of the document.
 
 ## Keyed children
 

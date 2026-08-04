@@ -83,9 +83,9 @@
 (deftest hydrate-on-render-test
   (testing "an :on-render hook mounts on an adopted node and keeps its state"
     (let [calls (atom [])
-          hook (fn [_ phase data]
-                 (swap! calls conj [phase data])
-                 :state)
+          hook (fn [{:keys [lifecycle state save]}]
+                 (swap! calls conj [lifecycle state])
+                 (save :state))
           hiccup [:div [:span {:on-render hook} "x"]]
           el (js/document.createElement "div")]
       ;; the hook checks isConnected, so the container must be in the document

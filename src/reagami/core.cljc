@@ -101,8 +101,15 @@
 (def ^:private is-run-key #?(:squint ::is-run
                              :cljs "reagami.core/is-run"))
 
-(def ^:private data-key #?(:squint ::data
-                           :cljs "reagami.core/data"))
+(def ^:private state-key #?(:squint ::state
+                            :cljs "reagami.core/state"))
+
+(defn- save-fn
+  ;; reagami keeps whatever the hook saves and hands it back on the next call.
+  ;; it makes nothing itself, so the hook picks what its state is: an atom, a
+  ;; volatile, a js object, a plain value.
+  [^js node]
+  (fn [v] (aset node state-key v) v))
 
 ;; set when a render drops the :on-render of a node that had one
 (def ^:private unhook-key #?(:squint ::unhook
@@ -624,16 +631,16 @@
     (aset root children-key new-children))
   (aset root hydrating-key false)
   (run! (fn [node]
-          (let [ref (aget node on-render-key)]
+          (let [ref (aget node on-render-key)
+                state (aget node state-key)
+                save (save-fn node)]
             (if (and (.-isConnected node) (not (aget node unhook-key)))
               (if (not (aget node is-run-key))
-                (let [data (ref node :mount nil)]
-                  (aset node is-run-key true)
-                  (aset node data-key data))
-                (let [data (ref node :update (aget node data-key))]
-                  (aset node data-key data)))
-              (do (ref node :unmount (aget node data-key))
-                  (js-delete node data-key)
+                (do (ref {:node node :lifecycle :mount :state state :save save})
+                    (aset node is-run-key true))
+                (ref {:node node :lifecycle :update :state state :save save}))
+              (do (ref {:node node :lifecycle :unmount :state state :save save})
+                  (js-delete node state-key)
                   (js-delete node is-run-key)
                   (js-delete node on-render-key)
                   (js-delete node unhook-key)
