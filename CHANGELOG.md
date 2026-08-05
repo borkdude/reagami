@@ -4,13 +4,9 @@
 
 ## v0.2.39 (2026-08-05)
 
-- **Breaking**: `:on-render` now takes a map: `(fn [{:keys [node lifecycle state save]}])`. Call `save` with a value to keep it for the next call, and read it back as `state`. Before, the hook took three arguments and its return value became the state.
-- Fix a memory leak. Reagami kept the render root, and its nodes with an `:on-render` hook, in a strong map. A dropped root is now collected.
-- `render` now compares against the vnode tree of the previous render instead of reading the DOM. Patching is around 5% faster overall and up to 25% faster on update-heavy operations. See [benchmarks](https://github.com/borkdude/reagami/blob/main/doc/benchmarks.md).
-- Reagami owns the children of the nodes it renders. It no longer repairs a node that other code adds, removes or reorders.
-- Fix `:on-render` state. The state is per node now. Nodes that share one handler each get their own `:mount` call and their own state.
-- Fix `:on-render` to call the handler of the newest render. A handler written as an inline function now sees the values of the current render.
-- Fix `:on-render` when a render drops it. Reagami calls the handler once with `:unmount` and then stops. Before, it called `:update` on every render.
+- **Breaking**: `:on-render` now takes a map: `(fn [{:keys [node lifecycle state save]}])`. Call `save` with a value to keep it for the next call, and read it back as `state`. In previous versions, the hook took three arguments and its return value became the state.
+- Fix memory leak with `:on-render` nodes and other `:on-render` improvements
+- Performance improvements
 
 ## v0.2.38 (2026-07-31)
 
