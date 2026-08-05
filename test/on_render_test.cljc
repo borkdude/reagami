@@ -20,15 +20,15 @@
    (when (:show @state)
      [:div
       [:div#my-custom {:on-render
-                       (fn [node lifecycle data]
+                       (fn [{:keys [node lifecycle save] node-state :state}]
                          (when-not (:data @state)
                            (swap! events #(doto % (.push #?(:squint lifecycle
                                                             :cljs (name lifecycle)))))
                            (case lifecycle
                              (:mount :update)
                              (do (reagami/render node [sub-component (:counter @state)])
-                                 (update data :updates (fnil inc 0)))
-                             :unmount (swap! end-state assoc :data data))))}]
+                                 (save (update node-state :updates (fnil inc 0))))
+                             :unmount (swap! end-state assoc :data node-state))))}]
       [:button#inc {:on-click #(swap! state update :counter inc)}
        "Click me!"]])])
 
@@ -69,11 +69,12 @@
   (testing "nodes sharing one handler keep separate lifecycle state"
     (let [el (mount-root)
           seen (atom [])
-          hook (fn [node lifecycle data]
+          ;; this one saves an atom, so the mutable path stays covered
+          hook (fn [{:keys [node lifecycle state save]}]
                  (swap! seen conj [(.-textContent node)
                                    #?(:squint lifecycle :cljs (name lifecycle))
-                                   (:n data)])
-                 {:n (inc (or (:n data) 0))})
+                                   (when state (:n @state))])
+                 (swap! (or state (save (atom {}))) update :n (fnil inc 0)))
           items (fn [ks]
                   (into [:ul] (map (fn [k] [:li {:key k :on-render hook} (str "i" k)]) ks)))]
       (reagami/render el (items [1 2 3]))
@@ -87,7 +88,7 @@
     (let [el (mount-root)
           seen (atom [])
           view (fn [label]
-                 [:div {:on-render (fn [_ _ _] (swap! seen conj label))} label])]
+                 [:div {:on-render (fn [_] (swap! seen conj label))} label])]
       (reagami/render el (view "a"))
       (reagami/render el (view "b"))
       (reagami/render el (view "c"))
@@ -97,7 +98,7 @@
   (testing "dropping :on-render unmounts the hook and stops calling it"
     (let [el (mount-root)
           seen (atom [])
-          hook (fn [_ lifecycle _]
+          hook (fn [{:keys [lifecycle]}]
                  (swap! seen conj #?(:squint lifecycle :cljs (name lifecycle))))]
       (reagami/render el [:div {:on-render hook} "x"])
       (reset! seen [])
