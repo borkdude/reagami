@@ -144,3 +144,29 @@
       (reagami/render (.querySelector el "#inner") [:ul [:li "a"]])
       (is (= "<div><div id=\"inner\"><ul><li>a</li></ul></div><span>s</span></div>"
              (.-innerHTML el))))))
+
+(deftest custom-element-attribute-test
+  (testing "a hyphenated tag gets value, checked, selected and disabled as attributes.
+  A custom element observes attributes. A JS property is invisible to it, so its
+  attributeChangedCallback never runs and getAttribute returns nothing. A custom
+  element name must contain a hyphen, and no HTML, SVG or MathML element will get
+  one, so the hyphen identifies these tags. The test is wider than the spec rule:
+  annotation-xml and the font-face elements have a hyphen but are not custom
+  element names. None of them has one of these four properties, so they get the
+  attribute as well."
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:my-widget {:value "3" :checked true :disabled true}])
+      (let [w (.querySelector el "my-widget")]
+        (is (= "3" (.getAttribute w "value")))
+        (is (some? (.getAttribute w "checked")))
+        (is (some? (.getAttribute w "disabled"))))))
+  (testing "innerHTML stays a property on a custom element"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:my-widget {:innerHTML "<b>hi</b>"}])
+      (is (= "<b>hi</b>" (.-innerHTML (.querySelector el "my-widget"))))))
+  (testing "a native input keeps value as a property, where it is the live value"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:input {:type "text" :value "3"}])
+      (let [i (.querySelector el "input")]
+        (is (= "3" (.-value i)))
+        (is (nil? (.getAttribute i "value")))))))

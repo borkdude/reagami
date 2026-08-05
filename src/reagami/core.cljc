@@ -39,6 +39,7 @@
       (let [[t id class] (parse-tag tag)
             entry #js {:tag t
                        :upper (.toUpperCase t)
+                       :custom (.includes t "-")
                        :id id
                        :class (when (and class (pos? (.-length class)))
                                 (.replaceAll class "." " "))}]
@@ -47,6 +48,11 @@
 
 (defn property? [^js x]
   (.has properties x))
+
+(defn- property-for? [^js k custom?]
+  (if custom?
+    (identical? "innerHTML" k)
+    (property? k)))
 
 
 #_{:clj-kondo/ignore [:redundant-do]}
@@ -196,7 +202,8 @@
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
                          res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
-                 (let [new-children #js []
+                 (let [custom? (and parsed (aget parsed "custom"))
+                       new-children #js []
                        node #js {:svg in-svg?
                                  :tag (if in-svg?
                                         tag
@@ -249,7 +256,7 @@
                                ;; and compare (in patch)than setting
                                ;; individual props and using cssText
                                  (aset modified-attrs "style" style))
-                               (property? k) (aset modified-props k v)
+                               (property-for? k custom?) (aset modified-props k v)
                                :else (when v
                                      ;; not adding means it will be removed on new render
                                        (aset modified-attrs k v))))))
