@@ -1,6 +1,6 @@
 {
   "name": "reagami",
-  "version": "0.2.38",
+  "version": "0.2.39",
   "type": "module",
   "main": "reagami.mjs",
   "exports": "./reagami.mjs",
