@@ -2,7 +2,7 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
-## Unreleased
+## v0.2.39 (2026-08-05)
 
 - **Breaking**: `:on-render` now takes a map: `(fn [{:keys [node lifecycle state save]}])`. Call `save` with a value to keep it for the next call, and read it back as `state`. Before, the hook took three arguments and its return value became the state.
 - Fix a memory leak. Reagami kept the render root, and its nodes with an `:on-render` hook, in a strong map. A dropped root is now collected.
