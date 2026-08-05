@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- Fix a memory leak. Reagami kept the render root, and its nodes with an `:on-render` hook, in a strong map. A dropped root is now collected.
+
 - `render` now compares against the vnode tree of the previous render instead of reading the DOM. Patching is around 5% faster overall and up to 25% faster on update-heavy operations. See [benchmarks](https://github.com/borkdude/reagami/blob/main/doc/benchmarks.md).
 - Reagami owns the children of the nodes it renders. It no longer repairs a node that other code adds, removes or reorders.
 - Fix `:on-render` state. The state is per node now. Nodes that share one handler each get their own `:mount` call and their own data.
