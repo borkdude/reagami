@@ -80,6 +80,19 @@
     (.click (.querySelector el "button"))
     (is (= 1 @clicks))))
 
+(deftest indeterminate-ssr-test
+  (testing "no HTML can express indeterminate, so the server leaves it out and the
+  client sets it on the first render"
+    (let [hiccup [:input {:type "checkbox" :indeterminate true}]
+          el (js/document.createElement "div")]
+      (is (= "<input type=\"checkbox\">" (ssr/render hiccup)))
+      (.appendChild js/document.body el)
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [result (reagami/render el hiccup)]
+        (is (= 0 (:created result))))
+      (is (true? (.-indeterminate (.querySelector el "input"))))
+      (.remove el))))
+
 (deftest hydrate-on-render-test
   (testing "an :on-render hook mounts on an adopted node and keeps its state"
     (let [calls (atom [])

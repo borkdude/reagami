@@ -189,3 +189,14 @@
     (let [el (js/document.createElement "div")]
       (reagami/render el [:div {:on-mouse-enter (fn [_] nil)}])
       (is (fn? (.-onmouseenter (.querySelector el "div")))))))
+(deftest indeterminate-test
+  (testing "indeterminate is set as a property, because HTML has no such attribute.
+  It is the third checkbox state, drawn as a dash, and it is independent of
+  checked. A server render leaves it out and the client sets it."
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:input {:type "checkbox" :indeterminate true}])
+      (let [cb (.querySelector el "input")]
+        (is (true? (.-indeterminate cb)))
+        (is (nil? (.getAttribute cb "indeterminate"))))
+      (reagami/render el [:input {:type "checkbox"}])
+      (is (false? (.-indeterminate (.querySelector el "input")))))))

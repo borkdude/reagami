@@ -25,7 +25,7 @@
        (.substring tag (inc class-index)))]))
 
 (def properties (js/Set. ["checked" "disabled" "selected"
-                          "value" "innerHTML"]))
+                          "value" "innerHTML" "indeterminate"]))
 
 (def ^:private tag-cache (js/Map.))
 
