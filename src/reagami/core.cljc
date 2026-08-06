@@ -24,6 +24,8 @@
      (when class-index
        (.substring tag (inc class-index)))]))
 
+;; set as properties: the attribute is missing, or it only sets a starting value
+;; that a live element ignores. reagami.ssr mirrors this set.
 (def properties (js/Set. ["checked" "disabled" "selected"
                           "value" "innerHTML" "indeterminate"
                           "muted" "volume" "playbackRate"]))
