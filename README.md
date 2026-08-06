@@ -155,6 +155,8 @@ The output follows the hydration contract:
   position of the child.
 - Numbers get the JavaScript format. The double `1.0` becomes the string `"1"`.
 - The value of `:innerHTML` goes into the output without a change.
+- A property with no HTML form, such as `:indeterminate`, `:volume` and
+  `:playbackRate`, is left out. The client sets it on the first render.
 
 CAUTION: Do not put user input in tag names, in attribute names, or in
 `:innerHTML`. Reagami escapes text and attribute values only.
