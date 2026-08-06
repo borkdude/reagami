@@ -14,15 +14,16 @@
 ;; mirrors reagami.core/properties: set as DOM properties on the client, so they
 ;; need an HTML equivalent here
 (def ^:private properties
-  #{"checked" "disabled" "selected" "value" "innerHTML" "indeterminate"})
+  #{"checked" "disabled" "selected" "value" "innerHTML" "indeterminate"
+    "muted" "volume" "playbackRate"})
 
 ;; no HTML can express these, so the server leaves them out and the client sets
 ;; them on the first render
 (def ^:private client-only-properties
-  #{"indeterminate"})
+  #{"indeterminate" "volume" "playbackRate"})
 
 (def ^:private boolean-properties
-  #{"checked" "disabled" "selected"})
+  #{"checked" "disabled" "selected" "muted"})
 
 (defn- parse-tag
   "From hiccup, thanks @weavejester"

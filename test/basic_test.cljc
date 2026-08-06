@@ -200,3 +200,18 @@
         (is (nil? (.getAttribute cb "indeterminate"))))
       (reagami/render el [:input {:type "checkbox"}])
       (is (false? (.-indeterminate (.querySelector el "input")))))))
+
+(deftest media-property-test
+  (testing "muted, volume and playbackRate are set as properties. The muted
+  attribute only feeds defaultMuted, which a live element reads once when it is
+  created, and the other two have no attribute at all."
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:video {:muted true :volume 0.5 :playbackRate 2}])
+      (let [v (.querySelector el "video")]
+        (is (true? (.-muted v)))
+        (is (= 0.5 (.-volume v)))
+        (is (= 2 (.-playbackRate v)))
+        (is (nil? (.getAttribute v "volume")))
+        (is (nil? (.getAttribute v "playbackrate"))))
+      (reagami/render el [:video])
+      (is (false? (.-muted (.querySelector el "video")))))))

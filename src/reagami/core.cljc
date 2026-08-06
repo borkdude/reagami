@@ -25,7 +25,8 @@
        (.substring tag (inc class-index)))]))
 
 (def properties (js/Set. ["checked" "disabled" "selected"
-                          "value" "innerHTML" "indeterminate"]))
+                          "value" "innerHTML" "indeterminate"
+                          "muted" "volume" "playbackRate"]))
 
 (def ^:private tag-cache (js/Map.))
 

@@ -7,6 +7,7 @@
 - Set `value`, `checked`, `selected` and `disabled` on a tag with a hyphen as attributes, not as JS properties. A custom element observes attributes, so a property never reached it. Native elements keep them as properties.
 - Support custom events. `:on-rated` and the like now reach the element through `addEventListener`, because a browser only wires an `on*` property for an event it knows. Standard events keep the property, which is faster. A dashed name such as `:on-my-event` listens for `my-event`.
 - Set `:indeterminate` on a checkbox as a property. HTML has no such attribute, so a server render leaves it out and the client sets it.
+- Set `:muted`, `:volume` and `:playbackRate` on a media element as properties. The `muted` attribute only sets the starting value, which a live element reads once, and the other two have no attribute at all.
 
 ## v0.2.39 (2026-08-05)
 

@@ -93,6 +93,22 @@
       (is (true? (.-indeterminate (.querySelector el "input"))))
       (.remove el))))
 
+(deftest media-property-ssr-test
+  (testing "muted has an HTML attribute, which a parser reads into the property,
+  so the server emits it. volume and playbackRate have none, so the client sets
+  them on the first render."
+    (let [hiccup [:video {:muted true :volume 0.5 :playbackRate 2}]
+          el (js/document.createElement "div")]
+      (is (= "<video muted=\"\"></video>" (ssr/render hiccup)))
+      (.appendChild js/document.body el)
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [result (reagami/render el hiccup)]
+        (is (= 0 (:created result))))
+      (let [v (.querySelector el "video")]
+        (is (true? (.-muted v)))
+        (is (= 0.5 (.-volume v))))
+      (.remove el))))
+
 (deftest hydrate-on-render-test
   (testing "an :on-render hook mounts on an adopted node and keeps its state"
     (let [calls (atom [])
