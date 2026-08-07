@@ -40,7 +40,7 @@ The tag has a hyphen, so `:label` becomes an attribute rather than a JS property
 
 ## From plain JavaScript
 
-`vanilla.js` uses the same element with no Reagami and no ClojureScript.
+`src/vanilla.js` uses the same element with no Reagami and no ClojureScript.
 
 ```js
 const list = document.createElement("todo-list");
@@ -52,18 +52,8 @@ list.addItem("milk");
 
 ## What Reagami does not do here
 
-Reagami renders the shadow root. The class, the attributes and the events are the
+Reagami renders the shadow root. The class, the attribute and the events are the
 platform's, and this file writes them out by hand.
-
-An attribute carries a string. To hand an element an array or a map, set a
-property from `:on-render`:
-
-```clojure
-[:my-list {:on-render (fn [{:keys [node state save]}]
-                        (when-not (identical? state items)
-                          (set! (.-items node) items)
-                          (save items)))}]
-```
 
 An element that renders into its light DOM instead of a shadow root loses that
 content on the next render. Reagami owns the children of the nodes it renders.

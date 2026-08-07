@@ -1,6 +1,6 @@
 // The same element from plain JavaScript. No Reagami and no ClojureScript here:
-// two attributes in, one method, two events out.
-import "./out/todo_list.mjs";
+// one attribute in, one method, three events out.
+import "../out/todo_list.mjs";
 
 const app = document.getElementById("app");
 
