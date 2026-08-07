@@ -47,17 +47,17 @@ The tag has a hyphen, so `:label` becomes an attribute rather than a JS property
 arrays and objects, so Reagami needs no ClojureScript to use.
 
 ```js
-const tags = new Proxy({}, { get: (_, tag) => (...args) => (args.unshift(tag), args) });
+const tags = new Proxy({}, { get: (_, tag) => tag });
 const { div, h2, input } = tags;
 const todoList = tags["todo-list"];
 
-todoList({ label: state.label,
-           "on-item-added": (e) => log(`added ${e.detail.text}`) })
+[todoList, { label: state.label,
+             "on-item-added": (e) => log(`added ${e.detail.text}`) }]
 ```
 
-Hiccup is `["div", {...}, child]`. The Proxy turns a tag into a function, so
-`div(h2("hi"))` builds `["div", ["h2", "hi"]]`. A hyphenated tag cannot be
-destructured, hence `tags["todo-list"]`.
+Hiccup is `["div", {...}, child]`. Binding the tag names keeps the quotes out of
+the view and costs nothing, because the hiccup is still plain arrays. A
+hyphenated tag cannot be destructured, hence `tags["todo-list"]`.
 
 A standard event is its DOM property name, so `onclick` and `oninput`. A custom
 event keeps its dashes, so `on-item-added` listens for "item-added". Reagami
