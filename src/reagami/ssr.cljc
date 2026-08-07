@@ -28,11 +28,12 @@
   "From hiccup, thanks @weavejester"
   [^String tag]
   (let [id-index    (let [index (.indexOf tag "#")] (when (pos? index) index))
-        class-index (let [index (.indexOf tag ".")] (when (pos? index) index))]
-    [(cond
-       id-index    (.substring tag 0 id-index)
-       class-index (.substring tag 0 class-index)
-       :else tag)
+        class-index (let [index (.indexOf tag ".")] (when (pos? index) index))
+        t (cond
+            id-index    (.substring tag 0 id-index)
+            class-index (.substring tag 0 class-index)
+            :else tag)]
+    [t
      (when id-index
        (if class-index
          (.substring tag (inc id-index) class-index)
@@ -40,7 +41,8 @@
      (when class-index
        (let [class (.substring tag (inc class-index))]
          (when (pos? (count class))
-           (str/replace class "." " "))))]))
+           (str/replace class "." " "))))
+     (str/includes? t "-")]))
 
 ;; tags come from code, so the cache stays small. mirrors the client's cache in
 ;; reagami.core. the map type follows the platform: a ConcurrentHashMap lookup
@@ -212,7 +214,13 @@
             (->html child b)))
         xs))
 
-(defn- split-attrs [attrs]
+;; see custom-element-ssr-test
+(defn- property-for? [k custom?]
+  (if custom?
+    (= "innerHTML" k)
+    (contains? properties k)))
+
+(defn- split-attrs [attrs custom?]
   (reduce
    (fn [acc pair]
      (let [^String k (->str (nth pair 0))
@@ -225,17 +233,17 @@
          (update acc 0 put (str/replace (subs k 7) "-" "") v)
          (and (= "style" k) (map? v))
          (update acc 0 put "style" (style->str v))
-         (contains? properties k) (update acc 1 put k v)
+         (property-for? k custom?) (update acc 1 put k v)
          :else (if v (update acc 0 put k v) acc))))
    [[] []]
    (entries attrs)))
 
 (defn- element->html [hiccup b]
-  (let [[^String tag id class] (parse-tag-cached (->str (nth hiccup 0)))
+  (let [[^String tag id class custom?] (parse-tag-cached (->str (nth hiccup 0)))
         attrs (nth hiccup 1 nil)
         attrs? (map? attrs)
         children (if attrs? (subvec hiccup 2) (subvec hiccup 1))
-        [attr-pairs prop-pairs] (split-attrs (when attrs? attrs))
+        [attr-pairs prop-pairs] (split-attrs (when attrs? attrs) custom?)
         attr-pairs (if class
                      (let [c (pair-get attr-pairs "class")]
                        (put attr-pairs "class"

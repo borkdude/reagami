@@ -106,6 +106,19 @@
         (is (= 0.5 (.-volume v))))
       (.remove el))))
 
+(deftest custom-element-ssr-test
+  (testing "a hyphenated tag hydrates with no attribute change"
+    (let [hiccup [:my-widget {:value 3 :checked true :indeterminate true :volume 0.5}]
+          el (js/document.createElement "div")]
+      (.appendChild js/document.body el)
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [before (.-outerHTML (.querySelector el "my-widget"))
+            result (reagami/render el hiccup)
+            after (.-outerHTML (.querySelector el "my-widget"))]
+        (is (= 0 (:created result)))
+        (is (= before after)))
+      (.remove el))))
+
 (deftest hydrate-on-render-test
   (testing "an :on-render hook mounts on an adopted node and keeps its state"
     (let [calls (atom [])

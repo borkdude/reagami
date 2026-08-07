@@ -40,6 +40,18 @@
     :dom "<input>"}
    {:hiccup [:input {:checked false}]
     :html "<input>"}
+   ;; a custom element observes attributes, so a tag with a hyphen gets these as
+   ;; attributes on both sides and needs no :dom
+   {:hiccup [:my-widget {:value 3 :checked true :disabled true}]
+    :html "<my-widget value=\"3\" checked=\"true\" disabled=\"true\"></my-widget>"}
+   ;; setAttribute lowercases the name, as an HTML parser does on the way back in
+   {:hiccup [:my-widget {:indeterminate true :volume 0.5 :playbackRate 2}]
+    :html "<my-widget indeterminate=\"true\" volume=\"0.5\" playbackRate=\"2\"></my-widget>"
+    :dom "<my-widget indeterminate=\"true\" volume=\"0.5\" playbackrate=\"2\"></my-widget>"}
+   {:hiccup [:my-widget {:checked false}]
+    :html "<my-widget></my-widget>"}
+   {:hiccup [:my-widget {:innerHTML "<b>x</b>"}]
+    :html "<my-widget><b>x</b></my-widget>"}
    {:hiccup [:div {:innerHTML "<b>x</b>"}]
     :html "<div><b>x</b></div>"}
    ;; innerHTML owns the subtree, so the [:i "y"] child is dropped
