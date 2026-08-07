@@ -1,1 +1,2 @@
-{:cljc {:features [:cljs]}}
+{:cljc {:features [:cljs]}
+ :lint-as {squint.core/defclass clj-kondo.lint-as/def-catch-all}}
