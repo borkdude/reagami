@@ -45,46 +45,41 @@
   (let [text (str/trim (str text))]
     (if (str/blank? text)
       state
-      (-> state
-          (update :items conj {:id (:next-id state) :text text :done false})
-          (update :next-id inc)))))
+      (let [item {:id (:next-id state) :text text :done false}]
+        (-> state
+            (update :items conj item)
+            (update :next-id inc)
+            (assoc :emit ["item-added" item]))))))
 
 (defn- handle
-  "The state and an event in, the next state out. No side effects."
+  "The state and an event in, the next state out. No side effects. An event the
+  element should tell the world about is left under :emit."
   [state [op a]]
-  (case op
-    :attributes (assoc state :label (first a) :placeholder (second a))
-    :draft (assoc state :draft a)
-    :add (add-item state a)
-    :add-draft (-> state (add-item (:draft state)) (assoc :draft ""))
-    :toggle (change-item state a #(update % :done not))
-    :remove (update state :items (fn [items] (vec (remove #(= a (:id %)) items))))
-    :edit (assoc state :editing a :edit-draft (:text (find-item (:items state) a)))
-    :edit-draft (assoc state :edit-draft a)
-    :cancel-edit (assoc state :editing nil)
-    :commit-edit (let [text (str/trim (:edit-draft state))
-                       state (assoc state :editing nil)]
-                   (if (str/blank? text)
-                     (handle state [:remove a])
-                     (change-item state a #(assoc % :text text))))
-    state))
-
-(defn- effect
-  "What the element tells the world, from the states on either side of an event."
-  [[op a] before after]
-  (let [was (find-item (:items before) a)
-        now (find-item (:items after) a)]
+  (let [state (dissoc state :emit)]
     (case op
-      :add (when (not= (count (:items before)) (count (:items after)))
-             ["item-added" (last (:items after))])
-      :add-draft (when (not= (count (:items before)) (count (:items after)))
-                   ["item-added" (last (:items after))])
-      :toggle (when now ["item-changed" now])
-      :remove (when was ["item-removed" was])
-      :commit-edit (cond
-                     (and was (nil? now)) ["item-removed" was]
-                     (and now (not= (:text now) (:text was))) ["item-changed" now])
-      nil)))
+      :attributes (assoc state :label (first a) :placeholder (second a))
+      :draft (assoc state :draft a)
+      :edit-draft (assoc state :edit-draft a)
+      :edit (assoc state :editing a :edit-draft (:text (find-item (:items state) a)))
+      :cancel-edit (assoc state :editing nil)
+      :add (add-item state a)
+      :add-draft (-> state (add-item (:draft state)) (assoc :draft ""))
+      :toggle (let [state (change-item state a #(update % :done not))]
+                (assoc state :emit ["item-changed" (find-item (:items state) a)]))
+      :remove (if-let [item (find-item (:items state) a)]
+                (-> state
+                    (update :items (fn [items] (vec (remove #(= a (:id %)) items))))
+                    (assoc :emit ["item-removed" item]))
+                state)
+      :commit-edit (let [text (str/trim (:edit-draft state))
+                         state (assoc state :editing nil)]
+                     (cond
+                       (str/blank? text) (handle state [:remove a])
+                       (= text (:text (find-item (:items state) a))) state
+                       :else (let [state (change-item state a #(assoc % :text text))]
+                               (assoc state :emit ["item-changed"
+                                                   (find-item (:items state) a)]))))
+      state)))
 
 (defn- emit!
   ;; composed lets the event leave the shadow root, bubbles lets a parent listen
@@ -97,9 +92,8 @@
   "Apply an event to an element's state and emit whatever follows from it."
   [^js el event]
   (when-let [state! (.--state el)]
-    (let [[before after] (swap-vals! state! handle event)]
-      (when-let [[event-name detail] (effect event before after)]
-        (emit! el event-name detail)))))
+    (when-let [[event-name detail] (:emit (swap! state! handle event))]
+      (emit! el event-name detail))))
 
 (defn- on
   ;; the handler finds its element from the event, so a view needs no element
