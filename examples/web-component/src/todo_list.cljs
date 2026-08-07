@@ -41,8 +41,8 @@
   (^:set placeholder [this v] (.setAttribute this "placeholder" (str v)))
 
   ;; a squint map is a JS object and a vector is an array, so a caller reading
-  ;; item.text needs no conversion. into copies, so a caller cannot reach in
-  (^:get items [this] (into [] (:items @-state)))
+  ;; item.text needs no conversion
+  (^:get items [this] (:items @-state))
 
   (upgradeProperty [this prop]
     ;; a property set before this element upgraded sits on the instance and
