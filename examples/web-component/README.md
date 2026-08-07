@@ -21,6 +21,8 @@ the list keeps its own items and reports what changed.
 - `label` and `placeholder` come in as attributes, with a property that mirrors
   each one
 - `addItem` adds an item, `items` returns a copy of the list
+- the items are a Clojure vector of maps in an atom, which JavaScript reads as
+  an array of plain objects with no conversion
 - `item-added` and `item-removed` go out, both bubbling and composed
 
 A property set on the element before its class is defined hides the accessor, so

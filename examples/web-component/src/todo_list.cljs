@@ -1,5 +1,6 @@
 (ns todo-list
   (:require
+   [clojure.string :as str]
    [reagami.core :as r]
    [squint.core :refer [defclass]]))
 
@@ -24,12 +25,12 @@
   (extends js/HTMLElement)
   (^:static field observedAttributes #js ["label" "placeholder"])
   (field -shadow nil)
-  (field -items #js [])
-  (field -next-id 0)
+  (field -state (atom {:items [] :next-id 0}))
 
   (constructor [this]
     (super)
-    (set! -shadow (.attachShadow this #js {:mode "open"})))
+    (set! -shadow (.attachShadow this #js {:mode "open"}))
+    (add-watch -state ::render (fn [_ _ _ _] (.render this))))
 
   Object
   ;; primitives travel as attributes, with a property that mirrors them
@@ -39,9 +40,9 @@
   (^:get placeholder [this] (or (.getAttribute this "placeholder") "New item"))
   (^:set placeholder [this v] (.setAttribute this "placeholder" (str v)))
 
-  ;; the list is the element's own state. a copy goes out, so a caller cannot
-  ;; reach in and change it
-  (^:get items [this] (.slice -items))
+  ;; a squint map is a JS object and a vector is an array, so a caller reading
+  ;; item.text needs no conversion. into copies, so a caller cannot reach in
+  (^:get items [this] (into [] (:items @-state)))
 
   (upgradeProperty [this prop]
     ;; a property set before this element upgraded sits on the instance and
@@ -67,20 +68,18 @@
                            #js {:detail detail :bubbles true :composed true})))
 
   (addItem [this text]
-    (let [t (.trim (str text))]
-      (when (pos? (.-length t))
-        (set! -next-id (inc -next-id))
-        (let [item #js {:id -next-id :text t}]
-          (.push -items item)
-          (.render this)
+    (let [text (str/trim (str text))]
+      (when (seq text)
+        (let [item {:id (:next-id @-state) :text text}]
+          (swap! -state #(-> %
+                             (update :items conj item)
+                             (update :next-id inc)))
           (.emit this "item-added" item)))))
 
   (removeItem [this id]
-    (let [idx (.findIndex -items (fn [item] (identical? id (.-id item))))]
-      (when-not (identical? -1 idx)
-        (let [item (aget (.splice -items idx 1) 0)]
-          (.render this)
-          (.emit this "item-removed" item)))))
+    (when-let [item (first (filter #(= id (:id %)) (:items @-state)))]
+      (swap! -state update :items #(vec (remove (fn [i] (= id (:id i))) %)))
+      (.emit this "item-removed" item)))
 
   (submit [this e]
     (.preventDefault e)
@@ -89,24 +88,25 @@
       (set! (.-value input) "")))
 
   (render [this]
-    (r/render -shadow
-      [:div
-       [:style css]
-       [:h3 (.-label this)]
-       (if (zero? (.-length -items))
-         [:p.empty "Nothing to do."]
-         (into [:ul]
-               (map (fn [item]
-                      [:li {:key (.-id item)}
-                       [:span.text (.-text item)]
-                       [:button.remove {:on-click (fn [_] (.removeItem this (.-id item)))
-                                        :aria-label (str "Remove " (.-text item))}
-                        "×"]])
-                    -items)))
-       [:form {:on-submit (fn [e] (.submit this e))}
-        [:input {:type "text" :placeholder (.-placeholder this)
-                 :aria-label (.-placeholder this)}]
-        [:button {:type "submit"} "Add"]]])))
+    (let [items (:items @-state)]
+      (r/render -shadow
+        [:div
+         [:style css]
+         [:h3 (.-label this)]
+         (if (empty? items)
+           [:p.empty "Nothing to do."]
+           (into [:ul]
+                 (map (fn [{:keys [id text]}]
+                        [:li {:key id}
+                         [:span.text text]
+                         [:button.remove {:on-click (fn [_] (.removeItem this id))
+                                          :aria-label (str "Remove " text)}
+                          "×"]])
+                      items)))
+         [:form {:on-submit (fn [e] (.submit this e))}
+          [:input {:type "text" :placeholder (.-placeholder this)
+                   :aria-label (.-placeholder this)}]
+          [:button {:type "submit"} "Add"]]]))))
 
 ;; defining twice throws, which happens when a page loads this module more than once
 (when-not (.get js/customElements "todo-list")
