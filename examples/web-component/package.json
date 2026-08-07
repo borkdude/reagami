@@ -2,6 +2,9 @@
   "name": "reagami-web-component-example",
   "private": true,
   "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
   "devDependencies": {
     "squint-cljs": "^0.14.207",
     "vite": "^7.1.5"

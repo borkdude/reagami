@@ -6,12 +6,12 @@ JavaScript.
 Run it:
 
 ```shell
-bb dev
+pnpm install
+pnpm dev
 ```
 
 - http://localhost:5174 renders the element from Reagami
 - http://localhost:5174/vanilla.html drives the same element from plain JavaScript
-- http://localhost:8081 renders it on Babashka and hydrates it
 
 ## The element
 
@@ -49,18 +49,6 @@ list.label = "Groceries";   // or the property, which mirrors it
 list.addEventListener("item-added", (e) => console.log(e.detail.text));
 list.addItem("milk");
 ```
-
-## Server side
-
-`src/server.clj` renders the page on Babashka and `src/client.cljs` hydrates it.
-A shadow root has no HTML form, so the server sends the tag and its attributes
-and the element fills itself in the browser.
-
-```html
-<todo-list label="Groceries"></todo-list>
-```
-
-Hydration builds 0 nodes. The page prints the count.
 
 ## What Reagami does not do here
 

@@ -28,6 +28,9 @@
 ;; every method on the class is public JS API, so everything the element does
 ;; internally is a function out here that takes the element
 
+(defn- el->state [^js el]
+  (.--state el))
+
 (defn- emit!
   ;; dispatched on the element itself, and bubbling, so a parent can listen for
   ;; every item at once
@@ -36,12 +39,12 @@
                        #js {:detail detail :bubbles true})))
 
 (defn- find-item [^js el id]
-  (first (filter #(= id (:id %)) (:items @(.--state el)))))
+  (first (filter #(= id (:id %)) (:items @(el->state el)))))
 
 (defn- add-item! [^js el text]
   (let [text (str/trim (str text))]
     (when-not (str/blank? text)
-      (let [!state (.--state el)
+      (let [!state (el->state el)
             item {:id (:next-id @!state) :text text :done false}]
         (swap! !state #(-> %
                            (update :items conj item)
@@ -50,12 +53,12 @@
 
 (defn- remove-item! [^js el id]
   (when-let [item (find-item el id)]
-    (swap! (.--state el) update :items #(vec (remove (fn [i] (= id (:id i))) %)))
+    (swap! (el->state el) update :items #(vec (remove (fn [i] (= id (:id i))) %)))
     (emit! el "item-removed" item)))
 
 (defn- toggle-item! [^js el id]
   (when (find-item el id)
-    (swap! (.--state el) update :items
+    (swap! (el->state el) update :items
            #(mapv (fn [item]
                     (if (= id (:id item)) (update item :done not) item))
                   %))
@@ -63,8 +66,8 @@
 
 (defn- submit! [^js el e]
   (.preventDefault e)
-  (add-item! el (:draft @(.--state el)))
-  (swap! (.--state el) assoc :draft ""))
+  (add-item! el (:draft @(el->state el)))
+  (swap! (el->state el) assoc :draft ""))
 
 (defn- render-item [^js el {:keys [id text done]}]
   [:li {:key id}
@@ -78,7 +81,7 @@
     "🗑"]])
 
 (defn- render! [^js el]
-  (let [{:keys [items draft label]} @(.--state el)]
+  (let [{:keys [items draft label]} @(el->state el)]
     (r/render (.--shadow el)
       [:div
        [:style css]
@@ -88,7 +91,7 @@
          (into [:ul] (map #(render-item el %) items)))
        [:form {:on-submit (fn [e] (submit! el e))}
         [:input {:type "text" :value draft
-                 :on-input (fn [e] (swap! (.--state el) assoc :draft
+                 :on-input (fn [e] (swap! (el->state el) assoc :draft
                                           (.. e -target -value)))
                  :aria-label "New item"}]
         [:button {:type "submit"} "Add"]]])))
@@ -96,7 +99,7 @@
 (defn- sync-attributes!
   ;; read through the getter, so the default lives in one place
   [^js el]
-  (swap! (.--state el) assoc :label (.-label el)))
+  (swap! (el->state el) assoc :label (.-label el)))
 
 (defclass TodoList
   (extends js/HTMLElement)
