@@ -20,7 +20,7 @@ importers:
         version: 0.25.12
       jsdom:
         specifier: ^27.1.0
-        version: 27.1.0
+        version: 27.1.0(supports-color@8.1.1)
       shadow-cljs:
         specifier: ^3.2.1
         version: 3.2.1
@@ -39,6 +39,15 @@ importers:
       squint-cljs:
         specifier: ^0.14.206
         version: 0.14.206
+      vite:
+        specifier: ^7.1.5
+        version: 7.3.6
+
+  examples/web-component:
+    devDependencies:
+      squint-cljs:
+        specifier: ^0.14.207
+        version: 0.14.207
       vite:
         specifier: ^7.1.5
         version: 7.3.6
@@ -791,6 +800,10 @@ packages:
     resolution: {integrity: sha512-por3ytiUKedGkdZsD9E3TvOo/txPbfhqpYl/VsyIzNPG+LjazUavFaCwTv3zSQ/eT7FpsdwVdhQuPSaUePjgoA==}
     hasBin: true
 
+  squint-cljs@0.14.207:
+    resolution: {integrity: sha512-7NqM+QXtLJAIzCwawwKHUEFACrLMfmVr9PlpZSzH/yBScQn5AZ7qv+XTOuR9accegPlK/fam88zNcPwI76JwQA==}
+    hasBin: true
+
   string-width@4.2.3:
     resolution: {integrity: sha512-wKyQRQpjJ0sIp62ErSZdGsjMJWsap5oRNihHhu6G7JVO/9jIB6UyevL+tXuOqrng8j/cxKTWyWUwvSTriiZz/g==}
     engines: {node: '>=8'}
@@ -1281,9 +1294,11 @@ snapshots:
       whatwg-mimetype: 4.0.0
       whatwg-url: 15.1.0
 
-  debug@4.4.3:
+  debug@4.4.3(supports-color@8.1.1):
     dependencies:
       ms: 2.1.3
+    optionalDependencies:
+      supports-color: 8.1.1
 
   decimal.js@10.6.0: {}
 
@@ -1366,17 +1381,17 @@ snapshots:
     dependencies:
       whatwg-encoding: 3.1.1
 
-  http-proxy-agent@7.0.2:
+  http-proxy-agent@7.0.2(supports-color@8.1.1):
     dependencies:
       agent-base: 7.1.4
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
-  https-proxy-agent@7.0.6:
+  https-proxy-agent@7.0.6(supports-color@8.1.1):
     dependencies:
       agent-base: 7.1.4
-      debug: 4.4.3
+      debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -1392,7 +1407,7 @@ snapshots:
 
   isexe@3.1.1: {}
 
-  jsdom@27.1.0:
+  jsdom@27.1.0(supports-color@8.1.1):
     dependencies:
       '@acemir/cssom': 0.9.20
       '@asamuzakjp/dom-selector': 6.7.4
@@ -1400,8 +1415,8 @@ snapshots:
       data-urls: 6.0.0
       decimal.js: 10.6.0
       html-encoding-sniffer: 4.0.0
-      http-proxy-agent: 7.0.2
-      https-proxy-agent: 7.0.6
+      http-proxy-agent: 7.0.2(supports-color@8.1.1)
+      https-proxy-agent: 7.0.6(supports-color@8.1.1)
       is-potential-custom-element-name: 1.0.1
       parse5: 8.0.0
       saxes: 6.0.0
@@ -1521,6 +1536,10 @@ snapshots:
   source-map@0.6.1: {}
 
   squint-cljs@0.14.206:
+    dependencies:
+      chokidar: 4.0.3
+
+  squint-cljs@0.14.207:
     dependencies:
       chokidar: 4.0.3
 
