@@ -1,4 +1,4 @@
-// The element from plain JavaScript, with no Reagami and no ClojureScript.
+// The element from plain JavaScript, with no Reagami and no Squint.
 // One attribute arrives, one method adds an item, three events go out.
 import "../out/todo_list.mjs";
 

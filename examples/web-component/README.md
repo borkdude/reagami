@@ -1,7 +1,7 @@
 # Web component
 
 Reagami builds a `<todo-list>` element. Three pages use it: two with Reagami,
-one without.
+one without. The ClojureScript here is compiled by Squint.
 
 Run it:
 
@@ -10,7 +10,7 @@ pnpm install
 pnpm dev
 ```
 
-- http://localhost:5174 uses the element from Reagami, in ClojureScript
+- http://localhost:5174 uses the element from Reagami, in Squint
 - http://localhost:5174/reagami-js.html uses it from Reagami, in JavaScript
 - http://localhost:5174/vanilla.html uses it with no Reagami
 
@@ -30,7 +30,7 @@ the element. The element keeps its own items and reports each change.
 
 Click the circle to mark an item done. Click the bin to delete the item.
 
-## From Reagami, in ClojureScript
+## From Reagami, in Squint
 
 `src/app.cljs` sets the attribute and listens for the events.
 
@@ -46,7 +46,7 @@ The element has no `onitemadded` property, so Reagami listens with
 ## From Reagami, in JavaScript
 
 `src/reagami-js.js` does what `src/app.cljs` does, in JavaScript. Hiccup is
-arrays and objects, so Reagami does not need ClojureScript.
+arrays and objects, so Reagami does not need Squint.
 
 ```js
 ["todo-list", { label: state.label,
