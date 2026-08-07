@@ -3,9 +3,6 @@
    [reagami.core :as r]
    [todo-list]))
 
-;; Reagami uses <todo-list> like any other tag. It knows one attribute and
-;; three events, and nothing else.
-
 (defonce !state (atom {:log [] :label "Groceries"}))
 
 (defn log! [line]
@@ -18,9 +15,6 @@
      [:label "Heading: "
       [:input {:value label
                :on-input #(swap! !state assoc :label (.. % -target -value))}]]
-     ;; the tag holds a hyphen, so label reaches the element as an attribute.
-     ;; the element has no onitemadded property, so Reagami listens with
-     ;; addEventListener.
      [:todo-list {:label label
                   :on-item-added #(log! (str "added " (.. % -detail -text)))
                   :on-item-changed #(log! (str "changed " (.. % -detail -text)

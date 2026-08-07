@@ -1,5 +1,3 @@
-// Reagami from JavaScript. Hiccup is arrays and objects, so Reagami does not
-// need Squint. This page does what src/app.cljs does.
 import * as reagami from "../out/reagami/core.mjs";
 import "../out/todo_list.mjs";
 

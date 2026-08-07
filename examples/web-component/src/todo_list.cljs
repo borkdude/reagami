@@ -4,9 +4,6 @@
    [reagami.core :as r]
    [squint.core :refer [defclass]]))
 
-;; A <todo-list> element. Reagami renders the shadow root. Nothing outside this
-;; file knows that, and nothing in this file knows who uses the element.
-
 (def ^:private css "
   :host { display: block; font-family: system-ui, sans-serif; max-width: 24rem; }
   h3 { margin: 0 0 0.5rem; font-size: 1rem; }
@@ -25,15 +22,11 @@
   .remove { border: none; background: none; }
 ")
 
-;; a method on the class is public JS API. Everything else is a function here
-;; that takes the element.
 
 (defn- el->state [^js el]
   (.--state el))
 
 (defn- emit!
-  ;; the event goes out on the element and it bubbles, so a parent can listen
-  ;; for every item at once
   [^js el event-name detail]
   (.dispatchEvent el (js/CustomEvent. event-name
                        #js {:detail detail :bubbles true})))
@@ -113,12 +106,8 @@
     (add-watch -state ::render (fn [_ _ _ _] (render! this))))
 
   Object
-  ;; a primitive arrives as an attribute. A property mirrors it.
   (^:get label [this] (or (.getAttribute this "label") "To do"))
   (^:set label [this v] (.setAttribute this "label" (str v)))
-
-  ;; a squint map is a JS object and a vector is an array. A caller reads
-  ;; item.text and item.done with no conversion.
   (^:get items [this] (:items @-state))
 
   (addItem [this text] (add-item! this text))
