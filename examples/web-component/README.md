@@ -1,7 +1,7 @@
 # Web component
 
-A `<todo-list>` element built with Reagami, used from Reagami and from plain
-JavaScript.
+A `<todo-list>` element built with Reagami, used three ways: from Reagami in
+ClojureScript, from Reagami in JavaScript, and from plain JavaScript.
 
 Run it:
 
@@ -10,8 +10,11 @@ pnpm install
 pnpm dev
 ```
 
-- http://localhost:5174 renders the element from Reagami
-- http://localhost:5174/vanilla.html drives the same element from plain JavaScript
+- http://localhost:5174 uses the element from Reagami, in ClojureScript
+- http://localhost:5174/reagami-js.html does the same with Reagami called from JavaScript
+- http://localhost:5174/vanilla.html drives the element with no Reagami at all
+
+Each page builds its own element, so the lists do not share items.
 
 ## The element
 
@@ -26,7 +29,7 @@ the list keeps its own items and reports what changed.
 
 Click the circle to mark an item done, and the bin to delete it.
 
-## From Reagami
+## From Reagami, in ClojureScript
 
 `src/app.cljs` sets the attributes and listens for the events.
 
@@ -38,9 +41,23 @@ Click the circle to mark an item done, and the bin to delete it.
 The tag has a hyphen, so `:label` becomes an attribute rather than a JS property.
 `item-added` has no `on*` property, so Reagami listens with `addEventListener`.
 
+## From JavaScript
+
+`src/reagami-js.js` does what `src/app.cljs` does, in JavaScript. Hiccup is
+arrays and objects, so Reagami needs no ClojureScript to use.
+
+```js
+["todo-list", { label: state.label,
+                "on-item-added": (e) => log(`added ${e.detail.text}`) }]
+```
+
+A standard event is its DOM property name, so `onclick` and `oninput`. A custom
+event keeps its dashes, so `on-item-added` listens for "item-added". Reagami
+re-renders the page around the element and the element keeps its own items.
+
 ## From plain JavaScript
 
-`src/vanilla.js` uses the same element with no Reagami and no ClojureScript.
+`src/vanilla.js` uses the element with no Reagami and no ClojureScript.
 
 ```js
 const list = document.createElement("todo-list");
