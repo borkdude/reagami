@@ -25,7 +25,7 @@
   (extends js/HTMLElement)
   (^:static field observedAttributes #js ["label" "placeholder"])
   (field -shadow nil)
-  (field -state (atom {:items [] :next-id 0}))
+  (field -state (atom {:items [] :next-id 0 :draft ""}))
 
   (constructor [this]
     (super)
@@ -69,7 +69,7 @@
 
   (addItem [this text]
     (let [text (str/trim (str text))]
-      (when (seq text)
+      (when-not (str/blank? text)
         (let [item {:id (:next-id @-state) :text text}]
           (swap! -state #(-> %
                              (update :items conj item)
@@ -83,12 +83,11 @@
 
   (submit [this e]
     (.preventDefault e)
-    (let [input (.querySelector -shadow "input")]
-      (.addItem this (.-value input))
-      (set! (.-value input) "")))
+    (.addItem this (:draft @-state))
+    (swap! -state assoc :draft ""))
 
   (render [this]
-    (let [items (:items @-state)]
+    (let [{:keys [items draft]} @-state]
       (r/render -shadow
         [:div
          [:style css]
@@ -104,7 +103,9 @@
                           "×"]])
                       items)))
          [:form {:on-submit (fn [e] (.submit this e))}
-          [:input {:type "text" :placeholder (.-placeholder this)
+          [:input {:type "text" :value draft
+                   :on-input (fn [e] (swap! -state assoc :draft (.. e -target -value)))
+                   :placeholder (.-placeholder this)
                    :aria-label (.-placeholder this)}]
           [:button {:type "submit"} "Add"]]]))))
 
