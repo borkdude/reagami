@@ -2,6 +2,11 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## Unreleased
+
+- Set `value`, `checked`, `selected` and `disabled` on a tag with a hyphen as attributes, not as JS properties. A custom element observes attributes, so a property never reached it. Native elements keep them as properties.
+- Support custom events. `:on-rated` and the like now reach the element through `addEventListener`, because a browser only wires an `on*` property for an event it knows. Standard events keep the property, which is faster. A dashed name such as `:on-my-event` listens for `my-event`.
+
 ## v0.2.39 (2026-08-05)
 
 - **Breaking**: `:on-render` now takes a map: `(fn [{:keys [node lifecycle state save]}])`. Call `save` with a value to keep it for the next call, and read it back as `state`. In previous versions, the hook took three arguments and its return value became the state.

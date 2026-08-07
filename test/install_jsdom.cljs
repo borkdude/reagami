@@ -9,3 +9,4 @@
 (set! js/globalThis.Node (.-Node window))
 (set! js/globalThis.Element (.-Element window))
 (set! js/globalThis.MouseEvent (.-MouseEvent window))
+(set! js/globalThis.CustomEvent (.-CustomEvent window))

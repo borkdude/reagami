@@ -39,6 +39,7 @@
       (let [[t id class] (parse-tag tag)
             entry #js {:tag t
                        :upper (.toUpperCase t)
+                       :custom (.includes t "-")
                        :id id
                        :class (when (and class (pos? (.-length class)))
                                 (.replaceAll class "." " "))}]
@@ -47,6 +48,11 @@
 
 (defn property? [^js x]
   (.has properties x))
+
+(defn- property-for? [^js k custom?]
+  (if custom?
+    (identical? "innerHTML" k)
+    (property? k)))
 
 
 #_{:clj-kondo/ignore [:redundant-do]}
@@ -103,6 +109,35 @@
 
 (def ^:private state-key #?(:squint ::state
                             :cljs "reagami.core/state"))
+
+(def ^:private handlers-key #?(:squint ::handlers
+                               :cljs "reagami.core/handlers"))
+
+(defn- prop-name [k]
+  (or (.get event-name-cache k)
+      (let [e (.replaceAll k "-" "")]
+        (.set event-name-cache k e)
+        e)))
+
+(defn- set-handler! [^js node k v]
+  (let [hs (or (aget node handlers-key)
+               (let [o #js {}]
+                 (aset node handlers-key o)
+                 o))]
+    (when-not (js-in k hs)
+      (.addEventListener node (subs k 3)
+                         (fn [e] (when-let [f (aget hs k)] (f e)))))
+    (aset hs k v)))
+
+;; see custom-event-test
+(defn- set-prop!
+  [^js node k v]
+  (if (.startsWith k "on")
+    (let [p (prop-name k)]
+      (if (js-in p node)
+        (aset node p v)
+        (set-handler! node k v)))
+    (aset node k v)))
 
 (defn- save-fn
   ;; reagami keeps whatever the hook saves and hands it back on the next call.
@@ -196,7 +231,8 @@
                  (let [;; note: .slice was even faster in benchmarks than .shift-mutating
                          res (.apply tag nil (.slice hiccup 1))]
                    (create-vnode* res in-svg?))
-                 (let [new-children #js []
+                 (let [custom? (and parsed (aget parsed "custom"))
+                       new-children #js []
                        node #js {:svg in-svg?
                                  :tag (if in-svg?
                                         tag
@@ -229,11 +265,7 @@
                              (identical? "key" k) (aset node key-key v)
                              (identical? "on-render" k) (aset node on-render-key v)
                              (.startsWith k "on")
-                             (let [event (or (.get event-name-cache k)
-                                             (let [e (.replaceAll k "-" "")]
-                                               (.set event-name-cache k e)
-                                               e))]
-                               (aset modified-props event v))
+                             (aset modified-props k v)
                              (.startsWith k "default")
                              (let [default-attr (-> (subs k 7)
                                                     (.replaceAll "-" ""))]
@@ -249,7 +281,7 @@
                                ;; and compare (in patch)than setting
                                ;; individual props and using cssText
                                  (aset modified-attrs "style" style))
-                               (property? k) (aset modified-props k v)
+                               (property-for? k custom?) (aset modified-props k v)
                                :else (when v
                                      ;; not adding means it will be removed on new render
                                        (aset modified-attrs k v))))))
@@ -309,7 +341,7 @@
                        (let [n (aget prop-names i)
                              new-prop (aget props n)
                              new-prop (if (undefined? new-prop) nil new-prop)]
-                         (aset node n new-prop)))
+                         (set-prop! node n new-prop)))
                      (when-let [children (aget vnode "children")]
                        (let [len (alength children)]
                          (dotimes [i len]
@@ -434,7 +466,7 @@
             new-prop-names (js/Object.getOwnPropertyNames new-props)]
         (dotimes [i (alength old-prop-names)]
           (let [o (aget old-prop-names i)]
-            (when-not (js-in o new-props) (aset old o nil))))
+            (when-not (js-in o new-props) (set-prop! old o nil))))
         (dotimes [i (alength old-attr-names)]
           (let [o (aget old-attr-names i)]
             (when-not (js-in o new-attrs) (.removeAttribute old o))))
@@ -447,7 +479,7 @@
           (let [n (aget new-prop-names i)
                 new-prop (let [v (aget new-props n)] (if (undefined? v) nil v))]
             (when-not (identical? (aget old-props n) new-prop)
-              (aset old n new-prop))))
+              (set-prop! old n new-prop))))
         (when-let [nc (aget new-vnode "children")]
           (patch old (aget old-vnode "children") nc root))
         (let [ref (aget new-vnode on-render-key)]

@@ -144,3 +144,48 @@
       (reagami/render (.querySelector el "#inner") [:ul [:li "a"]])
       (is (= "<div><div id=\"inner\"><ul><li>a</li></ul></div><span>s</span></div>"
              (.-innerHTML el))))))
+
+(deftest custom-element-attribute-test
+  (testing "a hyphenated tag gets value, checked, selected and disabled as attributes"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:my-widget {:value "3" :checked true :disabled true}])
+      (let [w (.querySelector el "my-widget")]
+        (is (= "3" (.getAttribute w "value")))
+        (is (some? (.getAttribute w "checked")))
+        (is (some? (.getAttribute w "disabled"))))))
+  (testing "innerHTML stays a property on a custom element"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:my-widget {:innerHTML "<b>hi</b>"}])
+      (is (= "<b>hi</b>" (.-innerHTML (.querySelector el "my-widget"))))))
+  (testing "a native input keeps value as a property, where it is the live value"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:input {:type "text" :value "3"}])
+      (let [i (.querySelector el "input")]
+        (is (= "3" (.-value i)))
+        (is (nil? (.getAttribute i "value")))))))
+
+(deftest custom-event-test
+  (testing "an event with no on* property on the element uses addEventListener"
+    (let [el (js/document.createElement "div")
+          seen (atom [])
+          view (fn [tag] [:div {:on-rated (fn [_] (swap! seen conj tag))}])]
+      (reagami/render el [view "first"])
+      (let [node (.querySelector el "div")]
+        (reagami/render el [view "second"])
+        (.dispatchEvent node (js/CustomEvent. "rated"))
+        (testing "the newest handler runs, exactly once"
+          (is (= ["second"] @seen)))
+        (reagami/render el [:div])
+        (.dispatchEvent node (js/CustomEvent. "rated"))
+        (testing "removing the handler stops it"
+          (is (= ["second"] @seen))))))
+  (testing "a dashed event name survives, unlike the on* property form"
+    (let [el (js/document.createElement "div")
+          seen (atom 0)]
+      (reagami/render el [:div {:on-my-event (fn [_] (swap! seen inc))}])
+      (.dispatchEvent (.querySelector el "div") (js/CustomEvent. "my-event"))
+      (is (= 1 @seen))))
+  (testing "a standard event still reaches the element as a property"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:div {:on-mouse-enter (fn [_] nil)}])
+      (is (fn? (.-onmouseenter (.querySelector el "div")))))))
