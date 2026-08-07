@@ -30,9 +30,6 @@ Click the circle to mark an item done, the text to edit it, and the bin to
 delete it. An edit commits on Enter or blur, cancels on Escape, and deletes the
 item when the text is left empty.
 
-A property set on the element before its class is defined hides the accessor, so
-`connectedCallback` calls `upgradeProperty` for each one.
-
 ## From Reagami
 
 `src/app.cljs` sets the attributes and listens for the events.
@@ -72,8 +69,8 @@ Hydration builds 0 nodes. The page prints the count.
 
 ## What Reagami does not do here
 
-Reagami renders the shadow root. The class, the attributes, the upgrade guard and
-the events are the platform's, and this file writes them out by hand.
+Reagami renders the shadow root. The class, the attributes and the events are the
+platform's, and this file writes them out by hand.
 
 An attribute carries a string. To hand an element an array or a map, set a
 property from `:on-render`:

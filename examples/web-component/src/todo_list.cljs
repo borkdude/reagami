@@ -126,16 +126,6 @@
                      :aria-label placeholder}]
         [:button {:type "submit"} "Add"]]])))
 
-(defn- upgrade-property!
-  ;; a property set before this element upgraded sits on the instance and hides
-  ;; the accessor. take the value, drop the instance property, and set it again
-  ;; so the setter runs.
-  [^js el prop]
-  (when (.hasOwnProperty el prop)
-    (let [v (aget el prop)]
-      (js-delete el prop)
-      (aset el prop v))))
-
 (defn- sync-attributes!
   ;; read through the getters, so the defaults live in one place
   [^js el]
@@ -169,8 +159,6 @@
   (addItem [this text] (add-item! this text))
 
   (connectedCallback [this]
-    (upgrade-property! this "label")
-    (upgrade-property! this "placeholder")
     (sync-attributes! this))
 
   (attributeChangedCallback [this _name _old _new]
