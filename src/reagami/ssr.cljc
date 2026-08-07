@@ -17,8 +17,7 @@
   #{"checked" "disabled" "selected" "value" "innerHTML" "indeterminate"
     "muted" "volume" "playbackRate"})
 
-;; no HTML can express these, so the server leaves them out and the client sets
-;; them on the first render
+;; see indeterminate-ssr-test and media-property-ssr-test
 (def ^:private client-only-properties
   #{"indeterminate" "volume" "playbackRate"})
 
