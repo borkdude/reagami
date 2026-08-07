@@ -23,6 +23,8 @@
      [:todo-list {:label label
                   :placeholder "What needs doing?"
                   :on-item-added #(log! (str "added " (.. % -detail -text)))
+                  :on-item-changed #(log! (str "changed " (.. % -detail -text)
+                                              (when (.. % -detail -done) " (done)")))
                   :on-item-removed #(log! (str "removed " (.. % -detail -text)))}]
      [:h3 "What the app heard"]
      (if (empty? log)

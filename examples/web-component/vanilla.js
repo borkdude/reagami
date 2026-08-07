@@ -19,6 +19,8 @@ const heard = (line) => {
 // one listener for both events: they bubble and are composed, so they leave the
 // shadow root
 list.addEventListener("item-added", (e) => heard(`added ${e.detail.text}`));
+list.addEventListener("item-changed", (e) =>
+  heard(`changed ${e.detail.text}${e.detail.done ? " (done)" : ""}`));
 list.addEventListener("item-removed", (e) => heard(`removed ${e.detail.text}`));
 
 const seed = document.createElement("button");

@@ -8,24 +8,30 @@
 ;; file knows that, and nothing in here knows who uses the element.
 
 (def ^:private css "
-  :host { display: block; font-family: system-ui, sans-serif; max-width: 22rem; }
+  :host { display: block; font-family: system-ui, sans-serif; max-width: 24rem; }
   h3 { margin: 0 0 0.5rem; font-size: 1rem; }
   ul { list-style: none; margin: 0 0 0.5rem; padding: 0; }
   li { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0;
        border-bottom: 1px solid #eee; }
-  .text { flex: 1; }
+  .text { flex: 1; cursor: text; }
+  .text.done { text-decoration: line-through; color: #999; }
+  .edit { flex: 1; padding: 0.2rem; font: inherit; }
   .empty { color: #888; margin: 0 0 0.5rem; }
   form { display: flex; gap: 0.5rem; }
-  input { flex: 1; padding: 0.3rem; }
-  button { cursor: pointer; }
-  .remove { border: none; background: none; font-size: 1.2rem; color: #c00; }
+  input { padding: 0.3rem; font: inherit; }
+  .new { flex: 1; }
+  button { cursor: pointer; font: inherit; }
+  .toggle { width: 1.4rem; height: 1.4rem; padding: 0; border: 1px solid #bbb;
+            border-radius: 50%; background: #fff; color: #2a2; line-height: 1; }
+  .toggle[aria-pressed=\"true\"] { border-color: #2a2; }
+  .remove { border: none; background: none; }
 ")
 
 (defclass TodoList
   (extends js/HTMLElement)
   (^:static field observedAttributes #js ["label" "placeholder"])
   (field -shadow nil)
-  (field -state (atom {:items [] :next-id 0 :draft ""}))
+  (field -state (atom {:items [] :next-id 0 :draft "" :editing nil}))
 
   (constructor [this]
     (super)
@@ -41,7 +47,7 @@
   (^:set placeholder [this v] (.setAttribute this "placeholder" (str v)))
 
   ;; a squint map is a JS object and a vector is an array, so a caller reading
-  ;; item.text needs no conversion
+  ;; item.text or item.done needs no conversion
   (^:get items [this] (:items @-state))
 
   (upgradeProperty [this prop]
@@ -73,46 +79,91 @@
     (.dispatchEvent this (js/CustomEvent. event-name
                            #js {:detail detail :bubbles true :composed true})))
 
+  (findItem [this id]
+    (first (filter #(= id (:id %)) (:items @-state))))
+
+  (updateItem [this id f]
+    (swap! -state update :items #(mapv (fn [item]
+                                         (if (= id (:id item)) (f item) item))
+                                       %)))
+
   (addItem [this text]
     (let [text (str/trim (str text))]
       (when-not (str/blank? text)
-        (let [item {:id (:next-id @-state) :text text}]
+        (let [item {:id (:next-id @-state) :text text :done false}]
           (swap! -state #(-> %
                              (update :items conj item)
                              (update :next-id inc)))
           (.emit this "item-added" item)))))
 
   (removeItem [this id]
-    (when-let [item (first (filter #(= id (:id %)) (:items @-state)))]
+    (when-let [item (.findItem this id)]
       (swap! -state update :items #(vec (remove (fn [i] (= id (:id i))) %)))
       (.emit this "item-removed" item)))
+
+  (toggleItem [this id]
+    (when (.findItem this id)
+      (.updateItem this id #(update % :done not))
+      (.emit this "item-changed" (.findItem this id))))
+
+  (editItem [this id]
+    (swap! -state assoc :editing id))
+
+  (commitEdit [this id text]
+    (let [text (str/trim (str text))
+          item (.findItem this id)]
+      (swap! -state assoc :editing nil)
+      (cond
+        (str/blank? text) (.removeItem this id)
+        (not= text (:text item)) (do (.updateItem this id #(assoc % :text text))
+                                     (.emit this "item-changed" (.findItem this id))))))
 
   (submit [this e]
     (.preventDefault e)
     (.addItem this (:draft @-state))
     (swap! -state assoc :draft ""))
 
+  ;; defclass methods take plain parameters, so destructure in a let
+  (renderItem [this item editing]
+    (let [{:keys [id text done]} item]
+      [:li {:key id}
+       [:button.toggle {:on-click (fn [_] (.toggleItem this id))
+                        :aria-pressed (str done)
+                        :aria-label (str (if done "Mark not done: " "Mark done: ") text)}
+        (when done "✓")]
+       (if (= id editing)
+         [:input.edit {:value text
+                       :aria-label (str "Edit " text)
+                       ;; reagami calls this once the input is in the document
+                       :on-render (fn [{:keys [node lifecycle]}]
+                                    (when (= :mount lifecycle) (.select node)))
+                       :on-blur (fn [e] (.commitEdit this id (.. e -target -value)))
+                       :on-key-down (fn [e]
+                                      (case (.-key e)
+                                        "Enter" (.blur (.-target e))
+                                        "Escape" (swap! -state assoc :editing nil)
+                                        nil))}]
+         [:span.text {:class (when done "done")
+                      :on-click (fn [_] (.editItem this id))}
+          text])
+       [:button.remove {:on-click (fn [_] (.removeItem this id))
+                        :aria-label (str "Delete " text)}
+        "🗑"]]))
+
   (render [this]
-    (let [{:keys [items draft label placeholder]} @-state]
+    (let [{:keys [items draft label placeholder editing]} @-state]
       (r/render -shadow
         [:div
          [:style css]
          [:h3 label]
          (if (empty? items)
            [:p.empty "Nothing to do."]
-           (into [:ul]
-                 (map (fn [{:keys [id text]}]
-                        [:li {:key id}
-                         [:span.text text]
-                         [:button.remove {:on-click (fn [_] (.removeItem this id))
-                                          :aria-label (str "Remove " text)}
-                          "×"]])
-                      items)))
+           (into [:ul] (map #(.renderItem this % editing) items)))
          [:form {:on-submit (fn [e] (.submit this e))}
-          [:input {:type "text" :value draft
-                   :on-input (fn [e] (swap! -state assoc :draft (.. e -target -value)))
-                   :placeholder placeholder
-                   :aria-label placeholder}]
+          [:input.new {:type "text" :value draft
+                       :on-input (fn [e] (swap! -state assoc :draft (.. e -target -value)))
+                       :placeholder placeholder
+                       :aria-label placeholder}]
           [:button {:type "submit"} "Add"]]]))))
 
 ;; defining twice throws, which happens when a page loads this module more than once
