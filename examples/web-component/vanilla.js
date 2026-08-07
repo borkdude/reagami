@@ -5,8 +5,8 @@ import "./out/todo_list.mjs";
 const app = document.getElementById("app");
 
 const list = document.createElement("todo-list");
-list.setAttribute("label", "Groceries");
-list.placeholder = "What needs doing?"; // the property, which mirrors the attribute
+list.setAttribute("label", "Groceries");   // the attribute
+list.label = "Groceries";                  // or the property, which mirrors it
 app.append(list);
 
 const log = document.createElement("ol");

@@ -18,16 +18,13 @@ bb dev
 `src/todo_list.cljs` defines `<todo-list>`. Reagami renders its shadow root, so
 the list keeps its own items and reports what changed.
 
-- `label` and `placeholder` come in as attributes, with a property that mirrors
-  each one
+- `label` comes in as an attribute, with a property that mirrors it
 - `addItem` adds an item, `items` returns the current items
 - the items are a Clojure vector of maps in an atom, which JavaScript reads as
   an array of plain objects with no conversion
 - `item-added`, `item-changed` and `item-removed` go out, all bubbling
 
-Click the circle to mark an item done, the text to edit it, and the bin to
-delete it. An edit commits on Enter or blur, cancels on Escape, and deletes the
-item when the text is left empty.
+Click the circle to mark an item done, and the bin to delete it.
 
 ## From Reagami
 
@@ -35,7 +32,6 @@ item when the text is left empty.
 
 ```clojure
 [:todo-list {:label label
-             :placeholder "What needs doing?"
              :on-item-added #(log! (.. % -detail -text))}]
 ```
 
@@ -49,7 +45,7 @@ The tag has a hyphen, so `:label` becomes an attribute rather than a JS property
 ```js
 const list = document.createElement("todo-list");
 list.setAttribute("label", "Groceries");
-list.placeholder = "What needs doing?";
+list.label = "Groceries";   // or the property, which mirrors it
 list.addEventListener("item-added", (e) => console.log(e.detail.text));
 list.addItem("milk");
 ```
@@ -61,7 +57,7 @@ A shadow root has no HTML form, so the server sends the tag and its attributes
 and the element fills itself in the browser.
 
 ```html
-<todo-list label="Groceries" placeholder="What needs doing?"></todo-list>
+<todo-list label="Groceries"></todo-list>
 ```
 
 Hydration builds 0 nodes. The page prints the count.

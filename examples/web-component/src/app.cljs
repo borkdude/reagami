@@ -21,7 +21,6 @@
      ;; label reaches the element as an attribute, because the tag has a hyphen.
      ;; item-added has no on* property, so Reagami listens with addEventListener.
      [:todo-list {:label label
-                  :placeholder "What needs doing?"
                   :on-item-added #(log! (str "added " (.. % -detail -text)))
                   :on-item-changed #(log! (str "changed " (.. % -detail -text)
                                               (when (.. % -detail -done) " (done)")))

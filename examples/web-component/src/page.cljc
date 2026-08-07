@@ -12,4 +12,4 @@
    [:h2 "Server rendered, then hydrated"]
    [:p "The server sent the tag and its attributes. Nothing inside it: a shadow
         root cannot be written as HTML. The element fills itself in the browser."]
-   [:todo-list {:label label :placeholder "What needs doing?"}]])
+   [:todo-list {:label label}]])
