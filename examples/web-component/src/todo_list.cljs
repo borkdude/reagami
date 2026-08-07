@@ -44,38 +44,43 @@
 (defn- add-item [state text]
   (let [text (str/trim (str text))]
     (if (str/blank? text)
-      [state nil]
+      {:state state}
       (let [item {:id (:next-id state) :text text :done false}]
-        [(-> state (update :items conj item) (update :next-id inc))
-         ["item-added" item]]))))
+        {:state (-> state (update :items conj item) (update :next-id inc))
+         :event ["item-added" item]}))))
 
 (defn- handle
   "The state and an event in. Returns the next state, and the event the element
   should tell the world about when there is one."
   [state [op a]]
   (case op
-    :attributes [(assoc state :label (first a) :placeholder (second a)) nil]
-    :draft [(assoc state :draft a) nil]
-    :edit-draft [(assoc state :edit-draft a) nil]
-    :edit [(assoc state :editing a :edit-draft (:text (find-item (:items state) a))) nil]
-    :cancel-edit [(assoc state :editing nil) nil]
+    :attributes {:state (assoc state :label (first a) :placeholder (second a))}
+    :draft {:state (assoc state :draft a)}
+    :edit-draft {:state (assoc state :edit-draft a)}
+    :edit {:state (assoc state :editing a
+                         :edit-draft (:text (find-item (:items state) a)))}
+    :cancel-edit {:state (assoc state :editing nil)}
     :add (add-item state a)
-    :add-draft (let [[state event] (add-item state (:draft state))]
-                 [(assoc state :draft "") event])
+    :add-draft (let [{:keys [state event]} (add-item state (:draft state))]
+                 {:state (assoc state :draft "")
+                  :event event})
     :toggle (let [state (change-item state a #(update % :done not))]
-              [state ["item-changed" (find-item (:items state) a)]])
+              {:state state
+               :event ["item-changed" (find-item (:items state) a)]})
     :remove (if-let [item (find-item (:items state) a)]
-              [(update state :items (fn [items] (vec (remove #(= a (:id %)) items))))
-               ["item-removed" item]]
-              [state nil])
+              {:state (update state :items
+                              (fn [items] (vec (remove #(= a (:id %)) items))))
+               :event ["item-removed" item]}
+              {:state state})
     :commit-edit (let [text (str/trim (:edit-draft state))
                        state (assoc state :editing nil)]
                    (cond
                      (str/blank? text) (handle state [:remove a])
-                     (= text (:text (find-item (:items state) a))) [state nil]
+                     (= text (:text (find-item (:items state) a))) {:state state}
                      :else (let [state (change-item state a #(assoc % :text text))]
-                             [state ["item-changed" (find-item (:items state) a)]])))
-    [state nil]))
+                             {:state state
+                              :event ["item-changed" (find-item (:items state) a)]})))
+    {:state state}))
 
 (defn- emit!
   ;; composed lets the event leave the shadow root, bubbles lets a parent listen
@@ -88,9 +93,10 @@
   "Apply an event to an element's state and emit whatever follows from it."
   [^js el event]
   (when-let [!state (.--state el)]
-    (let [[state [event-name detail]] (handle @!state event)]
+    (let [{:keys [state event]} (handle @!state event)]
       (reset! !state state)
-      (when event-name (emit! el event-name detail)))))
+      (when-let [[event-name detail] event]
+        (emit! el event-name detail)))))
 
 (defn- on
   ;; the handler finds its element from the event, so a view needs no element
