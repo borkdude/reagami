@@ -2,14 +2,13 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
-## Unreleased
+## v0.2.40 (2026-08-07)
 
-- Set `value`, `checked`, `selected` and `disabled` on a tag with a hyphen as attributes, not as JS properties. A custom element observes attributes, so a property never reached it. Native elements keep them as properties.
-- Support custom events. `:on-rated` and the like now reach the element through `addEventListener`, because a browser only wires an `on*` property for an event it knows. Standard events keep the property, which is faster. A dashed name such as `:on-my-event` listens for `my-event`.
+- Set `value`, `checked`, `selected` and `disabled` on a tag with a hyphen as attributes, not as JS properties. A custom element observes attributes, so a property never had any effect. Native elements still handle them as properties.
+- Custom events, e.g. `:on-rated`, now reach the element through `addEventListener`, because a browser only wires an `on*` property for standard events.
 - Apply the custom element rule in `reagami.ssr` too. A property named value on a tag with a hyphen now becomes an attribute on the server, as it already did on the client.
-- Set `:indeterminate` on a checkbox as a property. HTML has no such attribute, so a server render leaves it out and the client sets it.
-- Set `:muted`, `:volume` and `:playbackRate` on a media element as properties. The `muted` attribute only sets the starting value, which a live element reads once, and the other two have no attribute at all.
-- Add [web component example](https://github.com/borkdude/reagami/tree/main/examples/web-component). A `<todo-list>` custom element, used from Squint, from JavaScript and without Reagami.
+- Set `:indeterminate` on a checkbox as a property (ignored in SSR).
+- Add [web component example](https://github.com/borkdude/reagami/tree/main/examples/web-component). A `<todo-list>` custom element, used from Squint, from JavaScript with and without Reagami.
 
 ## v0.2.39 (2026-08-05)
 
