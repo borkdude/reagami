@@ -1,6 +1,6 @@
 # Web components
 
-Use reagami to create a `<todo-list>` custom element backed by a web component.
+Use Reagami to create a `<todo-list>` custom element backed by a web component.
 
 To run it:
 
