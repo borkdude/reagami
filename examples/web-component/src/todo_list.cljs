@@ -97,8 +97,7 @@
   "Apply an event to an element's state and emit whatever follows from it."
   [^js el event]
   (when-let [state! (.--state el)]
-    (let [before @state!
-          after (swap! state! handle event)]
+    (let [[before after] (swap-vals! state! handle event)]
       (when-let [out (effect event before after)]
         (emit! el (first out) (second out))))))
 
