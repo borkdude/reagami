@@ -164,23 +164,19 @@
         (is (= "3" (.-value i)))
         (is (nil? (.getAttribute i "value")))))))
 
-(deftest camel-case-handler-test
-  (testing "a camelCase name for a standard event reaches the on* property"
+(deftest handler-name-test
+  (testing "a handler is on- and the event name. camelCase is not accepted,
+  because it would work for a standard event and fail without a word for a
+  custom one."
     (let [el (js/document.createElement "div")
-          seen (atom 0)]
-      (reagami/render el [:button {:onClick (fn [_] (swap! seen inc))}])
-      (let [b (.querySelector el "button")]
-        (.click b)
-        (is (= 1 @seen))
-        (is (fn? (.-onclick b))))))
-  (testing "the dashed and lower case spellings still reach it"
-    (let [el (js/document.createElement "div")
-          seen (atom 0)]
-      (reagami/render el [:button {:on-click (fn [_] (swap! seen inc))}])
+          seen (atom [])]
+      (reagami/render el [:button {:on-click (fn [_] (swap! seen conj :dashed))}])
       (.click (.querySelector el "button"))
-      (reagami/render el [:button {:onclick (fn [_] (swap! seen inc))}])
+      (reagami/render el [:button {:onclick (fn [_] (swap! seen conj :lower))}])
       (.click (.querySelector el "button"))
-      (is (= 2 @seen)))))
+      (reagami/render el [:button {:onClick (fn [_] (swap! seen conj :camel))}])
+      (.click (.querySelector el "button"))
+      (is (= [:dashed :lower] @seen)))))
 
 (deftest custom-event-test
   (testing "an event with no on* property on the element uses addEventListener"
