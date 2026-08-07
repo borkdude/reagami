@@ -6,6 +6,10 @@
 
 ;; A <todo-list> element. Reagami renders its shadow root. Nothing outside this
 ;; file knows that, and nothing in here knows who uses the element.
+;;
+;; State lives in one atom. `handle` is a pure function of the state and an
+;; event, the render functions are pure functions of the state and `dispatch`,
+;; and the class holds the element's public API and nothing else.
 
 (def ^:private css "
   :host { display: block; font-family: system-ui, sans-serif; max-width: 24rem; }
@@ -27,12 +31,58 @@
   .remove { border: none; background: none; }
 ")
 
-;; a row. every method on the class is public JS API, so the render helpers stay
-;; out here and take the element to call back into.
-(defn- render-item [^js el item editing]
+(def ^:private initial-state
+  {:items [] :next-id 0 :draft "" :editing nil :label nil :placeholder nil})
+
+(defn- find-item [items id]
+  (first (filter #(= id (:id %)) items)))
+
+(defn- change-item [state id f]
+  (update state :items (fn [items] (mapv #(if (= id (:id %)) (f %) %) items))))
+
+(defn- handle
+  "The state and an event in, the next state out. No side effects."
+  [state [op a b]]
+  (case op
+    :attributes (assoc state :label a :placeholder b)
+    :draft (assoc state :draft a)
+    :add (let [text (str/trim (str a))]
+           (if (str/blank? text)
+             state
+             (-> state
+                 (update :items conj {:id (:next-id state) :text text :done false})
+                 (update :next-id inc)
+                 (assoc :draft ""))))
+    :toggle (change-item state a #(update % :done not))
+    :remove (update state :items (fn [items] (vec (remove #(= a (:id %)) items))))
+    :edit (assoc state :editing a)
+    :cancel-edit (assoc state :editing nil)
+    :commit-edit (let [text (str/trim (str b))
+                       state (assoc state :editing nil)]
+                   (if (str/blank? text)
+                     (handle state [:remove a])
+                     (change-item state a #(assoc % :text text))))
+    state))
+
+(defn- effect
+  "What the element tells the world, from the states on either side of an event."
+  [[op a] before after]
+  (let [was (find-item (:items before) a)
+        now (find-item (:items after) a)]
+    (case op
+      :add (when (not= (count (:items before)) (count (:items after)))
+             ["item-added" (last (:items after))])
+      :toggle (when now ["item-changed" now])
+      :remove (when was ["item-removed" was])
+      :commit-edit (cond
+                     (and was (nil? now)) ["item-removed" was]
+                     (and now (not= (:text now) (:text was))) ["item-changed" now])
+      nil)))
+
+(defn- render-item [dispatch item editing]
   (let [{:keys [id text done]} item]
     [:li {:key id}
-     [:button.toggle {:on-click (fn [_] (.toggleItem el id))
+     [:button.toggle {:on-click (fn [_] (dispatch [:toggle id]))
                       :aria-pressed (str done)
                       :aria-label (str (if done "Mark not done: " "Mark done: ") text)}
       (when done "✓")]
@@ -42,29 +92,70 @@
                      ;; reagami calls this once the input is in the document
                      :on-render (fn [{:keys [node lifecycle]}]
                                   (when (= :mount lifecycle) (.select node)))
-                     :on-blur (fn [e] (.commitEdit el id (.. e -target -value)))
+                     :on-blur (fn [e] (dispatch [:commit-edit id (.. e -target -value)]))
                      :on-key-down (fn [e]
                                     (case (.-key e)
-                                      "Enter" (.commitEdit el id (.. e -target -value))
-                                      "Escape" (.cancelEdit el)
+                                      "Enter" (dispatch [:commit-edit id (.. e -target -value)])
+                                      "Escape" (dispatch [:cancel-edit])
                                       nil))}]
        [:span.text {:class (when done "done")
-                    :on-click (fn [_] (.editItem el id))}
+                    :on-click (fn [_] (dispatch [:edit id]))}
         text])
-     [:button.remove {:on-click (fn [_] (.removeItem el id))
+     [:button.remove {:on-click (fn [_] (dispatch [:remove id]))
                       :aria-label (str "Delete " text)}
       "🗑"]]))
+
+(defn- view [state dispatch]
+  (let [{:keys [items draft label placeholder editing]} state]
+    [:div
+     [:style css]
+     [:h3 label]
+     (if (empty? items)
+       [:p.empty "Nothing to do."]
+       (into [:ul] (map #(render-item dispatch % editing) items)))
+     [:form {:on-submit (fn [e]
+                          (.preventDefault e)
+                          (dispatch [:add draft]))}
+      [:input.new {:type "text" :value draft
+                   :on-input (fn [e] (dispatch [:draft (.. e -target -value)]))
+                   :placeholder placeholder
+                   :aria-label placeholder}]
+      [:button {:type "submit"} "Add"]]]))
+
+(defn- emit!
+  ;; composed lets the event leave the shadow root, bubbles lets a parent listen
+  ;; for every item at once
+  [^js el event-name detail]
+  (.dispatchEvent el (js/CustomEvent. event-name
+                       #js {:detail detail :bubbles true :composed true})))
+
+(defn- upgrade-property!
+  ;; a property set before this element upgraded sits on the instance and hides
+  ;; the accessor. take the value, drop the instance property, and set it again
+  ;; so the setter runs.
+  [^js el prop]
+  (when (.hasOwnProperty el prop)
+    (let [v (aget el prop)]
+      (js-delete el prop)
+      (aset el prop v))))
 
 (defclass TodoList
   (extends js/HTMLElement)
   (^:static field observedAttributes #js ["label" "placeholder"])
   (field -shadow nil)
-  (field -state (atom {:items [] :next-id 0 :draft "" :editing nil}))
+  (field -state (atom initial-state))
+  (field -dispatch nil)
 
   (constructor [this]
     (super)
     (set! -shadow (.attachShadow this #js {:mode "open"}))
-    (add-watch -state ::render (fn [_ _ _ _] (.render this))))
+    (set! -dispatch (fn [event]
+                      (let [before @-state
+                            after (swap! -state handle event)]
+                        (when-let [out (effect event before after)]
+                          (emit! this (first out) (second out))))))
+    (add-watch -state ::render
+               (fn [_ _ _ state] (r/render -shadow (view state -dispatch)))))
 
   Object
   ;; primitives travel as attributes, with a property that mirrors them
@@ -78,97 +169,16 @@
   ;; item.text or item.done needs no conversion
   (^:get items [this] (:items @-state))
 
-  (upgradeProperty [this prop]
-    ;; a property set before this element upgraded sits on the instance and
-    ;; hides the accessor. take the value, drop the instance property, and set
-    ;; it again so the setter runs.
-    (when (.hasOwnProperty this prop)
-      (let [v (aget this prop)]
-        (js-delete this prop)
-        (aset this prop v))))
-
-  (syncAttributes [this]
-    ;; read through the getters, so the defaults live in one place
-    (swap! -state assoc
-           :label (.-label this)
-           :placeholder (.-placeholder this)))
+  (addItem [this text] (-dispatch [:add text]))
 
   (connectedCallback [this]
-    (.upgradeProperty this "label")
-    (.upgradeProperty this "placeholder")
-    (.syncAttributes this))
+    (upgrade-property! this "label")
+    (upgrade-property! this "placeholder")
+    ;; read through the getters, so the defaults live in one place
+    (-dispatch [:attributes (.-label this) (.-placeholder this)]))
 
   (attributeChangedCallback [this _name _old _new]
-    (.syncAttributes this))
-
-  (emit [this event-name detail]
-    ;; composed lets the event leave the shadow root, bubbles lets a parent
-    ;; listen for every item at once
-    (.dispatchEvent this (js/CustomEvent. event-name
-                           #js {:detail detail :bubbles true :composed true})))
-
-  (findItem [this id]
-    (first (filter #(= id (:id %)) (:items @-state))))
-
-  (updateItem [this id f]
-    (swap! -state update :items #(mapv (fn [item]
-                                         (if (= id (:id item)) (f item) item))
-                                       %)))
-
-  (addItem [this text]
-    (let [text (str/trim (str text))]
-      (when-not (str/blank? text)
-        (let [item {:id (:next-id @-state) :text text :done false}]
-          (swap! -state #(-> %
-                             (update :items conj item)
-                             (update :next-id inc)))
-          (.emit this "item-added" item)))))
-
-  (removeItem [this id]
-    (when-let [item (.findItem this id)]
-      (swap! -state update :items #(vec (remove (fn [i] (= id (:id i))) %)))
-      (.emit this "item-removed" item)))
-
-  (toggleItem [this id]
-    (when (.findItem this id)
-      (.updateItem this id #(update % :done not))
-      (.emit this "item-changed" (.findItem this id))))
-
-  (editItem [this id]
-    (swap! -state assoc :editing id))
-
-  (cancelEdit [this]
-    (swap! -state assoc :editing nil))
-
-  (commitEdit [this id text]
-    (let [text (str/trim (str text))
-          item (.findItem this id)]
-      (swap! -state assoc :editing nil)
-      (cond
-        (str/blank? text) (.removeItem this id)
-        (not= text (:text item)) (do (.updateItem this id #(assoc % :text text))
-                                     (.emit this "item-changed" (.findItem this id))))))
-
-  (submit [this e]
-    (.preventDefault e)
-    (.addItem this (:draft @-state))
-    (swap! -state assoc :draft ""))
-
-  (render [this]
-    (let [{:keys [items draft label placeholder editing]} @-state]
-      (r/render -shadow
-        [:div
-         [:style css]
-         [:h3 label]
-         (if (empty? items)
-           [:p.empty "Nothing to do."]
-           (into [:ul] (map #(render-item this % editing) items)))
-         [:form {:on-submit (fn [e] (.submit this e))}
-          [:input.new {:type "text" :value draft
-                       :on-input (fn [e] (swap! -state assoc :draft (.. e -target -value)))
-                       :placeholder placeholder
-                       :aria-label placeholder}]
-          [:button {:type "submit"} "Add"]]]))))
+    (-dispatch [:attributes (.-label this) (.-placeholder this)])))
 
 ;; defining twice throws, which happens when a page loads this module more than once
 (when-not (.get js/customElements "todo-list")
