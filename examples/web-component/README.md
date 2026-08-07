@@ -23,8 +23,7 @@ the list keeps its own items and reports what changed.
 - `addItem` adds an item, `items` returns the current items
 - the items are a Clojure vector of maps in an atom, which JavaScript reads as
   an array of plain objects with no conversion
-- `item-added`, `item-changed` and `item-removed` go out, all bubbling and
-  composed
+- `item-added`, `item-changed` and `item-removed` go out, all bubbling
 
 Click the circle to mark an item done, the text to edit it, and the bin to
 delete it. An edit commits on Enter or blur, cancels on Escape, and deletes the

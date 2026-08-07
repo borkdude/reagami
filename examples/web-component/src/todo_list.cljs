@@ -30,11 +30,11 @@
 ;; a row. every method on the class is public JS API, so the render helpers stay
 ;; out here and take the element to call back into.
 (defn- emit!
-  ;; composed lets the event leave the shadow root, bubbles lets a parent listen
-  ;; for every item at once
+  ;; dispatched on the element itself, and bubbling, so a parent can listen for
+  ;; every item at once
   [^js el event-name detail]
   (.dispatchEvent el (js/CustomEvent. event-name
-                       #js {:detail detail :bubbles true :composed true})))
+                       #js {:detail detail :bubbles true})))
 
 (defn- find-item [^js el id]
   (first (filter #(= id (:id %)) (:items @(.--state el)))))
