@@ -27,6 +27,34 @@
   .remove { border: none; background: none; }
 ")
 
+;; a row. every method on the class is public JS API, so the render helpers stay
+;; out here and take the element to call back into.
+(defn- render-item [^js el item editing]
+  (let [{:keys [id text done]} item]
+    [:li {:key id}
+     [:button.toggle {:on-click (fn [_] (.toggleItem el id))
+                      :aria-pressed (str done)
+                      :aria-label (str (if done "Mark not done: " "Mark done: ") text)}
+      (when done "✓")]
+     (if (= id editing)
+       [:input.edit {:value text
+                     :aria-label (str "Edit " text)
+                     ;; reagami calls this once the input is in the document
+                     :on-render (fn [{:keys [node lifecycle]}]
+                                  (when (= :mount lifecycle) (.select node)))
+                     :on-blur (fn [e] (.commitEdit el id (.. e -target -value)))
+                     :on-key-down (fn [e]
+                                    (case (.-key e)
+                                      "Enter" (.commitEdit el id (.. e -target -value))
+                                      "Escape" (.cancelEdit el)
+                                      nil))}]
+       [:span.text {:class (when done "done")
+                    :on-click (fn [_] (.editItem el id))}
+        text])
+     [:button.remove {:on-click (fn [_] (.removeItem el id))
+                      :aria-label (str "Delete " text)}
+      "🗑"]]))
+
 (defclass TodoList
   (extends js/HTMLElement)
   (^:static field observedAttributes #js ["label" "placeholder"])
@@ -109,6 +137,9 @@
   (editItem [this id]
     (swap! -state assoc :editing id))
 
+  (cancelEdit [this]
+    (swap! -state assoc :editing nil))
+
   (commitEdit [this id text]
     (let [text (str/trim (str text))
           item (.findItem this id)]
@@ -123,33 +154,6 @@
     (.addItem this (:draft @-state))
     (swap! -state assoc :draft ""))
 
-  ;; defclass methods take plain parameters, so destructure in a let
-  (renderItem [this item editing]
-    (let [{:keys [id text done]} item]
-      [:li {:key id}
-       [:button.toggle {:on-click (fn [_] (.toggleItem this id))
-                        :aria-pressed (str done)
-                        :aria-label (str (if done "Mark not done: " "Mark done: ") text)}
-        (when done "✓")]
-       (if (= id editing)
-         [:input.edit {:value text
-                       :aria-label (str "Edit " text)
-                       ;; reagami calls this once the input is in the document
-                       :on-render (fn [{:keys [node lifecycle]}]
-                                    (when (= :mount lifecycle) (.select node)))
-                       :on-blur (fn [e] (.commitEdit this id (.. e -target -value)))
-                       :on-key-down (fn [e]
-                                      (case (.-key e)
-                                        "Enter" (.blur (.-target e))
-                                        "Escape" (swap! -state assoc :editing nil)
-                                        nil))}]
-         [:span.text {:class (when done "done")
-                      :on-click (fn [_] (.editItem this id))}
-          text])
-       [:button.remove {:on-click (fn [_] (.removeItem this id))
-                        :aria-label (str "Delete " text)}
-        "🗑"]]))
-
   (render [this]
     (let [{:keys [items draft label placeholder editing]} @-state]
       (r/render -shadow
@@ -158,7 +162,7 @@
          [:h3 label]
          (if (empty? items)
            [:p.empty "Nothing to do."]
-           (into [:ul] (map #(.renderItem this % editing) items)))
+           (into [:ul] (map #(render-item this % editing) items)))
          [:form {:on-submit (fn [e] (.submit this e))}
           [:input.new {:type "text" :value draft
                        :on-input (fn [e] (swap! -state assoc :draft (.. e -target -value)))
