@@ -53,13 +53,19 @@
         (js-delete this prop)
         (aset this prop v))))
 
+  (syncAttributes [this]
+    ;; read through the getters, so the defaults live in one place
+    (swap! -state assoc
+           :label (.-label this)
+           :placeholder (.-placeholder this)))
+
   (connectedCallback [this]
     (.upgradeProperty this "label")
     (.upgradeProperty this "placeholder")
-    (.render this))
+    (.syncAttributes this))
 
   (attributeChangedCallback [this _name _old _new]
-    (when -shadow (.render this)))
+    (.syncAttributes this))
 
   (emit [this event-name detail]
     ;; composed lets the event leave the shadow root, bubbles lets a parent
@@ -87,11 +93,11 @@
     (swap! -state assoc :draft ""))
 
   (render [this]
-    (let [{:keys [items draft]} @-state]
+    (let [{:keys [items draft label placeholder]} @-state]
       (r/render -shadow
         [:div
          [:style css]
-         [:h3 (.-label this)]
+         [:h3 label]
          (if (empty? items)
            [:p.empty "Nothing to do."]
            (into [:ul]
@@ -105,8 +111,8 @@
          [:form {:on-submit (fn [e] (.submit this e))}
           [:input {:type "text" :value draft
                    :on-input (fn [e] (swap! -state assoc :draft (.. e -target -value)))
-                   :placeholder (.-placeholder this)
-                   :aria-label (.-placeholder this)}]
+                   :placeholder placeholder
+                   :aria-label placeholder}]
           [:button {:type "submit"} "Add"]]]))))
 
 ;; defining twice throws, which happens when a page loads this module more than once
