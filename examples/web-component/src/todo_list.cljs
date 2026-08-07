@@ -98,15 +98,18 @@
       (when-let [[event-name detail] event]
         (emit! el event-name detail)))))
 
-(defn- on
-  ;; the handler finds its element from the event, so a view needs no element
-  ;; and no dispatch of its own
-  [event]
-  (fn [e] (dispatch! (.-host (.getRootNode (.-currentTarget e))) event)))
+(defn- host
+  ;; the element a DOM event reached, so a view needs no element of its own
+  [e]
+  (.-host (.getRootNode (.-currentTarget e))))
 
-(defn- on-value [event]
-  (fn [e] (dispatch! (.-host (.getRootNode (.-currentTarget e)))
-                     (conj event (.. e -target -value)))))
+(defn- on [event]
+  (fn [e] (dispatch! (host e) event)))
+
+(defn- on-value
+  ;; for an input, where the value only exists once the event fires
+  [event]
+  (fn [e] (dispatch! (host e) (conj event (.. e -target -value)))))
 
 (defn- render-item [item editing edit-draft]
   (let [{:keys [id text done]} item]
@@ -125,8 +128,8 @@
                      :on-blur (on [:commit-edit id])
                      :on-key-down (fn [e]
                                     (case (.-key e)
-                                      "Enter" ((on [:commit-edit id]) e)
-                                      "Escape" ((on [:cancel-edit]) e)
+                                      "Enter" (dispatch! (host e) [:commit-edit id])
+                                      "Escape" (dispatch! (host e) [:cancel-edit])
                                       nil))}]
        [:span.text {:class (when done "done")
                     :on-click (on [:edit id])}
@@ -145,7 +148,7 @@
        (into [:ul] (map #(render-item % editing edit-draft) items)))
      [:form {:on-submit (fn [e]
                           (.preventDefault e)
-                          ((on [:add-draft]) e))}
+                          (dispatch! (host e) [:add-draft]))}
       [:input.new {:type "text" :value draft
                    :on-input (on-value [:draft])
                    :placeholder placeholder
