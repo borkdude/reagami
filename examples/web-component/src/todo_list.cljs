@@ -89,7 +89,7 @@
   (.dispatchEvent el (js/CustomEvent. event-name
                        #js {:detail detail :bubbles true :composed true})))
 
-(defn- dispatch!
+(defn- dispatch-to!
   "Apply an event to an element's state and emit whatever follows from it."
   [^js el event]
   (when-let [!state (.--state el)]
@@ -98,15 +98,16 @@
       (when-let [[event-name detail] event]
         (emit! el event-name detail)))))
 
-(defn- host
-  ;; the element a DOM event reached, so a view needs no element of its own
-  [e]
-  (.-host (.getRootNode (.-currentTarget e))))
+(defn- dispatch!
+  "The same, from a handler. The element is the one the DOM event reached, so a
+  view needs no element of its own."
+  [e event]
+  (dispatch-to! (.-host (.getRootNode (.-currentTarget e))) event))
 
 (defn- render-item [item editing edit-draft]
   (let [{:keys [id text done]} item]
     [:li {:key id}
-     [:button.toggle {:on-click (fn [e] (dispatch! (host e) [:toggle id]))
+     [:button.toggle {:on-click (fn [e] (dispatch! e [:toggle id]))
                       :aria-pressed (str done)
                       :aria-label (str (if done "Mark not done: " "Mark done: ") text)}
       (when done "✓")]
@@ -116,17 +117,17 @@
                      ;; reagami calls this once the input is in the document
                      :on-render (fn [{:keys [node lifecycle]}]
                                   (when (= :mount lifecycle) (.select node)))
-                     :on-input (fn [e] (dispatch! (host e) [:edit-draft (.. e -target -value)]))
-                     :on-blur (fn [e] (dispatch! (host e) [:commit-edit id]))
+                     :on-input (fn [e] (dispatch! e [:edit-draft (.. e -target -value)]))
+                     :on-blur (fn [e] (dispatch! e [:commit-edit id]))
                      :on-key-down (fn [e]
                                     (case (.-key e)
-                                      "Enter" (dispatch! (host e) [:commit-edit id])
-                                      "Escape" (dispatch! (host e) [:cancel-edit])
+                                      "Enter" (dispatch! e [:commit-edit id])
+                                      "Escape" (dispatch! e [:cancel-edit])
                                       nil))}]
        [:span.text {:class (when done "done")
-                    :on-click (fn [e] (dispatch! (host e) [:edit id]))}
+                    :on-click (fn [e] (dispatch! e [:edit id]))}
         text])
-     [:button.remove {:on-click (fn [e] (dispatch! (host e) [:remove id]))
+     [:button.remove {:on-click (fn [e] (dispatch! e [:remove id]))
                       :aria-label (str "Delete " text)}
       "🗑"]]))
 
@@ -140,9 +141,9 @@
        (into [:ul] (map #(render-item % editing edit-draft) items)))
      [:form {:on-submit (fn [e]
                           (.preventDefault e)
-                          (dispatch! (host e) [:add-draft]))}
+                          (dispatch! e [:add-draft]))}
       [:input.new {:type "text" :value draft
-                   :on-input (fn [e] (dispatch! (host e) [:draft (.. e -target -value)]))
+                   :on-input (fn [e] (dispatch! e [:draft (.. e -target -value)]))
                    :placeholder placeholder
                    :aria-label placeholder}]
       [:button {:type "submit"} "Add"]]]))
@@ -181,16 +182,16 @@
   ;; item.text or item.done needs no conversion
   (^:get items [this] (:items @-state))
 
-  (addItem [this text] (dispatch! this [:add text]))
+  (addItem [this text] (dispatch-to! this [:add text]))
 
   (connectedCallback [this]
     (upgrade-property! this "label")
     (upgrade-property! this "placeholder")
     ;; read through the getters, so the defaults live in one place
-    (dispatch! this [:attributes [(.-label this) (.-placeholder this)]]))
+    (dispatch-to! this [:attributes [(.-label this) (.-placeholder this)]]))
 
   (attributeChangedCallback [this _name _old _new]
-    (dispatch! this [:attributes [(.-label this) (.-placeholder this)]])))
+    (dispatch-to! this [:attributes [(.-label this) (.-placeholder this)]])))
 
 ;; defining twice throws, which happens when a page loads this module more than once
 (when-not (.get js/customElements "todo-list")
