@@ -1,5 +1,5 @@
-// Reagami itself, called from JavaScript. Hiccup is arrays and objects, so no
-// ClojureScript is needed to use it. This page does what src/app.cljs does.
+// Reagami from JavaScript. Hiccup is arrays and objects, so Reagami does not
+// need ClojureScript. This page does what src/app.cljs does.
 import * as reagami from "../out/reagami/core.mjs";
 import "../out/todo_list.mjs";
 
@@ -14,8 +14,8 @@ const log = (line) => {
   render();
 };
 
-// A handler is `on-` and the event name, the same for a standard event as for a
-// custom one. `onclick` and `onClick` work too, but only for a standard event.
+// A handler is `on-` and the name of the event. This is the same for a standard
+// event and for a custom one.
 const app = () =>
   ["div",
     ["h2", "A web component, rendered by Reagami from JavaScript"],

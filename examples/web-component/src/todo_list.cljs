@@ -4,8 +4,8 @@
    [reagami.core :as r]
    [squint.core :refer [defclass]]))
 
-;; A <todo-list> element. Reagami renders its shadow root. Nothing outside this
-;; file knows that, and nothing in here knows who uses the element.
+;; A <todo-list> element. Reagami renders the shadow root. Nothing outside this
+;; file knows that, and nothing in this file knows who uses the element.
 
 (def ^:private css "
   :host { display: block; font-family: system-ui, sans-serif; max-width: 24rem; }
@@ -25,15 +25,15 @@
   .remove { border: none; background: none; }
 ")
 
-;; every method on the class is public JS API, so everything the element does
-;; internally is a function out here that takes the element
+;; a method on the class is public JS API. Everything else is a function here
+;; that takes the element.
 
 (defn- el->state [^js el]
   (.--state el))
 
 (defn- emit!
-  ;; dispatched on the element itself, and bubbling, so a parent can listen for
-  ;; every item at once
+  ;; the event goes out on the element and it bubbles, so a parent can listen
+  ;; for every item at once
   [^js el event-name detail]
   (.dispatchEvent el (js/CustomEvent. event-name
                        #js {:detail detail :bubbles true})))
@@ -97,7 +97,7 @@
         [:button {:type "submit"} "Add"]]])))
 
 (defn- sync-attributes!
-  ;; read through the getter, so the default lives in one place
+  ;; read through the getter, so the default stays in one place
   [^js el]
   (swap! (el->state el) assoc :label (.-label el)))
 
@@ -113,12 +113,12 @@
     (add-watch -state ::render (fn [_ _ _ _] (render! this))))
 
   Object
-  ;; a primitive travels as an attribute, with a property that mirrors it
+  ;; a primitive arrives as an attribute. A property mirrors it.
   (^:get label [this] (or (.getAttribute this "label") "To do"))
   (^:set label [this v] (.setAttribute this "label" (str v)))
 
-  ;; a squint map is a JS object and a vector is an array, so a caller reading
-  ;; item.text or item.done needs no conversion
+  ;; a squint map is a JS object and a vector is an array. A caller reads
+  ;; item.text and item.done with no conversion.
   (^:get items [this] (:items @-state))
 
   (addItem [this text] (add-item! this text))
@@ -129,6 +129,6 @@
   (attributeChangedCallback [this _name _old _new]
     (sync-attributes! this)))
 
-;; defining twice throws, which happens when a page loads this module more than once
+;; a second define throws. That happens when a page loads this module twice.
 (when-not (.get js/customElements "todo-list")
   (.define js/customElements "todo-list" TodoList))

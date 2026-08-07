@@ -1,5 +1,5 @@
-// The element from plain JavaScript. No Reagami and no ClojureScript here:
-// one attribute in, one method, three events out.
+// The element from plain JavaScript, with no Reagami and no ClojureScript.
+// One attribute arrives, one method adds an item, three events go out.
 import "../out/todo_list.mjs";
 
 const app = document.getElementById("app");
@@ -16,7 +16,7 @@ const event = (line) => {
   log.append(code);
 };
 
-// the events bubble, so one listener on the element catches all three
+// the events bubble, so one listener on the element receives all three
 list.addEventListener("item-added", (e) => event(`added ${e.detail.text}`));
 list.addEventListener("item-changed", (e) =>
   event(`changed ${e.detail.text}${e.detail.done ? " (done)" : ""}`));
