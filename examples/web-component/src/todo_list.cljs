@@ -44,42 +44,38 @@
 (defn- add-item [state text]
   (let [text (str/trim (str text))]
     (if (str/blank? text)
-      state
+      [state nil]
       (let [item {:id (:next-id state) :text text :done false}]
-        (-> state
-            (update :items conj item)
-            (update :next-id inc)
-            (assoc :emit ["item-added" item]))))))
+        [(-> state (update :items conj item) (update :next-id inc))
+         ["item-added" item]]))))
 
 (defn- handle
-  "The state and an event in, the next state out. No side effects. An event the
-  element should tell the world about is left under :emit."
+  "The state and an event in. Returns the next state, and the event the element
+  should tell the world about when there is one."
   [state [op a]]
-  (let [state (dissoc state :emit)]
-    (case op
-      :attributes (assoc state :label (first a) :placeholder (second a))
-      :draft (assoc state :draft a)
-      :edit-draft (assoc state :edit-draft a)
-      :edit (assoc state :editing a :edit-draft (:text (find-item (:items state) a)))
-      :cancel-edit (assoc state :editing nil)
-      :add (add-item state a)
-      :add-draft (-> state (add-item (:draft state)) (assoc :draft ""))
-      :toggle (let [state (change-item state a #(update % :done not))]
-                (assoc state :emit ["item-changed" (find-item (:items state) a)]))
-      :remove (if-let [item (find-item (:items state) a)]
-                (-> state
-                    (update :items (fn [items] (vec (remove #(= a (:id %)) items))))
-                    (assoc :emit ["item-removed" item]))
-                state)
-      :commit-edit (let [text (str/trim (:edit-draft state))
-                         state (assoc state :editing nil)]
-                     (cond
-                       (str/blank? text) (handle state [:remove a])
-                       (= text (:text (find-item (:items state) a))) state
-                       :else (let [state (change-item state a #(assoc % :text text))]
-                               (assoc state :emit ["item-changed"
-                                                   (find-item (:items state) a)]))))
-      state)))
+  (case op
+    :attributes [(assoc state :label (first a) :placeholder (second a)) nil]
+    :draft [(assoc state :draft a) nil]
+    :edit-draft [(assoc state :edit-draft a) nil]
+    :edit [(assoc state :editing a :edit-draft (:text (find-item (:items state) a))) nil]
+    :cancel-edit [(assoc state :editing nil) nil]
+    :add (add-item state a)
+    :add-draft (let [[state event] (add-item state (:draft state))]
+                 [(assoc state :draft "") event])
+    :toggle (let [state (change-item state a #(update % :done not))]
+              [state ["item-changed" (find-item (:items state) a)]])
+    :remove (if-let [item (find-item (:items state) a)]
+              [(update state :items (fn [items] (vec (remove #(= a (:id %)) items))))
+               ["item-removed" item]]
+              [state nil])
+    :commit-edit (let [text (str/trim (:edit-draft state))
+                       state (assoc state :editing nil)]
+                   (cond
+                     (str/blank? text) (handle state [:remove a])
+                     (= text (:text (find-item (:items state) a))) [state nil]
+                     :else (let [state (change-item state a #(assoc % :text text))]
+                             [state ["item-changed" (find-item (:items state) a)]])))
+    [state nil]))
 
 (defn- emit!
   ;; composed lets the event leave the shadow root, bubbles lets a parent listen
@@ -91,9 +87,10 @@
 (defn- dispatch!
   "Apply an event to an element's state and emit whatever follows from it."
   [^js el event]
-  (when-let [state! (.--state el)]
-    (when-let [[event-name detail] (:emit (swap! state! handle event))]
-      (emit! el event-name detail))))
+  (when-let [!state (.--state el)]
+    (let [[state [event-name detail]] (handle @!state event)]
+      (reset! !state state)
+      (when event-name (emit! el event-name detail)))))
 
 (defn- on
   ;; the handler finds its element from the event, so a view needs no element
