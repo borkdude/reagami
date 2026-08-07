@@ -1,4 +1,4 @@
-// The same element from plain JavaScript. No Reagami and no ClojureScript here:
+// The element from plain JavaScript. No Reagami and no ClojureScript here:
 // one attribute in, one method, three events out.
 import "../out/todo_list.mjs";
 
@@ -33,7 +33,7 @@ count.textContent = "Count items";
 count.addEventListener("click", () => event(`${list.items.length} items now`));
 
 const heading = document.createElement("h2");
-heading.textContent = "The same web component, driven by plain JavaScript";
+heading.textContent = "A web component, driven by plain JavaScript";
 const controls = document.createElement("div");
 controls.style.cssText = "display:flex;gap:0.5rem;margin:0.5rem 0";
 controls.append(seed, count);
