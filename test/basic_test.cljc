@@ -164,6 +164,24 @@
         (is (= "3" (.-value i)))
         (is (nil? (.getAttribute i "value")))))))
 
+(deftest camel-case-handler-test
+  (testing "a camelCase name for a standard event reaches the on* property"
+    (let [el (js/document.createElement "div")
+          seen (atom 0)]
+      (reagami/render el [:button {:onClick (fn [_] (swap! seen inc))}])
+      (let [b (.querySelector el "button")]
+        (.click b)
+        (is (= 1 @seen))
+        (is (fn? (.-onclick b))))))
+  (testing "the dashed and lower case spellings still reach it"
+    (let [el (js/document.createElement "div")
+          seen (atom 0)]
+      (reagami/render el [:button {:on-click (fn [_] (swap! seen inc))}])
+      (.click (.querySelector el "button"))
+      (reagami/render el [:button {:onclick (fn [_] (swap! seen inc))}])
+      (.click (.querySelector el "button"))
+      (is (= 2 @seen)))))
+
 (deftest custom-event-test
   (testing "an event with no on* property on the element uses addEventListener"
     (let [el (js/document.createElement "div")

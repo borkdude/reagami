@@ -117,7 +117,7 @@
 
 (defn- prop-name [k]
   (or (.get event-name-cache k)
-      (let [e (.replaceAll k "-" "")]
+      (let [e (.toLowerCase (.replaceAll k "-" ""))]
         (.set event-name-cache k e)
         e)))
 

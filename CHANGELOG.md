@@ -4,6 +4,8 @@
 
 ## Unreleased
 
+- A camelCase event handler such as `:onClick` reaches the element again. The name is lower cased once and kept in the cache, so a handler write costs the same as before. A custom event still needs its dashes, as in `:on-item-added`.
+
 - Apply the custom element rule in `reagami.ssr` too. A property named value on a tag with a hyphen now becomes an attribute on the server, as it already did on the client.
 
 - Set `value`, `checked`, `selected` and `disabled` on a tag with a hyphen as attributes, not as JS properties. A custom element observes attributes, so a property never reached it. Native elements keep them as properties.
