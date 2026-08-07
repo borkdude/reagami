@@ -81,8 +81,7 @@
     (is (= 1 @clicks))))
 
 (deftest indeterminate-ssr-test
-  (testing "no HTML can express indeterminate, so the server leaves it out and the
-  client sets it on the first render"
+  (testing "the server leaves indeterminate out and the client sets it"
     (let [hiccup [:input {:type "checkbox" :indeterminate true}]
           el (js/document.createElement "div")]
       (is (= "<input type=\"checkbox\">" (ssr/render hiccup)))
@@ -94,9 +93,7 @@
       (.remove el))))
 
 (deftest media-property-ssr-test
-  (testing "muted has an HTML attribute, which a parser reads into the property,
-  so the server emits it. volume and playbackRate have none, so the client sets
-  them on the first render."
+  (testing "the server emits muted and leaves volume and playbackRate to the client"
     (let [hiccup [:video {:muted true :volume 0.5 :playbackRate 2}]
           el (js/document.createElement "div")]
       (is (= "<video muted=\"\"></video>" (ssr/render hiccup)))
