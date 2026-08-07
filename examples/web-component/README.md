@@ -47,7 +47,7 @@ The tag has a hyphen, so `:label` becomes an attribute rather than a JS property
 arrays and objects, so Reagami needs no ClojureScript to use.
 
 ```js
-const tags = new Proxy({}, { get: (_, tag) => (...args) => [tag, ...args] });
+const tags = new Proxy({}, { get: (_, tag) => (...args) => (args.unshift(tag), args) });
 const { div, h2, input } = tags;
 const todoList = tags["todo-list"];
 

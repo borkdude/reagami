@@ -4,8 +4,9 @@ import * as reagami from "../out/reagami/core.mjs";
 import "../out/todo_list.mjs";
 
 // Hiccup is `["div", {...}, child]`. One Proxy turns any tag into a function,
-// so `div(h2("hi"))` builds `["div", ["h2", "hi"]]`.
-const tags = new Proxy({}, { get: (_, tag) => (...args) => [tag, ...args] });
+// so `div(h2("hi"))` builds `["div", ["h2", "hi"]]`. args is fresh per call, so
+// unshift reuses it instead of copying into a second array.
+const tags = new Proxy({}, { get: (_, tag) => (...args) => (args.unshift(tag), args) });
 const { div, h2, h3, label, input, pre, code } = tags;
 const todoList = tags["todo-list"];
 
