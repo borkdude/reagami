@@ -4,7 +4,7 @@
 
 ## Unreleased
 
-- A camelCase event handler such as `:onClick` reaches the element again. The name is lower cased once and kept in the cache, so a handler write costs the same as before. A custom event still needs its dashes, as in `:on-item-added`.
+- A handler is `on-` and the event name, as in `:on-click` and `:on-item-added`. A camelCase name such as `:onClick` is not accepted. See [ADR 0006](doc/dev/adr/0006-event-handler-names.md).
 
 - Apply the custom element rule in `reagami.ssr` too. A property named value on a tag with a hyphen now becomes an attribute on the server, as it already did on the client.
 
