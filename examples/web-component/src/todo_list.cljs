@@ -103,18 +103,10 @@
   [e]
   (.-host (.getRootNode (.-currentTarget e))))
 
-(defn- on [event]
-  (fn [e] (dispatch! (host e) event)))
-
-(defn- on-value
-  ;; for an input, where the value only exists once the event fires
-  [event]
-  (fn [e] (dispatch! (host e) (conj event (.. e -target -value)))))
-
 (defn- render-item [item editing edit-draft]
   (let [{:keys [id text done]} item]
     [:li {:key id}
-     [:button.toggle {:on-click (on [:toggle id])
+     [:button.toggle {:on-click (fn [e] (dispatch! (host e) [:toggle id]))
                       :aria-pressed (str done)
                       :aria-label (str (if done "Mark not done: " "Mark done: ") text)}
       (when done "✓")]
@@ -124,17 +116,17 @@
                      ;; reagami calls this once the input is in the document
                      :on-render (fn [{:keys [node lifecycle]}]
                                   (when (= :mount lifecycle) (.select node)))
-                     :on-input (on-value [:edit-draft])
-                     :on-blur (on [:commit-edit id])
+                     :on-input (fn [e] (dispatch! (host e) [:edit-draft (.. e -target -value)]))
+                     :on-blur (fn [e] (dispatch! (host e) [:commit-edit id]))
                      :on-key-down (fn [e]
                                     (case (.-key e)
                                       "Enter" (dispatch! (host e) [:commit-edit id])
                                       "Escape" (dispatch! (host e) [:cancel-edit])
                                       nil))}]
        [:span.text {:class (when done "done")
-                    :on-click (on [:edit id])}
+                    :on-click (fn [e] (dispatch! (host e) [:edit id]))}
         text])
-     [:button.remove {:on-click (on [:remove id])
+     [:button.remove {:on-click (fn [e] (dispatch! (host e) [:remove id]))
                       :aria-label (str "Delete " text)}
       "🗑"]]))
 
@@ -150,7 +142,7 @@
                           (.preventDefault e)
                           (dispatch! (host e) [:add-draft]))}
       [:input.new {:type "text" :value draft
-                   :on-input (on-value [:draft])
+                   :on-input (fn [e] (dispatch! (host e) [:draft (.. e -target -value)]))
                    :placeholder placeholder
                    :aria-label placeholder}]
       [:button {:type "submit"} "Add"]]]))
