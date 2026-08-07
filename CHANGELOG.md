@@ -9,6 +9,7 @@
 - Apply the custom element rule in `reagami.ssr` too. A property named value on a tag with a hyphen now becomes an attribute on the server, as it already did on the client.
 - Set `:indeterminate` on a checkbox as a property. HTML has no such attribute, so a server render leaves it out and the client sets it.
 - Set `:muted`, `:volume` and `:playbackRate` on a media element as properties. The `muted` attribute only sets the starting value, which a live element reads once, and the other two have no attribute at all.
+- Add [web component example](https://github.com/borkdude/reagami/tree/main/examples/web-component). A `<todo-list>` custom element, used from Squint, from JavaScript and without Reagami.
 
 ## v0.2.39 (2026-08-05)
 
