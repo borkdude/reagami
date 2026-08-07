@@ -125,16 +125,12 @@
                  (aset node handlers-key o)
                  o))]
     (when-not (js-in k hs)
-      ;; one listener per node and event, reading the current handler, so a new
-      ;; handler on the next render costs a property write and not a re-attach
       (.addEventListener node (subs k 3)
                          (fn [e] (when-let [f (aget hs k)] (f e)))))
     (aset hs k v)))
 
+;; see custom-event-test
 (defn- set-prop!
-  ;; :on-click reaches the element as the onclick property, which replaces on
-  ;; every write. An event with no such property, which is every custom event,
-  ;; needs addEventListener instead.
   [^js node k v]
   (if (.startsWith k "on")
     (let [p (prop-name k)]
