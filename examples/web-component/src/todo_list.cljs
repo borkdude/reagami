@@ -98,8 +98,8 @@
   [^js el event]
   (when-let [state! (.--state el)]
     (let [[before after] (swap-vals! state! handle event)]
-      (when-let [out (effect event before after)]
-        (emit! el (first out) (second out))))))
+      (when-let [[event-name detail] (effect event before after)]
+        (emit! el event-name detail)))))
 
 (defn- on
   ;; the handler finds its element from the event, so a view needs no element
