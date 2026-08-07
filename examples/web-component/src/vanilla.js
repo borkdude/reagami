@@ -25,7 +25,7 @@ list.addEventListener("item-removed", (e) => event(`removed ${e.detail.text}`));
 const seed = document.createElement("button");
 seed.textContent = "Add three items from JS";
 seed.addEventListener("click", () => {
-  for (const text of ["milk", "eggs", "bread"]) list.addItem(text);
+  for (const text of ["oat milk", "tofu", "lentils"]) list.addItem(text);
 });
 
 const count = document.createElement("button");

@@ -47,7 +47,7 @@ const list = document.createElement("todo-list");
 list.setAttribute("label", "Groceries");
 list.label = "Groceries";   // or the property, which mirrors it
 list.addEventListener("item-added", (e) => console.log(e.detail.text));
-list.addItem("milk");
+list.addItem("oat milk");
 ```
 
 ## What Reagami does not do here
