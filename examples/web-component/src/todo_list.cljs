@@ -35,8 +35,9 @@
   {:items [] :next-id 0 :draft "" :editing nil :edit-draft ""
    :label nil :placeholder nil})
 
-;; each element keeps its state here, so a global dispatch can find it
-(def ^:private state-key "todo-list/state")
+;; the -state field, which squint compiles to _state. named once here so a
+;; global dispatch can reach it without repeating the compiled name
+(defn- state-of [^js el] (.-_state el))
 
 (defn- find-item [items id]
   (first (filter #(= id (:id %)) items)))
@@ -99,7 +100,7 @@
 (defn- dispatch!
   "Apply an event to an element's state and emit whatever follows from it."
   [^js el event]
-  (when-let [state! (aget el state-key)]
+  (when-let [state! (state-of el)]
     (let [before @state!
           after (swap! state! handle event)]
       (when-let [out (effect event before after)]
@@ -173,14 +174,13 @@
   (extends js/HTMLElement)
   (^:static field observedAttributes #js ["label" "placeholder"])
   (field -shadow nil)
+  (field -state (atom initial-state))
 
   (constructor [this]
     (super)
     (set! -shadow (.attachShadow this #js {:mode "open"}))
-    (let [state! (atom initial-state)]
-      (aset this state-key state!)
-      (add-watch state! ::render
-                 (fn [_ _ _ state] (r/render -shadow (view state))))))
+    (add-watch -state ::render
+               (fn [_ _ _ state] (r/render -shadow (view state)))))
 
   Object
   ;; primitives travel as attributes, with a property that mirrors them
@@ -192,7 +192,7 @@
 
   ;; a squint map is a JS object and a vector is an array, so a caller reading
   ;; item.text or item.done needs no conversion
-  (^:get items [this] (:items @(aget this state-key)))
+  (^:get items [this] (:items @-state))
 
   (addItem [this text] (dispatch! this [:add text]))
 
