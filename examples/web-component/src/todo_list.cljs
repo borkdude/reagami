@@ -35,10 +35,6 @@
   {:items [] :next-id 0 :draft "" :editing nil :edit-draft ""
    :label nil :placeholder nil})
 
-;; the -state field, which squint compiles to _state. named once here so a
-;; global dispatch can reach it without repeating the compiled name
-(defn- state-of [^js el] (.-_state el))
-
 (defn- find-item [items id]
   (first (filter #(= id (:id %)) items)))
 
@@ -100,7 +96,7 @@
 (defn- dispatch!
   "Apply an event to an element's state and emit whatever follows from it."
   [^js el event]
-  (when-let [state! (state-of el)]
+  (when-let [state! (.--state el)]
     (let [before @state!
           after (swap! state! handle event)]
       (when-let [out (effect event before after)]
