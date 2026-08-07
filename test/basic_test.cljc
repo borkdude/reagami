@@ -146,14 +146,7 @@
              (.-innerHTML el))))))
 
 (deftest custom-element-attribute-test
-  (testing "a hyphenated tag gets value, checked, selected and disabled as attributes.
-  A custom element observes attributes. A JS property is invisible to it, so its
-  attributeChangedCallback never runs and getAttribute returns nothing. A custom
-  element name must contain a hyphen, and no HTML, SVG or MathML element will get
-  one, so the hyphen identifies these tags. The test is wider than the spec rule:
-  annotation-xml and the font-face elements have a hyphen but are not custom
-  element names. None of them has one of these four properties, so they get the
-  attribute as well."
+  (testing "a hyphenated tag gets value, checked, selected and disabled as attributes"
     (let [el (js/document.createElement "div")]
       (reagami/render el [:my-widget {:value "3" :checked true :disabled true}])
       (let [w (.querySelector el "my-widget")]
@@ -172,11 +165,7 @@
         (is (nil? (.getAttribute i "value")))))))
 
 (deftest custom-event-test
-  (testing "an event with no on* property on the element uses addEventListener.
-  Browsers only wire on* properties for events they know, so a custom event set
-  as a property never fires. The handler is kept on the node and one listener
-  reads it, so a new handler each render is a property write and not a
-  re-attach."
+  (testing "an event with no on* property on the element uses addEventListener"
     (let [el (js/document.createElement "div")
           seen (atom [])
           view (fn [tag] [:div {:on-rated (fn [_] (swap! seen conj tag))}])]
