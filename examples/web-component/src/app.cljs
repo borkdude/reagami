@@ -3,8 +3,8 @@
    [reagami.core :as r]
    [todo-list]))
 
-;; Reagami uses <todo-list> like any other tag. It knows the element's two
-;; attributes and its two events, and nothing else.
+;; Reagami uses <todo-list> like any other tag. It knows the element's one
+;; attribute and its three events, and nothing else.
 
 (defonce !state (atom {:log [] :label "Groceries"}))
 
@@ -25,10 +25,8 @@
                   :on-item-changed #(log! (str "changed " (.. % -detail -text)
                                               (when (.. % -detail -done) " (done)")))
                   :on-item-removed #(log! (str "removed " (.. % -detail -text)))}]
-     [:h3 "What the app heard"]
-     (if (empty? log)
-       [:p "Nothing yet. Add an item above."]
-       (into [:ol] (map (fn [line] [:li line]) log)))]))
+     [:h3 "Events"]
+     (into [:pre] (map (fn [line] [:code line "\n"]) log))]))
 
 (defn render! []
   (r/render (js/document.getElementById "app") [app]))
