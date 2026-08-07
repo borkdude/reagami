@@ -3,4 +3,4 @@ packages:
 allowBuilds:
   esbuild: true
 minimumReleaseAgeExclude:
-  - squint-cljs@0.14.197 || 0.14.206
+  - squint-cljs@0.14.197 || 0.14.206 || 0.14.207
