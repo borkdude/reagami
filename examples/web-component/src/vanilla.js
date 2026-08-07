@@ -33,7 +33,7 @@ count.textContent = "Count items";
 count.addEventListener("click", () => event(`${list.items.length} items now`));
 
 const heading = document.createElement("h2");
-heading.textContent = "A web component, driven by plain JavaScript";
+heading.textContent = "A custom element, driven by plain JavaScript";
 const controls = document.createElement("div");
 controls.style.cssText = "display:flex;gap:0.5rem;margin:0.5rem 0";
 controls.append(seed, count);

@@ -14,7 +14,7 @@
 (defn app []
   (let [{:keys [log label]} @!state]
     [:div
-     [:h2 "A web component, rendered by Reagami"]
+     [:h2 "A custom element, rendered by Reagami"]
      [:label "Heading: "
       [:input {:value label
                :on-input #(swap! !state assoc :label (.. % -target -value))}]]

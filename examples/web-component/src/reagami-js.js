@@ -18,7 +18,7 @@ const log = (line) => {
 // event and for a custom one.
 const app = () =>
   ["div",
-    ["h2", "A web component, rendered by Reagami from JavaScript"],
+    ["h2", "A custom element, rendered by Reagami from JavaScript"],
     ["label", "Heading: ",
       ["input", {
         value: state.label,
