@@ -189,3 +189,25 @@
     (let [el (js/document.createElement "div")]
       (reagami/render el [:div {:on-mouse-enter (fn [_] nil)}])
       (is (fn? (.-onmouseenter (.querySelector el "div")))))))
+(deftest indeterminate-test
+  (testing "indeterminate is set as a property, because HTML has no such attribute"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:input {:type "checkbox" :indeterminate true}])
+      (let [cb (.querySelector el "input")]
+        (is (true? (.-indeterminate cb)))
+        (is (nil? (.getAttribute cb "indeterminate"))))
+      (reagami/render el [:input {:type "checkbox"}])
+      (is (false? (.-indeterminate (.querySelector el "input")))))))
+
+(deftest media-property-test
+  (testing "muted, volume and playbackRate are set as properties"
+    (let [el (js/document.createElement "div")]
+      (reagami/render el [:video {:muted true :volume 0.5 :playbackRate 2}])
+      (let [v (.querySelector el "video")]
+        (is (true? (.-muted v)))
+        (is (= 0.5 (.-volume v)))
+        (is (= 2 (.-playbackRate v)))
+        (is (nil? (.getAttribute v "volume")))
+        (is (nil? (.getAttribute v "playbackrate"))))
+      (reagami/render el [:video])
+      (is (false? (.-muted (.querySelector el "video")))))))

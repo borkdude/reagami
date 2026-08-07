@@ -14,10 +14,15 @@
 ;; mirrors reagami.core/properties: set as DOM properties on the client, so they
 ;; need an HTML equivalent here
 (def ^:private properties
-  #{"checked" "disabled" "selected" "value" "innerHTML"})
+  #{"checked" "disabled" "selected" "value" "innerHTML" "indeterminate"
+    "muted" "volume" "playbackRate"})
+
+;; see indeterminate-ssr-test and media-property-ssr-test
+(def ^:private client-only-properties
+  #{"indeterminate" "volume" "playbackRate"})
 
 (def ^:private boolean-properties
-  #{"checked" "disabled" "selected"})
+  #{"checked" "disabled" "selected" "muted"})
 
 (defn- parse-tag
   "From hiccup, thanks @weavejester"
@@ -248,6 +253,7 @@
                   v (nth pair 1)]
               (cond
                 (= "innerHTML" k) nil
+                (contains? client-only-properties k) nil
                 (contains? boolean-properties k)
                 (when v (app! b " " k "=\"\""))
                 (some? v)

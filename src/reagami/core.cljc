@@ -24,8 +24,10 @@
      (when class-index
        (.substring tag (inc class-index)))]))
 
+;; see indeterminate-test and media-property-test
 (def properties (js/Set. ["checked" "disabled" "selected"
-                          "value" "innerHTML"]))
+                          "value" "innerHTML" "indeterminate"
+                          "muted" "volume" "playbackRate"]))
 
 (def ^:private tag-cache (js/Map.))
 

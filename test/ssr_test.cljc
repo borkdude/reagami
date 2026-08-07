@@ -80,6 +80,32 @@
     (.click (.querySelector el "button"))
     (is (= 1 @clicks))))
 
+(deftest indeterminate-ssr-test
+  (testing "the server leaves indeterminate out and the client sets it"
+    (let [hiccup [:input {:type "checkbox" :indeterminate true}]
+          el (js/document.createElement "div")]
+      (is (= "<input type=\"checkbox\">" (ssr/render hiccup)))
+      (.appendChild js/document.body el)
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [result (reagami/render el hiccup)]
+        (is (= 0 (:created result))))
+      (is (true? (.-indeterminate (.querySelector el "input"))))
+      (.remove el))))
+
+(deftest media-property-ssr-test
+  (testing "the server emits muted and leaves volume and playbackRate to the client"
+    (let [hiccup [:video {:muted true :volume 0.5 :playbackRate 2}]
+          el (js/document.createElement "div")]
+      (is (= "<video muted=\"\"></video>" (ssr/render hiccup)))
+      (.appendChild js/document.body el)
+      (set! (.-innerHTML el) (ssr/render hiccup))
+      (let [result (reagami/render el hiccup)]
+        (is (= 0 (:created result))))
+      (let [v (.querySelector el "video")]
+        (is (true? (.-muted v)))
+        (is (= 0.5 (.-volume v))))
+      (.remove el))))
+
 (deftest hydrate-on-render-test
   (testing "an :on-render hook mounts on an adopted node and keeps its state"
     (let [calls (atom [])
