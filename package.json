@@ -28,6 +28,7 @@
     "build": "pnpm squint compile --paths src",
     "watch": "pnpm squint watch",
     "test": "pnpm squint compile && node lib/run_tests.mjs",
+    "test:nbb": "npx --yes nbb@1.5.211 --classpath src:test test/ssr_nbb_test.cljs",
     "bench": "pnpm squint compile && node lib/bench_runner.mjs",
     "prepublishOnly": "pnpm build"
   },

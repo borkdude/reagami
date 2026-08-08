@@ -2,6 +2,11 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
+## Unreleased
+
+- Fix `reagami.ssr/render` returning an empty string on nbb. nbb expands the string builder macro itself, and no branch of its reader conditional matched, so every append became a no-op.
+- `reagami.ssr` now renders on cherry too, with a cherry that has [the location fix](https://github.com/squint-cljs/cherry/pull/202).
+
 ## v0.2.40 (2026-08-07)
 
 - Set `value`, `checked`, `selected` and `disabled` on a tag with a hyphen as attributes, not as JS properties. A custom element observes attributes, so a property never had any effect. Native elements still handle them as properties.
