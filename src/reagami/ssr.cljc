@@ -85,22 +85,33 @@
 ;; shape: the JS targets concatenate into one cell (V8 rope strings beat array
 ;; push and join), bb conjes onto a transient (native calls beat interop), the
 ;; JVM appends to a StringBuilder.
-(defmacro app! #_{:clj-kondo/ignore [:unused-binding]} [b & xs]
-  #?(:squint
-     (let [tmpl (apply str (interpose " + " (repeat (inc (count xs)) "~{}")))]
-       `(aset ~b 0 (~'js* ~tmpl (aget ~b 0) ~@xs)))
-     :bb
-     (if (= 1 (count xs))
-       `(vreset! ~b (conj! (deref ~b) ~(first xs)))
-       `(vreset! ~b (conj! (deref ~b) (str ~@xs))))
-     :clj
-     (if (:ns &env)
-       ;; expanding for cljs
-       (let [tmpl (apply str (interpose " + " (repeat (inc (count xs)) "~{}")))]
-         `(aset ~b 0 (~'js* ~tmpl (aget ~b 0) ~@xs)))
-       (let [sb (with-meta (gensym "sb") {:tag 'StringBuilder})]
-         `(let [~sb ~b]
-            ~@(map (fn [x] (list '.append sb x)) xs))))))
+(defmacro app! [b & xs]
+  ;; nbb expands this macro in sci, which has no js* to emit into, so it
+  ;; concatenates with str. cherry expands it in sci too, but only the macros
+  ;; of this namespace are loaded there and the expansion still goes through
+  ;; the compiler, so js* survives. :default keeps an unknown runtime from
+  ;; reading an elided body, which is what left render empty on nbb.
+  (let [mode #?(:squint :js*
+                :bb :transient
+                :cherry :js*
+                :cljs :concat
+                ;; :ns in &env means we are expanding for cljs
+                :clj (if (:ns &env) :js* :string-builder)
+                :default :concat)]
+    (cond
+      (= :js* mode)
+      (let [tmpl (apply str (interpose " + " (repeat (inc (count xs)) "~{}")))]
+        `(aset ~b 0 (~'js* ~tmpl (aget ~b 0) ~@xs)))
+      (= :concat mode)
+      `(aset ~b 0 (str (aget ~b 0) ~@xs))
+      (= :transient mode)
+      (if (= 1 (count xs))
+        `(vreset! ~b (conj! (deref ~b) ~(first xs)))
+        `(vreset! ~b (conj! (deref ~b) (str ~@xs))))
+      :else
+      (let [sb (with-meta (gensym "sb") {:tag 'StringBuilder})]
+        `(let [~sb ~b]
+           ~@(map (fn [x] (list '.append sb x)) xs))))))
 
 (defn- sb->str [b]
   #?(:bb (str/join (persistent! @b))
