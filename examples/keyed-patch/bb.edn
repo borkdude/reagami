@@ -1,0 +1,29 @@
+{:tasks
+ {install {:doc "Install node deps"
+           :task (shell "pnpm install")}
+
+  dev {:doc "Vite on http://localhost:5175"
+       :depends [install]
+       :task (shell "npx vite")}
+
+  playground-url
+  {:doc "Print a squint playground link that runs this demo"
+   :requires ([clojure.string :as str])
+   :task
+   (let [src (-> (slurp "src/app.cljs")
+                 (str/replace "[reagami.core :as r]"
+                              "[\"https://esm.sh/reagami\" :as r]"))
+         gzip (fn [s]
+                (let [out (java.io.ByteArrayOutputStream.)]
+                  (with-open [gz (java.util.zip.GZIPOutputStream. out)]
+                    (.write gz (.getBytes (str s) "UTF-8")))
+                  (.toByteArray out)))
+         encoder (java.util.Base64/getEncoder)
+         ;; the playground fails to decode a payload whose base64 carries =
+         ;; padding, so pad the source with newlines until the padding is gone
+         b64 (some (fn [n]
+                     (let [s (.encodeToString encoder (gzip (apply str src (repeat n "\n"))))]
+                       (when-not (str/includes? s "=") s)))
+                   (range 400))]
+     (println (str "https://squint-cljs.github.io/squint/?src=gzip%3A"
+                   (java.net.URLEncoder/encode b64 "UTF-8"))))}}}

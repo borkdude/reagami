@@ -1,0 +1,12 @@
+{
+  "name": "reagami-keyed-patch-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite"
+  },
+  "devDependencies": {
+    "squint-cljs": "^0.14.207",
+    "vite": "^7.1.5"
+  }
+}
