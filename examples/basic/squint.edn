@@ -1,0 +1,6 @@
+{:paths ["src"]
+ :deps {io.github.borkdude/reagami {:git/tag "v0.2.40"
+                                    :git/sha "d283b55"}}
+ :output-dir "out"
+ :extension "mjs"
+ :main app}
