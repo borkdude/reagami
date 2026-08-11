@@ -11,8 +11,5 @@
     "rollup-plugin-analyzer": "^4.0.0",
     "squint-cljs": "^0.14.207",
     "vite": "^7.1.5"
-  },
-  "allowScripts": {
-    "esbuild@0.28.2": true
   }
 }
