@@ -667,21 +667,25 @@
     (patch root (aget root children-key) new-children root)
     (aset root children-key new-children))
   (aset root hydrating-key false)
-  (run! (fn [node]
-          (let [ref (aget node on-render-key)
-                state (aget node state-key)
-                save (save-fn node)]
-            (if (and (.-isConnected node) (not (aget node unhook-key)))
-              (if (not (aget node is-run-key))
-                (do (ref {:node node :lifecycle :mount :state state :save save})
-                    (aset node is-run-key true))
-                (ref {:node node :lifecycle :update :state state :save save}))
-              (do (ref {:node node :lifecycle :unmount :state state :save save})
-                  (js-delete node state-key)
-                  (js-delete node is-run-key)
-                  (js-delete node on-render-key)
-                  (js-delete node unhook-key)
-                  (.set ref-registry root (disj (registry-of root) node))))))
-        (registry-of root))
-  {:created (aget stats "created")
-   :adopted (aget stats "adopted")})
+  ;; read the counters before the hooks run: a hook can start a nested render,
+  ;; which resets them
+  (let [created (aget stats "created")
+        adopted (aget stats "adopted")]
+    (run! (fn [node]
+            (let [ref (aget node on-render-key)
+                  state (aget node state-key)
+                  save (save-fn node)]
+              (if (and (.-isConnected node) (not (aget node unhook-key)))
+                (if (not (aget node is-run-key))
+                  (do (ref {:node node :lifecycle :mount :state state :save save})
+                      (aset node is-run-key true))
+                  (ref {:node node :lifecycle :update :state state :save save}))
+                (do (ref {:node node :lifecycle :unmount :state state :save save})
+                    (js-delete node state-key)
+                    (js-delete node is-run-key)
+                    (js-delete node on-render-key)
+                    (js-delete node unhook-key)
+                    (.set ref-registry root (disj (registry-of root) node))))))
+          (registry-of root))
+    {:created created
+     :adopted adopted}))
