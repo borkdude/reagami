@@ -596,19 +596,26 @@
     (dotimes [i old-count]
       (when-not (aget used i)
         (.removeChild parent (aget (aget old-children i) "dom"))))
-    ;; place right to left, moving only nodes outside the stable run
+    ;; place right to left, moving only nodes outside the stable run.
+    ;; moveBefore (Chrome 133+) keeps the state of a moved subtree (iframe,
+    ;; animation, focus, selection) where insertBefore resets it. only a move
+    ;; qualifies: a new node is not in the parent yet
     (let [lis (lis-indices source)
-          len (alength target)]
+          len (alength target)
+          mb? (some? (.-moveBefore parent))]
       (loop [i (dec len)
              si (dec (alength lis))]
         (when (>= i 0)
           (let [^js node (aget target i)
                 ^js nxt (when (< (inc i) len) (aget target (inc i)))
-                keep? (and (not (identical? 0 (aget source i)))
+                new? (identical? 0 (aget source i))
+                keep? (and (not new?)
                            (>= si 0)
                            (identical? i (aget lis si)))]
             (when-not keep?
-              (.insertBefore parent node nxt))
+              (if ^boolean (and (not new?) mb?)
+                (.moveBefore parent node nxt)
+                (.insertBefore parent node nxt)))
             (recur (dec i) (if keep? (dec si) si))))))))
 
 (defn- patch [^js parent ^js old-children new-children root]

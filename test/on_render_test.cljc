@@ -140,3 +140,20 @@
                                            (when (= :mount #?(:squint lifecycle :cljs lifecycle))
                                              (reagami/render node [:button "inner"])))))]
       (is (= plain nested)))))
+
+(deftest move-before-test
+  (testing "a reorder moves nodes with moveBefore when the parent has it, and
+still creates new nodes with insertBefore"
+    (let [el (mount-root)
+          items (fn [ks] (into [:ul] (map (fn [k] [:li {:key k} (str k)]) ks)))
+          _ (reagami/render el (items [1 2 3]))
+          ul (.-firstElementChild el)
+          moves (atom [])]
+      (set! (.-moveBefore ul)
+            (fn [node nxt]
+              (swap! moves conj (.-textContent node))
+              (.insertBefore ul node nxt)))
+      ;; 3 moves to the front, 9 is new: one moveBefore, one insertBefore
+      (reagami/render el (items [3 1 2 9]))
+      (is (= ["3"] @moves))
+      (is (= "3129" (.-textContent ul))))))
