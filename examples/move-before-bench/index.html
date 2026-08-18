@@ -21,12 +21,14 @@
                    "squint-cljs/src/squint/string.js": "https://esm.sh/squint-cljs@0.14.208/src/squint/string.js"}}
     </script>
     <script type="module">
-      const noMove = new URLSearchParams(location.search).has("nomove");
+      const params = new URLSearchParams(location.search);
+      const noMove = params.has("nomove");
       if (noMove) Element.prototype.moveBefore = undefined;
+      const useBase = params.has("base");
       document.getElementById("mode").textContent =
-        noMove ? "insertBefore (baseline)" : "moveBefore (fix)";
+        useBase ? "main build" : noMove ? "insertBefore (baseline)" : "moveBefore (fix)";
 
-      const reagami = await import("/reagami.mjs");
+      const reagami = await import(useBase ? "./core-base.mjs" : "/reagami.mjs");
       const root = document.getElementById("app");
       const N = 500;
 
@@ -44,6 +46,8 @@
       const sleep = (ms) => new Promise(r => setTimeout(r, ms));
       const out = {};
 
+      const perfOnly = params.has("perf");
+      if (!perfOnly) {
       // alternating a row between front and back makes it the one node
       // outside the stable run, so it is the node that moves on every render
       const rest = keys.filter((k) => k !== "I" && k !== "F");
@@ -74,6 +78,7 @@
       }
       out.focusKept = kept + "/10 moves";
       keys = front("F");
+      } // perfOnly
 
       // 3. speed: 300 rotates (one move each), then 50 shuffles (many moves)
       let t0 = performance.now();

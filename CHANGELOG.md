@@ -2,7 +2,7 @@
 
 [Reagami](https://github.com/borkdude/reagami): A minimal zero-deps Reagent-like for Squint and CLJS
 
-## Unreleased
+## v0.2.41 (2026-08-18)
 
 - Move reordered nodes with `moveBefore` where the browser has it, so a moved subtree keeps its iframe state, animations, focus and selection ([#54](https://github.com/borkdude/reagami/issues/54))
 - `render` returns its own counts when an `:on-render` hook starts a nested render ([#70](https://github.com/borkdude/reagami/issues/70))
