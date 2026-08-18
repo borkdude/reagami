@@ -111,3 +111,21 @@
   A strong map keeps a dropped root, and its hooked nodes, for the life of the
   page. This test checks the type, because a collection test needs --expose-gc."
     (is (instance? js/WeakMap reagami/ref-registry))))
+
+(deftest foreign-child-survives-test
+  (testing "foreign DOM under a childless :on-render node survives a re-render"
+    (let [el (mount-root)
+          hook (fn [{:keys [node lifecycle]}]
+                 (when (= :mount #?(:squint lifecycle :cljs lifecycle))
+                   (.appendChild node
+                                 (doto (js/document.createElement "div")
+                                   (set! -className "foreign")))))
+          view (fn [n]
+                 [:div
+                  [:p (str "count " n)]
+                  [:div {:on-render hook}]])]
+      (reagami/render el (view 0))
+      (is (some? (.querySelector el ".foreign")))
+      (reagami/render el (view 1))
+      (reagami/render el (view 2))
+      (is (some? (.querySelector el ".foreign"))))))
