@@ -635,8 +635,11 @@
               (.appendChild parent (create-node (aget new-children i) root))
               (recur (inc i))))
 
+          ;; clear only children that this render owned: an :on-render
+          ;; widget can put its own DOM under a childless node
           (identical? 0 new-count)
-          (set! (.-textContent parent) "")
+          (when (pos? old-count)
+            (set! (.-textContent parent) ""))
 
           (> old-count new-count)
           (loop [i (dec old-count)]
