@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>moveBefore A/B</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; }
+      #anim-box { width: 40px; height: 14px; background: #6b46c1;
+                  animation: slide 100s linear; }
+      @keyframes slide { from { margin-left: 0 } to { margin-left: 600px } }
+      ul { height: 120px; overflow: hidden; list-style: none; padding: 0; }
+      pre { background: #f6f6f6; padding: .6rem; }
+    </style>
+  </head>
+  <body>
+    <h1 id="mode"></h1>
+    <div id="app"></div>
+    <pre id="report">running…</pre>
+    <script type="importmap">
+      {"imports": {"squint-cljs/core.js": "https://esm.sh/squint-cljs@0.14.208/core.js",
+                   "squint-cljs/src/squint/string.js": "https://esm.sh/squint-cljs@0.14.208/src/squint/string.js"}}
+    </script>
+    <script type="module">
+      const noMove = new URLSearchParams(location.search).has("nomove");
+      if (noMove) Element.prototype.moveBefore = undefined;
+      document.getElementById("mode").textContent =
+        noMove ? "insertBefore (baseline)" : "moveBefore (fix)";
+
+      const reagami = await import("/reagami.mjs");
+      const root = document.getElementById("app");
+      const N = 500;
+
+      const item = (k) =>
+        k === "I" ? ["li", {key: k}, ["iframe", {id: "fr", srcdoc: "hi", width: 60, height: 20}]] :
+        k === "F" ? ["li", {key: k}, ["input", {id: "focus-me"}]] :
+        ["li", {key: k}, "row " + k];
+
+      const view = (keys) => ["ul", ...keys.map(item)];
+      const rotate = (a) => [...a.slice(1), a[0]];
+
+      let keys = ["I", "F", ...Array.from({length: N}, (_, i) => "k" + i)];
+      reagami.render(root, view(keys));
+
+      const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+      const out = {};
+
+      // alternating a row between front and back makes it the one node
+      // outside the stable run, so it is the node that moves on every render
+      const rest = keys.filter((k) => k !== "I" && k !== "F");
+      const front = (k) => [k, ...rest];
+      const back = (k) => [...rest, k];
+
+      // 1. iframe reloads: insertBefore reloads a moved iframe (one load
+      // event per move), moveBefore keeps it alive
+      let reloads = -1; // the first load is the initial one
+      document.getElementById("fr").addEventListener("load", () => reloads++);
+      reagami.render(root, view(front("I")));
+      await sleep(300);
+      reloads = Math.max(reloads, 0);
+      for (let i = 0; i < 10; i++) {
+        reagami.render(root, view(i % 2 ? front("I") : back("I")));
+        await sleep(50);
+      }
+      await sleep(400);
+      out.iframeReloads = reloads + "/10 moves";
+
+      // 2. focus survival across 10 moves of the focused row
+      reagami.render(root, view(front("F")));
+      document.getElementById("focus-me").focus();
+      let kept = 0;
+      for (let i = 0; i < 10; i++) {
+        reagami.render(root, view(i % 2 ? front("F") : back("F")));
+        if (document.activeElement === document.getElementById("focus-me")) kept++;
+      }
+      out.focusKept = kept + "/10 moves";
+      keys = front("F");
+
+      // 3. speed: 300 rotates (one move each), then 50 shuffles (many moves)
+      let t0 = performance.now();
+      for (let i = 0; i < 300; i++) {
+        keys = rotate(keys);
+        reagami.render(root, view(keys));
+      }
+      out.rotate300 = Math.round(performance.now() - t0) + "ms";
+
+      const shuffle = (a) => {
+        const b = [...a];
+        for (let i = b.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [b[i], b[j]] = [b[j], b[i]];
+        }
+        return b;
+      };
+      t0 = performance.now();
+      for (let i = 0; i < 50; i++) {
+        keys = shuffle(keys);
+        reagami.render(root, view(keys));
+      }
+      out.shuffle50 = Math.round(performance.now() - t0) + "ms";
+
+      document.getElementById("report").textContent =
+        JSON.stringify(out, null, 2);
+    </script>
+  </body>
+</html>
