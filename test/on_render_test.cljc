@@ -129,3 +129,14 @@
       (reagami/render el (view 1))
       (reagami/render el (view 2))
       (is (some? (.querySelector el ".foreign"))))))
+
+(deftest outer-render-stats-test
+  (testing "render returns its own stats when a hook starts a nested render"
+    (let [a (mount-root)
+          b (mount-root)
+          tree (fn [hook] [:div [:p "a"] [:p "b"] [:span {:on-render hook}]])
+          plain (reagami/render a (tree nil))
+          nested (reagami/render b (tree (fn [{:keys [node lifecycle]}]
+                                           (when (= :mount #?(:squint lifecycle :cljs lifecycle))
+                                             (reagami/render node [:button "inner"])))))]
+      (is (= plain nested)))))

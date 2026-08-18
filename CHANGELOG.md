@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- `render` returns its own counts when an `:on-render` hook starts a nested render ([#70](https://github.com/borkdude/reagami/issues/70))
 - A render no longer clears a childless node, so DOM from an `:on-render` hook survives
 - Fix `reagami.ssr/render` returning an empty string on nbb. nbb expands the string builder macro itself, and no branch of its reader conditional matched, so every append became a no-op.
 - `reagami.ssr` now renders on cherry too, with a cherry that has [the location fix](https://github.com/squint-cljs/cherry/pull/202).
