@@ -10,6 +10,6 @@
   "devDependencies": {
     "rollup-plugin-analyzer": "^4.0.0",
     "squint-cljs": "^0.14.207",
-    "vite": "^7.1.5"
+    "vite": "^7.3.7"
   }
 }

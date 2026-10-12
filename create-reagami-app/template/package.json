@@ -9,6 +9,6 @@
   },
   "devDependencies": {
     "squint-cljs": "^0.14.206",
-    "vite": "^7.1.5"
+    "vite": "^7.3.7"
   }
 }
